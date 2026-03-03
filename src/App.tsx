@@ -1,0 +1,151 @@
+import { AppLayout } from "@diligentcorp/atlas-react-bundle";
+import { Outlet, Route, Routes } from "react-router";
+import "./styles.css";
+
+import Navigation from "./Navigation.js";
+import IndexPage from "./pages/IndexPage.js";
+import SettingsPage from "./pages/SettingsPage.js";
+import GenericPage from "./pages/GenericPage.js";
+import FileImportPage from "./pages/FileImportPage.js";
+import UploadFilesPage from "./pages/UploadFilesPage.js";
+import FindingsPage from "./pages/FindingsPage.js";
+
+export default function App() {
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <AppLayout navigation={<Navigation />}>
+            <Outlet />
+          </AppLayout>
+        }
+      >
+        <Route index element={<IndexPage />} />
+
+        <Route
+          path="all-assets"
+          element={<GenericPage title="All assets" />}
+        />
+
+        <Route
+          path="asset-types/information-systems"
+          element={
+            <GenericPage
+              title="IT Information Systems"
+              breadcrumbParent="Asset types"
+            />
+          }
+        />
+        <Route
+          path="asset-types/file-share-assets"
+          element={
+            <GenericPage
+              title="IT File Share Assets"
+              breadcrumbParent="Asset types"
+            />
+          }
+        />
+        <Route
+          path="asset-types/third-party-assets"
+          element={
+            <GenericPage
+              title="Third-Party Assets"
+              breadcrumbParent="Asset types"
+            />
+          }
+        />
+
+        <Route
+          path="records/record-1"
+          element={
+            <GenericPage title="Record 1" breadcrumbParent="Records" />
+          }
+        />
+        <Route
+          path="records/record-2"
+          element={
+            <GenericPage title="Record 2" breadcrumbParent="Records" />
+          }
+        />
+        <Route
+          path="records/record-3"
+          element={
+            <GenericPage title="Record 3" breadcrumbParent="Records" />
+          }
+        />
+
+        <Route
+          path="cyber-risk/cyber-risks"
+          element={
+            <GenericPage
+              title="Cyber risks"
+              breadcrumbParent="Cyber risk management"
+            />
+          }
+        />
+        <Route
+          path="cyber-risk/threats"
+          element={
+            <GenericPage
+              title="Threats"
+              breadcrumbParent="Cyber risk management"
+            />
+          }
+        />
+        <Route
+          path="cyber-risk/vulnerabilities"
+          element={
+            <GenericPage
+              title="Vulnerabilities"
+              breadcrumbParent="Cyber risk management"
+            />
+          }
+        />
+        <Route
+          path="cyber-risk/file-import"
+          element={<FileImportPage />}
+        />
+        <Route
+          path="cyber-risk/file-import/upload"
+          element={<UploadFilesPage />}
+        />
+        <Route
+          path="cyber-risk/file-import/upload/findings"
+          element={<FindingsPage />}
+        />
+
+        <Route
+          path="activity"
+          element={<GenericPage title="Activity" />}
+        />
+
+        <Route path="settings" element={<SettingsPage />} />
+        <Route
+          path="settings/platform-integrations"
+          element={
+            <GenericPage
+              title="Platform integrations"
+              breadcrumbParent="Settings"
+            />
+          }
+        />
+        <Route
+          path="settings/cyber-risk-settings"
+          element={
+            <GenericPage
+              title="Cyber risk settings"
+              breadcrumbParent="Settings"
+            />
+          }
+        />
+        <Route
+          path="settings/label"
+          element={
+            <GenericPage title="Label" breadcrumbParent="Settings" />
+          }
+        />
+      </Route>
+    </Routes>
+  );
+}
