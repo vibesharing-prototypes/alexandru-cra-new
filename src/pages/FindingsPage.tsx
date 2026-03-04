@@ -19,13 +19,14 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
+  Button,
   Chip,
   Container,
   Link,
   Stack,
   useTheme,
 } from "@mui/material";
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 
 interface FindingItem {
   id: string;
@@ -124,12 +125,11 @@ function ChatPanel() {
 
   return (
     <AIChatPanel
-      title="Analysis assistant"
-      subtitle="File import analysis"
+      title="Diligent AI"
       assistant={{
-        name: "Analysis assistant",
+        name: "Diligent AI",
         imageUrl: "",
-        altText: "Analysis assistant",
+        altText: "Diligent AI",
       }}
       slotProps={{
         title: { component: "h2" },
@@ -175,9 +175,9 @@ function ChatPanel() {
                 key={index}
                 header={
                   <AIChatMessageHeader
-                    name="Analysis assistant"
+                    name="Diligent AI"
                     time={message.time}
-                    avatar={<AIChatMessageAvatar uniqueId="ai" initials="AI" />}
+                    avatar={<AIChatMessageAvatar uniqueId="ai" initials="DI" />}
                   />
                 }
               >
@@ -243,16 +243,31 @@ function FindingsCategoryCard({ category }: { category: FindingCategory }) {
 }
 
 export default function FindingsPage() {
+  const navigate = useNavigate();
+
   return (
     <Stack
       direction="row"
-      sx={{ height: "100%", width: "100%", position: "relative" }}
+      sx={({ tokens }) => ({
+        height: `calc(100vh - ${tokens.component.globalHeader.height.value})`,
+        width: "100%",
+        position: "relative",
+        overflow: "hidden",
+      })}
     >
-      <Stack sx={{ flexGrow: 1, overflow: "auto" }}>
+      <Stack sx={{ flexGrow: 1, overflow: "auto", minWidth: 0 }}>
         <Container sx={{ py: 2 }}>
           <Stack gap={3}>
             <PageHeader
               pageTitle="Findings"
+              moreButton={
+                <Button
+                  variant="contained"
+                  onClick={() => navigate("/cyber-risk/cyber-risk-assessment")}
+                >
+                  Start cyber risk assessment
+                </Button>
+              }
               breadcrumbs={
                 <OverflowBreadcrumbs
                   leadingElement={<span>Asset Manager</span>}

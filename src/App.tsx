@@ -9,6 +9,8 @@ import GenericPage from "./pages/GenericPage.js";
 import FileImportPage from "./pages/FileImportPage.js";
 import UploadFilesPage from "./pages/UploadFilesPage.js";
 import FindingsPage from "./pages/FindingsPage.js";
+import CyberRiskDetailsPage from "./pages/CyberRiskDetailsPage.js";
+import ThreatsPage from "./pages/ThreatsPage.js";
 
 export default function App() {
   return (
@@ -86,12 +88,7 @@ export default function App() {
         />
         <Route
           path="cyber-risk/threats"
-          element={
-            <GenericPage
-              title="Threats"
-              breadcrumbParent="Cyber risk management"
-            />
-          }
+          element={<ThreatsPage />}
         />
         <Route
           path="cyber-risk/vulnerabilities"
@@ -113,6 +110,10 @@ export default function App() {
         <Route
           path="cyber-risk/file-import/upload/findings"
           element={<FindingsPage />}
+        />
+        <Route
+          path="cyber-risk/cyber-risk-assessment"
+          element={<CyberRiskDetailsPage />}
         />
 
         <Route
