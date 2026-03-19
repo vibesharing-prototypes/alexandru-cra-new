@@ -11,7 +11,6 @@ import {
   Button,
   Chip,
   Container,
-  Divider,
   FormControl,
   IconButton,
   InputAdornment,
@@ -27,29 +26,13 @@ import {
 } from "@mui/material";
 import { NavLink, useNavigate } from "react-router";
 
-import AttachIcon from "@diligentcorp/atlas-react-bundle/icons/Attach";
-import AudioIcon from "@diligentcorp/atlas-react-bundle/icons/Audio";
-import BlockquoteIcon from "@diligentcorp/atlas-react-bundle/icons/Blockquote";
 import CalendarIcon from "@diligentcorp/atlas-react-bundle/icons/Calendar";
-import ClearFormatIcon from "@diligentcorp/atlas-react-bundle/icons/ClearFormat";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
-import FormatAlignLeftIcon from "@diligentcorp/atlas-react-bundle/icons/FormatAlignLeft";
-import FormatBoldIcon from "@diligentcorp/atlas-react-bundle/icons/FormatBold";
-import FormatColorTextIcon from "@diligentcorp/atlas-react-bundle/icons/FormatColorText";
-import FormatIndentDecreaseIcon from "@diligentcorp/atlas-react-bundle/icons/FormatIndentDecrease";
-import FormatIndentIncreaseIcon from "@diligentcorp/atlas-react-bundle/icons/FormatIndentIncrease";
-import FormatItalicIcon from "@diligentcorp/atlas-react-bundle/icons/FormatItalic";
-import FormatStrikethroughIcon from "@diligentcorp/atlas-react-bundle/icons/FormatStrikethrough";
-import FormatUnderlinedIcon from "@diligentcorp/atlas-react-bundle/icons/FormatUnderlined";
-import HighlighterIcon from "@diligentcorp/atlas-react-bundle/icons/Highlighter";
-import ImageIcon from "@diligentcorp/atlas-react-bundle/icons/Image";
-import LinkIcon from "@diligentcorp/atlas-react-bundle/icons/Link";
-import ListIcon from "@diligentcorp/atlas-react-bundle/icons/List";
-import TableAlternativeIcon from "@diligentcorp/atlas-react-bundle/icons/TableAlternative";
-import UnlinkIcon from "@diligentcorp/atlas-react-bundle/icons/Unlink";
-import VideoIcon from "@diligentcorp/atlas-react-bundle/icons/Video";
 
+import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
+import NewCyberRiskAssessmentMethodTab from "./NewCyberRiskAssessmentMethodTab.js";
+import NewCyberRiskAssessmentScoringTab from "./NewCyberRiskAssessmentScoringTab.js";
 import NewCyberRiskAssessmentScopeTab from "./NewCyberRiskAssessmentScopeTab.js";
 
 const TAB_LABELS = [
@@ -59,15 +42,6 @@ const TAB_LABELS = [
   "Scoring",
   "Results",
 ] as const;
-
-const DEFAULT_EMAIL_BODY = `Dear Team,
-
-We kindly request your assistance in completing the assessment for the ongoing project. Your insights are invaluable and will greatly contribute to our success. Please take a moment to fill out the assessment at your earliest convenience.
-
-Thank you for your cooperation!
-
-Best regards,
-The Project Management Team`;
 
 type Assessor = {
   id: string;
@@ -119,63 +93,6 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function WysiwygToolbar() {
-  const tool = (label: string, Icon: React.ComponentType<{ "aria-hidden"?: boolean }>) => (
-    <IconButton size="small" aria-label={label} sx={{ borderRadius: 1 }}>
-      <Icon aria-hidden />
-    </IconButton>
-  );
-
-  return (
-    <Box
-      sx={({ tokens: t }) => ({
-        display: "flex",
-        flexWrap: "wrap",
-        alignItems: "center",
-        gap: 0.5,
-        py: 0.5,
-        px: 0.5,
-        borderBottom: `1px solid ${t.semantic.color.outline.default.value}`,
-      })}
-    >
-      {tool("Bold", FormatBoldIcon)}
-      {tool("Italic", FormatItalicIcon)}
-      {tool("Underline", FormatUnderlinedIcon)}
-      {tool("Strikethrough", FormatStrikethroughIcon)}
-      {tool("Text color", FormatColorTextIcon)}
-      {tool("Highlight", HighlighterIcon)}
-      {tool("Clear formatting", ClearFormatIcon)}
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
-      <IconButton size="small" aria-label="Alignment" sx={{ borderRadius: 1 }}>
-        <FormatAlignLeftIcon aria-hidden />
-      </IconButton>
-      <IconButton size="small" aria-label="Alignment options" sx={{ borderRadius: 1 }}>
-        <ExpandDownIcon aria-hidden />
-      </IconButton>
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
-      <IconButton size="small" aria-label="List" sx={{ borderRadius: 1 }}>
-        <ListIcon aria-hidden />
-      </IconButton>
-      <IconButton size="small" aria-label="List options" sx={{ borderRadius: 1 }}>
-        <ExpandDownIcon aria-hidden />
-      </IconButton>
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
-      {tool("Increase indent", FormatIndentIncreaseIcon)}
-      {tool("Decrease indent", FormatIndentDecreaseIcon)}
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
-      {tool("Table", TableAlternativeIcon)}
-      {tool("Blockquote", BlockquoteIcon)}
-      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, minHeight: 40 }} />
-      {tool("Attach file", AttachIcon)}
-      {tool("Insert link", LinkIcon)}
-      {tool("Remove link", UnlinkIcon)}
-      {tool("Insert image", ImageIcon)}
-      {tool("Insert video", VideoIcon)}
-      {tool("Insert audio", AudioIcon)}
-    </Box>
-  );
-}
-
 function PlaceholderTab({ label }: { label: string }) {
   return (
     <Box
@@ -193,30 +110,72 @@ function PlaceholderTab({ label }: { label: string }) {
 
 export default function NewCyberRiskAssessmentPage() {
   const navigate = useNavigate();
-  const { presets } = useTheme();
+  const { presets, tokens } = useTheme();
   const { TabsPresets } = presets;
   const { getAvatarProps } = presets.AvatarPresets;
 
   const [activeTab, setActiveTab] = useState(0);
-  const [name, setName] = useState("Cyber risk assessment Q1 - 2026");
-  const [assessmentId] = useState("CRA-001");
-  const [assessmentType, setAssessmentType] = useState("Cyber risk assessment");
-  const [assessors, setAssessors] = useState<Assessor[]>([
-    ASSESSOR_OPTIONS[0],
-    ASSESSOR_OPTIONS[1],
-  ]);
-  const [subject, setSubject] = useState(
-    "We kindly request your assistance in completing this assessment ",
-  );
-  const [emailBody, setEmailBody] = useState(DEFAULT_EMAIL_BODY);
-  const [startDate, setStartDate] = useState("02 Feb 2026");
-  const [dueDate, setDueDate] = useState("23 Aug 2026");
+  /** When true, assessment is in progress: Scoring is enabled and status shows In progress. */
+  const [assessmentInProgress, setAssessmentInProgress] = useState(false);
+  const [name, setName] = useState("");
+  const [assessmentId, setAssessmentId] = useState("");
+  const [assessmentType, setAssessmentType] = useState("");
+  const [assessors, setAssessors] = useState<Assessor[]>([]);
+  const [subject, setSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
 
   return (
     <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={0}>
         <PageHeader
-          pageTitle={name}
+          pageTitle={
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+              sx={{
+                gap: tokens.component.pageHeader.desktop.statusContainer.gap.value,
+                minWidth: 0,
+                width: "100%",
+              }}
+            >
+              <Typography
+                component="h1"
+                variant="h1"
+                sx={{
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontWeight: tokens.component.pageHeader.desktop.title.fontWeight.value,
+                }}
+              >
+                {name.trim() || "New cyber risk assessment"}
+              </Typography>
+              <Box sx={{ marginBottom: "auto", marginTop: 0.5, flexShrink: 0 }}>
+                {assessmentInProgress ? (
+                  <StatusIndicator
+                    color="information"
+                    sx={{ display: "flex" }}
+                    label="In progress"
+                    aria-label="Assessment status: In progress"
+                  />
+                ) : (
+                  <StatusIndicator
+                    customColor={({ semantic }) => ({
+                      backgroundColor: semantic.color.status.neutral.backgroundVariant.value,
+                      color: semantic.color.status.neutral.text.value,
+                    })}
+                    sx={{ display: "flex" }}
+                    label="Draft"
+                    aria-label="Assessment status: Draft"
+                  />
+                )}
+              </Box>
+            </Stack>
+          }
           breadcrumbs={
             <OverflowBreadcrumbs
               leadingElement={<span>Asset manager</span>}
@@ -237,22 +196,20 @@ export default function NewCyberRiskAssessmentPage() {
               {({ label, url }) => <NavLink to={url}>{label}</NavLink>}
             </OverflowBreadcrumbs>
           }
-          statusIndicator={
-            <Box sx={{ marginBottom: "auto", marginTop: 0.5 }}>
-              <StatusIndicator
-                color="success"
-                label="Draft"
-                aria-label="Assessment status: Draft"
-              />
-            </Box>
-          }
           moreButton={
             <Button
               variant="contained"
               size="medium"
-              onClick={() => navigate("/cyber-risk/cyber-risk-assessment")}
+              onClick={() => {
+                if (!assessmentInProgress) {
+                  setAssessmentInProgress(true);
+                  setActiveTab(3);
+                  return;
+                }
+                navigate("/cyber-risk/cyber-risk-assessment");
+              }}
             >
-              Move to assessment
+              {assessmentInProgress ? "Conclude assessment" : "Move to assessment"}
             </Button>
           }
         />
@@ -260,7 +217,8 @@ export default function NewCyberRiskAssessmentPage() {
         <Tabs
           value={activeTab}
           onChange={(_e, v: number) => {
-            if (v >= 3) return;
+            if (v >= 4) return;
+            if (v === 3 && !assessmentInProgress) return;
             setActiveTab(v);
           }}
           aria-label="New cyber risk assessment steps"
@@ -270,22 +228,27 @@ export default function NewCyberRiskAssessmentPage() {
             { "& .MuiTabs-flexContainer": { gap: 0 } },
           ]}
         >
-          {TAB_LABELS.map((label, index) => (
-            <Tab
-              key={`${label}-${index}`}
-              label={label}
-              id={`new-cra-tab-${index}`}
-              aria-controls={`new-cra-tabpanel-${index}`}
-              disabled={index >= 3}
-              sx={
-                index >= 3
-                  ? ({ tokens: t }) => ({
-                      color: `${t.semantic.color.type.muted.value} !important`,
-                    })
-                  : undefined
-              }
-            />
-          ))}
+          {TAB_LABELS.map((label, index) => {
+            const scoringLocked = index === 3 && !assessmentInProgress;
+            const resultsLocked = index === 4;
+            const tabDisabled = scoringLocked || resultsLocked;
+            return (
+              <Tab
+                key={`${label}-${index}`}
+                label={label}
+                id={`new-cra-tab-${index}`}
+                aria-controls={`new-cra-tabpanel-${index}`}
+                disabled={tabDisabled}
+                sx={
+                  tabDisabled
+                    ? ({ tokens: t }) => ({
+                        color: `${t.semantic.color.type.muted.value} !important`,
+                      })
+                    : undefined
+                }
+              />
+            );
+          })}
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
@@ -313,6 +276,7 @@ export default function NewCyberRiskAssessmentPage() {
                     size="small"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    placeholder="Assessment name"
                     aria-label="Assessment name"
                   />
                 </Stack>
@@ -344,8 +308,9 @@ export default function NewCyberRiskAssessmentPage() {
                     fullWidth
                     size="small"
                     value={assessmentId}
+                    onChange={(e) => setAssessmentId(e.target.value)}
+                    placeholder="e.g. CRA-001"
                     aria-label="Assessment ID"
-                    slotProps={{ input: { readOnly: true } }}
                   />
                 </Stack>
               </Box>
@@ -358,8 +323,24 @@ export default function NewCyberRiskAssessmentPage() {
                     labelId="assessment-type-label"
                     label="Assessment type"
                     size="small"
+                    displayEmpty
                     value={assessmentType}
                     onChange={(e) => setAssessmentType(e.target.value)}
+                    renderValue={(selected) =>
+                      selected ? (
+                        selected
+                      ) : (
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          sx={({ tokens: t }) => ({
+                            color: t.semantic.color.type.muted.value,
+                          })}
+                        >
+                          Select assessment type
+                        </Typography>
+                      )
+                    }
                   >
                     <MenuItem value="Cyber risk assessment">Cyber risk assessment</MenuItem>
                     <MenuItem value="Other">Other</MenuItem>
@@ -444,6 +425,7 @@ export default function NewCyberRiskAssessmentPage() {
                   renderInput={(params) => (
                     <TextField
                       {...params}
+                      placeholder="Search and add assessors"
                       aria-label="Assessors"
                       slotProps={{
                         input: {
@@ -490,7 +472,7 @@ export default function NewCyberRiskAssessmentPage() {
                     mt: 0.5,
                     color: t.semantic.color.type.default.value,
                     letterSpacing: "0.3px",
-                    maxWidth: 560,
+                    maxWidth: "none",
                   })}
                 >
                   You can help increase assessor response rate by writing a customized
@@ -514,53 +496,21 @@ export default function NewCyberRiskAssessmentPage() {
                   size="small"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Email subject"
                   aria-label="Email subject"
                 />
               </Stack>
 
-              <Stack gap={1}>
-                <Stack direction="row" alignItems="center" gap={0.5}>
-                  <Typography
-                    variant="caption"
-                    fontWeight={600}
-                    sx={({ tokens: t }) => ({
-                      color: t.semantic.color.type.default.value,
-                      letterSpacing: "0.3px",
-                    })}
-                  >
-                    E-mail message
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={({ tokens: t }) => ({
-                      color: t.semantic.color.type.muted.value,
-                      letterSpacing: "0.3px",
-                    })}
-                  >
-                    (Required)
-                  </Typography>
-                </Stack>
-                <Box
-                  sx={({ tokens: t }) => ({
-                    border: `1px solid ${t.semantic.color.outline.default.value}`,
-                    borderRadius: t.semantic.radius.md.value,
-                    overflow: "hidden",
-                  })}
-                >
-                  <WysiwygToolbar />
-                  <TextField
-                    multiline
-                    fullWidth
-                    minRows={10}
-                    value={emailBody}
-                    onChange={(e) => setEmailBody(e.target.value)}
-                    variant="standard"
-                    InputProps={{ disableUnderline: true }}
-                    sx={{ px: 1.5, py: 1.5 }}
-                    aria-label="Email message body"
-                  />
-                </Box>
-              </Stack>
+              <AssessmentWysiwygEditor
+                fieldId="new-cra-email-body"
+                label="E-mail message"
+                required
+                placeholder="Write your message to assessors…"
+                value={emailBody}
+                onChange={setEmailBody}
+                minRows={10}
+                aria-label="Email message body"
+              />
             </Stack>
 
             <Stack gap={2}>
@@ -583,12 +533,17 @@ export default function NewCyberRiskAssessmentPage() {
                       fullWidth
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
+                      placeholder="e.g. 02 Feb 2026"
                       aria-label="Start date"
                       slotProps={{
                         input: {
                           endAdornment: (
                             <InputAdornment position="end">
-                              <IconButton size="small" aria-label="Clear start date">
+                              <IconButton
+                                size="small"
+                                aria-label="Clear start date"
+                                onClick={() => setStartDate("")}
+                              >
                                 <CloseIcon fontSize="small" aria-hidden />
                               </IconButton>
                               <IconButton size="small" aria-label="Open calendar">
@@ -618,12 +573,17 @@ export default function NewCyberRiskAssessmentPage() {
                       fullWidth
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
+                      placeholder="e.g. 23 Aug 2026"
                       aria-label="Due date"
                       slotProps={{
                         input: {
                           endAdornment: (
                             <InputAdornment position="end">
-                              <IconButton size="small" aria-label="Clear due date">
+                              <IconButton
+                                size="small"
+                                aria-label="Clear due date"
+                                onClick={() => setDueDate("")}
+                              >
                                 <CloseIcon fontSize="small" aria-hidden />
                               </IconButton>
                               <IconButton size="small" aria-label="Open calendar">
@@ -645,7 +605,13 @@ export default function NewCyberRiskAssessmentPage() {
           <NewCyberRiskAssessmentScopeTab />
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
-          <PlaceholderTab label="Assessment method" />
+          <NewCyberRiskAssessmentMethodTab />
+        </TabPanel>
+        <TabPanel value={activeTab} index={3}>
+          <NewCyberRiskAssessmentScoringTab />
+        </TabPanel>
+        <TabPanel value={activeTab} index={4}>
+          <PlaceholderTab label="Results" />
         </TabPanel>
       </Stack>
     </Container>
