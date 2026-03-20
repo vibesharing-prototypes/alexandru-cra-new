@@ -1,9 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
-import { SectionHeader } from "@diligentcorp/atlas-react-bundle";
+import { useCallback, useId, useMemo, useState } from "react";
 import {
   Box,
+  FormControl,
+  FormControlLabel,
   IconButton,
   Link,
+  Radio,
+  RadioGroup,
   Stack,
   Table,
   TableBody,
@@ -13,17 +16,17 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import { useNavigate } from "react-router";
 
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
-type RagKey = "neg05" | "neg04" | "neg03" | "neu03" | "pos04";
+import CraScenarioEmphasisTitle from "../components/CraScenarioEmphasisTitle.js";
+import { CRA_SCORING_ROW_DEFINITIONS, type CraScoreValue } from "../data/craScoringScenarioLibrary.js";
 
-type ScoreValue = {
-  numeric: string;
-  label: string;
-  rag: RagKey;
-} | null;
+type ScoreValue = CraScoreValue;
+
+type RagKey = NonNullable<NonNullable<ScoreValue>["rag"]>;
 
 type ScoringRow = {
   id: string;
@@ -38,6 +41,10 @@ type ScoringRow = {
   likelihood: ScoreValue;
   cyberRiskScore: ScoreValue;
 };
+
+type AggregationMethod = "highest" | "average" | "weightedAverage";
+
+const SCENARIO_DETAIL_PATH = "/cyber-risk/cyber-risk-assessments/new/scenario";
 
 /** Minimal token shape for RAG paths (avoids coupling to full LensThemeTokens). */
 type RagPalette = {
@@ -111,445 +118,119 @@ function RiskLegendCell({ value }: { value: ScoreValue }) {
   );
 }
 
-const SCORING_ROWS: ScoringRow[] = [
-  {
-    id: "cr-rw",
-    kind: "cyberRisk",
-    groupId: "rw",
-    tag: "Cyber risk",
-    title: (
-      <Link
-        href="#"
-        onClick={(e) => e.preventDefault()}
-        underline="always"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          fontWeight: 600,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Loss of revenue due to Ransomware attack
-      </Link>
-    ),
-    impact: null,
-    threat: null,
-    vulnerability: null,
-    likelihood: null,
-    cyberRiskScore: null,
-  },
-  {
-    id: "rw-s1",
-    kind: "scenario",
-    groupId: "rw",
-    tag: "Scenario 1",
-    title: (
-      <Typography
-        component="span"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Loss of revenue due to{" "}
-        <Box
-          component="span"
+const SCORING_ROWS: ScoringRow[] = CRA_SCORING_ROW_DEFINITIONS.map((def) => {
+  if (def.kind === "cyberRisk") {
+    return {
+      id: def.id,
+      kind: "cyberRisk" as const,
+      groupId: def.groupId,
+      tag: def.tag,
+      title: (
+        <Link
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          underline="always"
           sx={({ tokens: t }) => ({
+            fontSize: t.semantic.font.text.md.fontSize.value,
+            lineHeight: t.semantic.font.text.md.lineHeight.value,
+            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
             fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
+            color: t.semantic.color.type.default.value,
           })}
         >
-          Ransomware attack
-        </Box>{" "}
-        exploiting{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Unpatched web server
-        </Box>{" "}
-        on{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Payment gateway
-        </Box>
-        .
-      </Typography>
-    ),
-    impact: { numeric: "4", label: "High", rag: "neg03" },
-    threat: { numeric: "3", label: "Medium", rag: "neu03" },
-    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "15", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
-  },
-  {
-    id: "rw-s2",
-    kind: "scenario",
-    groupId: "rw",
-    tag: "Scenario 2",
-    title: (
-      <Typography
-        component="span"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Loss of revenue due to{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Ransomware attack
-        </Box>{" "}
-        exploiting{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Missing Multi-Factor Authentication
-        </Box>{" "}
-        on{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Customer database
-        </Box>
-      </Typography>
-    ),
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "Very high", rag: "neg05" },
-  },
-  {
-    id: "rw-s3",
-    kind: "scenario",
-    groupId: "rw",
-    tag: "Scenario 3",
-    title: (
-      <Typography
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Data breach due to phishing attack
-      </Typography>
-    ),
-    impact: null,
-    threat: null,
-    vulnerability: null,
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "16", label: "High", rag: "neg03" },
-  },
-  {
-    id: "rw-s4",
-    kind: "scenario",
-    groupId: "rw",
-    tag: "Scenario 4",
-    title: (
-      <Typography
-        component="span"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Loss of revenue due to{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Ransomware attack
-        </Box>{" "}
-        exploiting{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Missing Multi-Factor Authentication
-        </Box>{" "}
-        on{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Social media accounts
-        </Box>
-      </Typography>
-    ),
-    impact: { numeric: "4", label: "High", rag: "neg03" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "16", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
-  },
-  {
-    id: "cr-ph",
-    kind: "cyberRisk",
-    groupId: "ph",
-    tag: "Cyber risk",
-    title: (
-      <Link
-        href="#"
-        onClick={(e) => e.preventDefault()}
-        underline="always"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          fontWeight: 600,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Loss of revenue due to Phishing attack on Social media accounts.
-      </Link>
-    ),
-    impact: null,
-    threat: null,
-    vulnerability: null,
-    likelihood: null,
-    cyberRiskScore: null,
-  },
-  {
-    id: "ph-s1",
-    kind: "scenario",
-    groupId: "ph",
-    tag: "Scenario 1",
-    title: (
-      <Typography
-        component="span"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Data breach due to{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Phishing attack
-        </Box>{" "}
-        exploiting{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          SQL Injection
-        </Box>{" "}
-        on{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Social media accounts
-        </Box>
-      </Typography>
-    ),
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
-    likelihood: { numeric: "12", label: "Medium", rag: "neu03" },
-    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
-  },
-  {
-    id: "ph-s2",
-    kind: "scenario",
-    groupId: "ph",
-    tag: "Scenario 2",
-    title: (
-      <Typography
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Account takeover via phishing email
-      </Typography>
-    ),
-    impact: { numeric: "3", label: "Medium", rag: "neu03" },
-    threat: { numeric: "3", label: "Medium", rag: "neu03" },
-    vulnerability: { numeric: "2", label: "Low", rag: "pos04" },
-    likelihood: { numeric: "25", label: "Very high", rag: "neg05" },
-    cyberRiskScore: { numeric: "48", label: "Medium", rag: "neu03" },
-  },
-  {
-    id: "ph-s3",
-    kind: "scenario",
-    groupId: "ph",
-    tag: "Scenario 3",
-    title: (
-      <Typography
-        component="span"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Data breach due to{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Phishing attack
-        </Box>{" "}
-        exploiting{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          SQL Injection
-        </Box>{" "}
-        on{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Social media accounts
-        </Box>
-      </Typography>
-    ),
-    impact: { numeric: "4", label: "High", rag: "neg03" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "75", label: "High", rag: "neg03" },
-  },
-  {
-    id: "ph-s4",
-    kind: "scenario",
-    groupId: "ph",
-    tag: "Scenario 4",
-    title: (
-      <Typography
-        component="span"
-        sx={({ tokens: t }) => ({
-          fontSize: t.semantic.font.text.md.fontSize.value,
-          lineHeight: t.semantic.font.text.md.lineHeight.value,
-          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-          color: t.semantic.color.type.default.value,
-        })}
-      >
-        Data breach due to{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Phishing attack
-        </Box>{" "}
-        exploiting{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          SQL Injection
-        </Box>{" "}
-        on{" "}
-        <Box
-          component="span"
-          sx={({ tokens: t }) => ({
-            fontWeight: 600,
-            textDecoration: "underline",
-            color: t.semantic.color.action.link.default.value,
-          })}
-        >
-          Customer database
-        </Box>
-      </Typography>
-    ),
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "5", label: "Very high", rag: "neg05" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "100", label: "Very high", rag: "neg05" },
-  },
-];
+          {def.titleLinkText}
+        </Link>
+      ),
+      impact: def.impact,
+      threat: def.threat,
+      vulnerability: def.vulnerability,
+      likelihood: def.likelihood,
+      cyberRiskScore: def.cyberRiskScore,
+    };
+  }
+  return {
+    id: def.id,
+    kind: "scenario" as const,
+    groupId: def.groupId,
+    tag: def.tag,
+    title: <CraScenarioEmphasisTitle segments={def.titleSegments} />,
+    impact: def.impact,
+    threat: def.threat,
+    vulnerability: def.vulnerability,
+    likelihood: def.likelihood,
+    cyberRiskScore: def.cyberRiskScore,
+  };
+});
+
+function parseScoreNumeric(value: ScoreValue): number | null {
+  if (value == null) return null;
+  const n = Number.parseFloat(value.numeric);
+  return Number.isFinite(n) ? n : null;
+}
+
+function scoreFromAggregatedNumeric(aggregated: number, referenceScenarios: ScoringRow[]): ScoreValue {
+  const rounded = Math.round(aggregated);
+  const withScores = referenceScenarios.filter((s) => s.cyberRiskScore != null);
+  if (withScores.length === 0) return null;
+  let best = withScores[0].cyberRiskScore!;
+  let bestDist = Math.abs(parseScoreNumeric(best)! - aggregated);
+  for (const s of withScores) {
+    if (s.cyberRiskScore == null) continue;
+    const n = parseScoreNumeric(s.cyberRiskScore);
+    if (n == null) continue;
+    const d = Math.abs(n - aggregated);
+    if (d < bestDist) {
+      best = s.cyberRiskScore;
+      bestDist = d;
+    }
+  }
+  return {
+    numeric: String(rounded),
+    label: best.label,
+    rag: best.rag,
+  };
+}
+
+function aggregateCyberRiskScoreForGroup(
+  scenariosInGroup: ScoringRow[],
+  method: AggregationMethod,
+): ScoreValue {
+  const withCyber = scenariosInGroup.filter((s) => s.cyberRiskScore != null);
+  if (withCyber.length === 0) return null;
+
+  if (method === "highest") {
+    let bestRow = withCyber[0];
+    let bestN = parseScoreNumeric(bestRow.cyberRiskScore)!;
+    for (const s of withCyber) {
+      const n = parseScoreNumeric(s.cyberRiskScore)!;
+      if (n > bestN) {
+        bestN = n;
+        bestRow = s;
+      }
+    }
+    return bestRow.cyberRiskScore;
+  }
+
+  const entries = withCyber.map((s) => ({
+    n: parseScoreNumeric(s.cyberRiskScore)!,
+    weight: parseScoreNumeric(s.likelihood) ?? 1,
+  }));
+
+  if (method === "average") {
+    const sum = entries.reduce((acc, e) => acc + e.n, 0);
+    return scoreFromAggregatedNumeric(sum / entries.length, withCyber);
+  }
+
+  let weightTotal = 0;
+  let weightedSum = 0;
+  for (const e of entries) {
+    const w = e.weight > 0 ? e.weight : 1;
+    weightedSum += e.n * w;
+    weightTotal += w;
+  }
+  if (weightTotal === 0) return null;
+  return scoreFromAggregatedNumeric(weightedSum / weightTotal, withCyber);
+}
 
 function NameCell({
   row,
@@ -575,7 +256,10 @@ function NameCell({
       {isGroup ? (
         <IconButton
           size="small"
-          onClick={onToggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
           aria-expanded={expanded}
           aria-label={expanded ? "Collapse cyber risk" : "Expand cyber risk"}
           sx={{ mt: 0.25, p: 0.5 }}
@@ -628,15 +312,54 @@ function NameCell({
   );
 }
 
-export default function NewCyberRiskAssessmentScoringTab() {
+type NewCyberRiskAssessmentScoringTabProps = {
+  /** Passed to the scenario detail page for breadcrumbs. */
+  assessmentName?: string;
+};
+
+export default function NewCyberRiskAssessmentScoringTab({
+  assessmentName = "",
+}: NewCyberRiskAssessmentScoringTabProps) {
+  const navigate = useNavigate();
+  const aggregationLabelId = useId();
+  const [aggregationMethod, setAggregationMethod] = useState<AggregationMethod | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     rw: true,
     ph: true,
   });
 
+  const goToScenario = useCallback(
+    (scenarioId: string) => {
+      navigate(`${SCENARIO_DETAIL_PATH}/${encodeURIComponent(scenarioId)}`, {
+        state: { assessmentName: assessmentName.trim() || undefined },
+      });
+    },
+    [navigate, assessmentName],
+  );
+
   const toggleGroup = useCallback((groupId: string) => {
     setExpanded((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   }, []);
+
+  const scenariosByGroupId = useMemo(() => {
+    const m = new Map<string, ScoringRow[]>();
+    for (const row of SCORING_ROWS) {
+      if (row.kind !== "scenario") continue;
+      const list = m.get(row.groupId) ?? [];
+      list.push(row);
+      m.set(row.groupId, list);
+    }
+    return m;
+  }, []);
+
+  const aggregatedCyberRiskByGroupId = useMemo(() => {
+    const result = new Map<string, ScoreValue>();
+    if (aggregationMethod == null) return result;
+    for (const [groupId, scenarios] of scenariosByGroupId) {
+      result.set(groupId, aggregateCyberRiskScoreForGroup(scenarios, aggregationMethod));
+    }
+    return result;
+  }, [aggregationMethod, scenariosByGroupId]);
 
   const visibleRows = useMemo(() => {
     const out: ScoringRow[] = [];
@@ -656,9 +379,86 @@ export default function NewCyberRiskAssessmentScoringTab() {
     return out;
   }, [expanded]);
 
+  const handleAggregationChange = useCallback((_event: React.ChangeEvent<HTMLInputElement>, value: string) => {
+    if (value === "highest" || value === "average" || value === "weightedAverage") {
+      setAggregationMethod(value);
+    }
+  }, []);
+
   return (
     <Stack gap={3} sx={{ pt: 3, pb: 4 }}>
-      <SectionHeader title="Scoring" headingLevel="h2" />
+      <Stack gap={1.5} sx={{ maxWidth: 1280, width: "100%" }}>
+        <Typography
+          id={aggregationLabelId}
+          variant="caption"
+          fontWeight={600}
+          component="p"
+          sx={({ tokens: t }) => ({
+            color: t.semantic.color.type.default.value,
+            letterSpacing: "0.3px",
+            m: 0,
+            fontSize: "24px",
+            lineHeight: 1.3,
+          })}
+        >
+          Aggregation method
+        </Typography>
+        <FormControl variant="standard" fullWidth>
+          <RadioGroup
+            row
+            aria-labelledby={aggregationLabelId}
+            name="new-cra-scoring-aggregation"
+            value={aggregationMethod ?? ""}
+            onChange={handleAggregationChange}
+          >
+            <FormControlLabel
+              value="highest"
+              control={<Radio />}
+              label="Highest"
+              slotProps={{
+                typography: {
+                  sx: ({ tokens: t }) => ({
+                    fontSize: t.semantic.font.text.md.fontSize.value,
+                    lineHeight: t.semantic.font.text.md.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                    color: t.semantic.color.type.default.value,
+                  }),
+                },
+              }}
+            />
+            <FormControlLabel
+              value="average"
+              control={<Radio />}
+              label="Average"
+              slotProps={{
+                typography: {
+                  sx: ({ tokens: t }) => ({
+                    fontSize: t.semantic.font.text.md.fontSize.value,
+                    lineHeight: t.semantic.font.text.md.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                    color: t.semantic.color.type.default.value,
+                  }),
+                },
+              }}
+            />
+            <FormControlLabel
+              value="weightedAverage"
+              control={<Radio />}
+              label="Weighted average"
+              slotProps={{
+                typography: {
+                  sx: ({ tokens: t }) => ({
+                    fontSize: t.semantic.font.text.md.fontSize.value,
+                    lineHeight: t.semantic.font.text.md.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                    color: t.semantic.color.type.default.value,
+                  }),
+                },
+              }}
+            />
+          </RadioGroup>
+        </FormControl>
+      </Stack>
 
       <Box
         sx={({ tokens: t }) => ({
@@ -753,59 +553,104 @@ export default function NewCyberRiskAssessmentScoringTab() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {visibleRows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell
-                    sx={({ tokens: t }) => ({
-                      position: "sticky",
-                      left: 0,
-                      zIndex: 2,
-                      bgcolor: t.semantic.color.background.base.value,
-                      width: 420,
-                      minWidth: 320,
-                      maxWidth: 420,
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                      overflowWrap: "break-word",
-                    })}
+              {visibleRows.map((row) => {
+                const isScenario = row.kind === "scenario";
+                return (
+                  <TableRow
+                    key={row.id}
+                    hover={isScenario}
+                    tabIndex={isScenario ? 0 : undefined}
+                    aria-label={
+                      isScenario
+                        ? `Open ${row.tag}: ${row.id}. Press Enter to view scoring rationale.`
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (isScenario) goToScenario(row.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (!isScenario) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        goToScenario(row.id);
+                      }
+                    }}
+                    sx={
+                      isScenario
+                        ? ({ tokens: t }) => ({
+                            cursor: "pointer",
+                            "&:focus-visible": {
+                              outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                              outlineOffset: -2,
+                            },
+                          })
+                        : undefined
+                    }
                   >
-                    <NameCell
-                      row={row}
-                      expanded={expanded[row.groupId] !== false}
-                      onToggle={() => toggleGroup(row.groupId)}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ px: 2, py: 0 }}>
-                    <RiskLegendCell value={row.impact} />
-                  </TableCell>
-                  <TableCell sx={{ px: 2, py: 0 }}>
-                    <RiskLegendCell value={row.threat} />
-                  </TableCell>
-                  <TableCell sx={{ px: 2, py: 0 }}>
-                    <RiskLegendCell value={row.vulnerability} />
-                  </TableCell>
-                  <TableCell sx={{ px: 2, py: 0 }}>
-                    <RiskLegendCell value={row.likelihood} />
-                  </TableCell>
-                  <TableCell sx={{ px: 2, py: 0 }}>
-                    <RiskLegendCell value={row.cyberRiskScore} />
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={({ tokens: t }) => ({
-                      position: "sticky",
-                      right: 0,
-                      zIndex: 2,
-                      bgcolor: t.semantic.color.background.base.value,
-                      verticalAlign: "middle",
-                    })}
-                  >
-                    <IconButton size="small" aria-label="Row actions">
-                      <MoreIcon aria-hidden />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell
+                      sx={({ tokens: t }) => ({
+                        position: "sticky",
+                        left: 0,
+                        zIndex: 2,
+                        bgcolor: t.semantic.color.background.base.value,
+                        width: 420,
+                        minWidth: 320,
+                        maxWidth: 420,
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
+                      })}
+                    >
+                      <NameCell
+                        row={row}
+                        expanded={expanded[row.groupId] !== false}
+                        onToggle={() => toggleGroup(row.groupId)}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell value={row.impact} />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell value={row.threat} />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell value={row.vulnerability} />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell value={row.likelihood} />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell
+                        value={
+                          row.kind === "cyberRisk"
+                            ? aggregationMethod
+                              ? aggregatedCyberRiskByGroupId.get(row.groupId) ?? null
+                              : null
+                            : row.cyberRiskScore
+                        }
+                      />
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={({ tokens: t }) => ({
+                        position: "sticky",
+                        right: 0,
+                        zIndex: 2,
+                        bgcolor: t.semantic.color.background.base.value,
+                        verticalAlign: "middle",
+                      })}
+                    >
+                      <IconButton
+                        size="small"
+                        aria-label="Row actions"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreIcon aria-hidden />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

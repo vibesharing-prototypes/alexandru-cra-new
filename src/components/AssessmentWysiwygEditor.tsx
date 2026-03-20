@@ -93,6 +93,8 @@ export type AssessmentWysiwygEditorProps = {
   value: string;
   onChange: (value: string) => void;
   minRows?: number;
+  /** When true, the field is display-only (toolbar remains for visual parity with design). */
+  readOnly?: boolean;
   "aria-label": string;
 };
 
@@ -107,6 +109,7 @@ export default function AssessmentWysiwygEditor({
   value,
   onChange,
   minRows = 10,
+  readOnly = false,
   "aria-label": ariaLabel,
 }: AssessmentWysiwygEditorProps) {
   const labelId = `${fieldId}-label`;
@@ -145,7 +148,9 @@ export default function AssessmentWysiwygEditor({
           overflow: "hidden",
         })}
       >
-        <WysiwygToolbar />
+        <Box sx={readOnly ? { pointerEvents: "none", opacity: 0.85 } : undefined}>
+          <WysiwygToolbar />
+        </Box>
         <TextField
           id={fieldId}
           multiline
@@ -155,7 +160,7 @@ export default function AssessmentWysiwygEditor({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           variant="standard"
-          InputProps={{ disableUnderline: true }}
+          InputProps={{ disableUnderline: true, readOnly }}
           sx={{ px: 1.5, py: 1.5 }}
           aria-label={ariaLabel}
           slotProps={{

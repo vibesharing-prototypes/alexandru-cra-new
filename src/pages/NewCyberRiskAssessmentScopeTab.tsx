@@ -1,7 +1,9 @@
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   InputAdornment,
   Link,
   Stack,
@@ -10,11 +12,13 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useTheme,
 } from "@mui/material";
 import {
   DataGridPro,
   type GridColDef,
   type GridRenderCellParams,
+  ColumnsPanelTrigger,
   FilterPanelTrigger,
   QuickFilter,
   QuickFilterControl,
@@ -24,8 +28,15 @@ import {
   useGridSelector,
 } from "@mui/x-data-grid-pro";
 
+import CertCyberRiskStrategyIcon from "@diligentcorp/atlas-react-bundle/icons/CertCyberRiskStrategy";
+import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
+import DocumentIcon from "@diligentcorp/atlas-react-bundle/icons/Document";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
+import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
+import HistoryIcon from "@diligentcorp/atlas-react-bundle/icons/History";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
+
+export type ScopeSubView = "overview" | "assets";
 
 type ScopeViewFilter = "all" | "included" | "excluded";
 
@@ -35,6 +46,8 @@ export type ScopeAssetRow = {
   assetName: string;
   assetType: string;
   cyberRisks: number;
+  threats: number;
+  vulnerabilities: number;
   criticality: 2 | 3 | 4 | 5;
   objectives: number;
   processes: number;
@@ -56,6 +69,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Vendor master database",
     assetType: "Database",
     cyberRisks: 5,
+    threats: 4,
+    vulnerabilities: 6,
     criticality: 5,
     objectives: 4,
     processes: 20,
@@ -65,6 +80,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Payment gateway API",
     assetType: "API",
     cyberRisks: 4,
+    threats: 3,
+    vulnerabilities: 5,
     criticality: 4,
     objectives: 8,
     processes: 14,
@@ -74,6 +91,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Customer database",
     assetType: "Data",
     cyberRisks: 3,
+    threats: 2,
+    vulnerabilities: 4,
     criticality: 5,
     objectives: 12,
     processes: 16,
@@ -83,6 +102,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "HR employee portal",
     assetType: "Software",
     cyberRisks: 2,
+    threats: 2,
+    vulnerabilities: 3,
     criticality: 3,
     objectives: 6,
     processes: 9,
@@ -92,6 +113,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Email security gateway",
     assetType: "Infrastructure",
     cyberRisks: 6,
+    threats: 5,
+    vulnerabilities: 7,
     criticality: 4,
     objectives: 3,
     processes: 11,
@@ -101,6 +124,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Backup storage cluster",
     assetType: "Data",
     cyberRisks: 1,
+    threats: 1,
+    vulnerabilities: 2,
     criticality: 3,
     objectives: 2,
     processes: 5,
@@ -110,6 +135,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Identity provider service",
     assetType: "API",
     cyberRisks: 7,
+    threats: 6,
+    vulnerabilities: 8,
     criticality: 5,
     objectives: 9,
     processes: 18,
@@ -119,6 +146,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Main data center servers",
     assetType: "Infrastructure",
     cyberRisks: 2,
+    threats: 2,
+    vulnerabilities: 2,
     criticality: 2,
     objectives: 2,
     processes: 2,
@@ -128,6 +157,8 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Claims processing system",
     assetType: "Software",
     cyberRisks: 4,
+    threats: 3,
+    vulnerabilities: 5,
     criticality: 4,
     objectives: 7,
     processes: 13,
@@ -137,11 +168,21 @@ const SEED_ROWS: Omit<ScopeAssetRow, "id">[] = [
     assetName: "Document management store",
     assetType: "Database",
     cyberRisks: 3,
+    threats: 2,
+    vulnerabilities: 4,
     criticality: 3,
     objectives: 5,
     processes: 8,
   },
 ];
+
+/** Backfill counts when row state predates threats/vulnerabilities fields (e.g. Fast Refresh). */
+function withScopeCountFields(row: ScopeAssetRow): ScopeAssetRow {
+  const threats = typeof row.threats === "number" ? row.threats : (row.id % 7) + 1;
+  const vulnerabilities =
+    typeof row.vulnerabilities === "number" ? row.vulnerabilities : (row.id % 9) + 1;
+  return { ...row, threats, vulnerabilities };
+}
 
 function buildScopeRows(): ScopeAssetRow[] {
   const types: ScopeAssetRow["assetType"][] = [
@@ -162,6 +203,8 @@ function buildScopeRows(): ScopeAssetRow[] {
       assetName: `Asset service ${id}`,
       assetType: types[id % types.length],
       cyberRisks: (id % 8) + 1,
+      threats: (id % 7) + 1,
+      vulnerabilities: (id % 9) + 1,
       criticality: criticalities[id % criticalities.length],
       objectives: (id % 15) + 1,
       processes: (id % 22) + 1,
@@ -182,7 +225,10 @@ function ScopeToolbar({
   includedCount: number;
 }) {
   return (
-    <Toolbar sx={{ gap: 2, flexWrap: "wrap", py: 1.5, px: 0 }}>
+    <Toolbar
+      aria-label="Scope assets toolbar"
+      sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", py: 1.5, px: 0, width: "100%" }}
+    >
       <QuickFilter expanded>
         <QuickFilterControl
           render={({ ref, value, ...other }) => (
@@ -212,6 +258,13 @@ function ScopeToolbar({
         render={(props) => (
           <Button {...props} startIcon={<FilterIcon />} aria-label="Show filters">
             Filter
+          </Button>
+        )}
+      />
+      <ColumnsPanelTrigger
+        render={(props) => (
+          <Button {...props} startIcon={<ColumnsIcon />} aria-label="Select columns">
+            Columns
           </Button>
         )}
       />
@@ -274,7 +327,14 @@ function NumericLink({ value, ariaLabel }: { value: number; ariaLabel: string })
       type="button"
       underline="always"
       onClick={(e: React.MouseEvent) => e.preventDefault()}
-      sx={{ cursor: "pointer", fontWeight: 400, fontSize: 16, lineHeight: "24px" }}
+      sx={({ tokens: t }) => ({
+        cursor: "pointer",
+        fontWeight: 400,
+        fontSize: 16,
+        lineHeight: "24px",
+        color: t.semantic.color.action.link.default.value,
+        verticalAlign: "inherit",
+      })}
       aria-label={ariaLabel}
     >
       {value}
@@ -404,8 +464,225 @@ function ScopeIncludedColumnHeader({
   );
 }
 
-export default function NewCyberRiskAssessmentScopeTab() {
-  const [rows, setRows] = useState<ScopeAssetRow[]>(buildScopeRows);
+/** Scope object card: icon + title + trailing action row; “Included in this assessment” + count (Figma). */
+function ScopeObjectTypeCard({
+  title,
+  icon,
+  includedCount,
+  totalCount,
+  countNoun,
+  trailingAction,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  includedCount: number;
+  totalCount: number;
+  /** Shown after the fraction, e.g. “Assets” → “0 / 124 Assets”. */
+  countNoun: string;
+  trailingAction?: React.ReactNode;
+}) {
+  return (
+    <Card
+      variant="outlined"
+      sx={({ tokens: t }) => ({
+        minWidth: 0,
+        width: "100%",
+        borderRadius: t.semantic.radius.lg.value,
+        borderStyle: "solid",
+        borderColor: t.semantic.color.ui.divider.default.value,
+        borderWidth: t.semantic.borderWidth.thin.value,
+        bgcolor: t.semantic.color.background.base.value,
+        boxShadow: "none",
+      })}
+    >
+      <CardContent
+        sx={{
+          pt: 0,
+          px: 0,
+          pb: 3,
+          "&:last-child": { pb: 3 },
+        }}
+      >
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "auto minmax(0, 1fr) auto",
+            gridTemplateRows: "auto auto",
+            columnGap: 1.5,
+            rowGap: 2,
+            alignItems: "start",
+          }}
+        >
+          <Box
+            sx={({ tokens: t }) => ({
+              gridRow: "1 / 3",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: t.semantic.radius.md.value,
+              bgcolor: t.semantic.color.surface.variant.value,
+              color: t.semantic.color.type.default.value,
+              flexShrink: 0,
+            })}
+          >
+            {icon}
+          </Box>
+          <Typography
+            component="h3"
+            variant="h3"
+            fontWeight={600}
+            sx={({ tokens: t }) => ({
+              gridColumn: 2,
+              gridRow: 1,
+              color: t.semantic.color.type.default.value,
+              alignSelf: "center",
+            })}
+          >
+            {title}
+          </Typography>
+          {trailingAction ? (
+            <Box
+              sx={{
+                gridColumn: 3,
+                gridRow: 1,
+                justifySelf: "end",
+                alignSelf: "center",
+              }}
+            >
+              {trailingAction}
+            </Box>
+          ) : null}
+          <Stack
+            gap={0.5}
+            sx={{ gridColumn: "2 / 4", gridRow: 2, minWidth: 0 }}
+            aria-label={`${title} scope counts`}
+          >
+            <Typography
+              variant="caption"
+              component="p"
+              sx={({ tokens: t }) => ({
+                m: 0,
+                color: t.semantic.color.type.muted.value,
+                letterSpacing: "0.3px",
+                fontSize: t.semantic.font.label.sm.fontSize.value,
+                lineHeight: t.semantic.font.label.sm.lineHeight.value,
+              })}
+            >
+              Included in this assessment
+            </Typography>
+            <Typography
+              component="p"
+              variant="body1"
+              sx={({ tokens: t }) => ({
+                m: 0,
+                color: t.semantic.color.type.default.value,
+                letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                lineHeight: t.semantic.font.text.md.lineHeight.value,
+                fontSize: t.semantic.font.text.md.fontSize.value,
+              })}
+            >
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                {includedCount}
+              </Box>
+              <Box component="span" sx={{ fontWeight: 400 }}>
+                {` / ${totalCount} ${countNoun}`}
+              </Box>
+            </Typography>
+          </Stack>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScopeOverviewCards({
+  totalAssets,
+  includedAssets,
+  onEditAssetsScope,
+}: {
+  totalAssets: number;
+  includedAssets: number;
+  onEditAssetsScope: () => void;
+}) {
+  const { presets } = useTheme();
+  const CardHeaderIcon = presets.CardComponentsPresets?.components?.CardHeaderIcon;
+
+  const wrapHeaderIcon = (icon: React.ReactElement) =>
+    CardHeaderIcon ? <CardHeaderIcon icon={icon} /> : icon;
+
+  const hasScopedAssets = includedAssets > 0;
+
+  const editScopeAction = (
+    <Button
+      variant="text"
+      size="medium"
+      onClick={onEditAssetsScope}
+      aria-label="Edit assets scope"
+      sx={({ tokens: t }) => ({
+        fontWeight: 600,
+        color: t.semantic.color.type.default.value,
+        textTransform: "none",
+        whiteSpace: "nowrap",
+      })}
+    >
+      Edit scope
+    </Button>
+  );
+
+  return (
+    <Stack gap={3} sx={{ pt: 3, pb: 4, width: "100%" }}>
+      <Box
+        sx={{
+          display: "grid",
+          width: "100%",
+          gridTemplateColumns: "1fr",
+          gap: 2,
+          alignItems: "stretch",
+        }}
+      >
+        <ScopeObjectTypeCard
+          title="Assets"
+          icon={wrapHeaderIcon(<FolderIcon size="lg" aria-hidden />)}
+          includedCount={includedAssets}
+          totalCount={totalAssets}
+          countNoun="Assets"
+          trailingAction={editScopeAction}
+        />
+        <ScopeObjectTypeCard
+          title="Cyber risks"
+          icon={wrapHeaderIcon(<CertCyberRiskStrategyIcon size="lg" aria-hidden />)}
+          includedCount={hasScopedAssets ? 12 : 0}
+          totalCount={12}
+          countNoun="Cyber risks"
+        />
+        <ScopeObjectTypeCard
+          title="Threats"
+          icon={wrapHeaderIcon(<HistoryIcon size="lg" aria-hidden />)}
+          includedCount={hasScopedAssets ? 8 : 0}
+          totalCount={18}
+          countNoun="Threats"
+        />
+        <ScopeObjectTypeCard
+          title="Vulnerabilities"
+          icon={wrapHeaderIcon(<DocumentIcon size="lg" aria-hidden />)}
+          includedCount={hasScopedAssets ? 6 : 0}
+          totalCount={24}
+          countNoun="Vulnerabilities"
+        />
+      </Box>
+    </Stack>
+  );
+}
+
+function ScopeAssetsDataGrid({
+  rows,
+  setRows,
+}: {
+  rows: ScopeAssetRow[];
+  setRows: Dispatch<SetStateAction<ScopeAssetRow[]>>;
+}) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
 
@@ -421,7 +698,7 @@ export default function NewCyberRiskAssessmentScopeTab() {
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, included } : { ...r })),
     );
-  }, []);
+  }, [setRows]);
 
   const handleViewChange = useCallback(
     (_e: React.MouseEvent<HTMLElement>, v: ScopeViewFilter | null) => {
@@ -539,6 +816,42 @@ export default function NewCyberRiskAssessmentScopeTab() {
         ),
       },
       {
+        field: "threats",
+        headerName: "Threats",
+        width: 120,
+        type: "number",
+        align: "left",
+        headerAlign: "left",
+        valueGetter: (_value, row) => withScopeCountFields(row).threats,
+        renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => {
+          const n = withScopeCountFields(params.row).threats;
+          return (
+            <NumericLink
+              value={n}
+              ariaLabel={`Threats for ${params.row.assetName}: ${n}`}
+            />
+          );
+        },
+      },
+      {
+        field: "vulnerabilities",
+        headerName: "Vulnerabilities",
+        width: 140,
+        type: "number",
+        align: "left",
+        headerAlign: "left",
+        valueGetter: (_value, row) => withScopeCountFields(row).vulnerabilities,
+        renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => {
+          const n = withScopeCountFields(params.row).vulnerabilities;
+          return (
+            <NumericLink
+              value={n}
+              ariaLabel={`Vulnerabilities for ${params.row.assetName}: ${n}`}
+            />
+          );
+        },
+      },
+      {
         field: "criticality",
         headerName: "Criticality",
         width: 180,
@@ -618,7 +931,6 @@ export default function NewCyberRiskAssessmentScopeTab() {
         sx={({ tokens: t }) => ({
           border: "none",
           borderRadius: t.semantic.radius.md.value,
-          // DataGrid Pro defaults add inset scroll shadows; match flat grids elsewhere in the app.
           "& .MuiDataGrid-scrollShadow": {
             display: "none",
           },
@@ -641,5 +953,40 @@ export default function NewCyberRiskAssessmentScopeTab() {
         showCellVerticalBorder
       />
     </Box>
+  );
+}
+
+type NewCyberRiskAssessmentScopeTabProps = {
+  scopeSubView: ScopeSubView;
+  onScopeSubViewChange: (view: ScopeSubView) => void;
+};
+
+export default function NewCyberRiskAssessmentScopeTab({
+  scopeSubView,
+  onScopeSubViewChange,
+}: NewCyberRiskAssessmentScopeTabProps) {
+  const [rows, setRows] = useState<ScopeAssetRow[]>(() => buildScopeRows().map(withScopeCountFields));
+
+  useEffect(() => {
+    setRows((prev) => {
+      if (!prev.some((r) => typeof r.threats !== "number" || typeof r.vulnerabilities !== "number")) {
+        return prev;
+      }
+      return prev.map(withScopeCountFields);
+    });
+  }, []);
+
+  const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
+
+  if (scopeSubView === "assets") {
+    return <ScopeAssetsDataGrid rows={rows} setRows={setRows} />;
+  }
+
+  return (
+    <ScopeOverviewCards
+      totalAssets={rows.length}
+      includedAssets={includedCount}
+      onEditAssetsScope={() => onScopeSubViewChange("assets")}
+    />
   );
 }

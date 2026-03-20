@@ -909,6 +909,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
                               alignItems: "center",
                               justifyContent: "center",
                               minHeight: 48,
+                              opacity: cell.count != null ? 1 : 0.3,
                             })}
                           >
                             {cell.count != null ? (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   PageHeader,
   OverflowBreadcrumbs,
@@ -21,7 +21,7 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import { NavLink, useNavigate } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 
 import CalendarIcon from "@diligentcorp/atlas-react-bundle/icons/Calendar";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
@@ -29,10 +29,18 @@ import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 import NewCyberRiskAssessmentMethodSection from "./NewCyberRiskAssessmentMethodSection.js";
 import NewCyberRiskAssessmentScoringTab from "./NewCyberRiskAssessmentScoringTab.js";
 import NewCyberRiskAssessmentResultsTab from "./NewCyberRiskAssessmentResultsTab.js";
-import NewCyberRiskAssessmentScopeTab from "./NewCyberRiskAssessmentScopeTab.js";
+import NewCyberRiskAssessmentScopeTab, {
+  type ScopeSubView,
+} from "./NewCyberRiskAssessmentScopeTab.js";
+import {
+  loadCraNewAssessmentDraft,
+  saveCraNewAssessmentDraft,
+  type AssessmentPhase,
+} from "./craNewAssessmentDraftStorage.js";
 
 const TAB_LABELS = ["Details", "Scope", "Scoring", "Results"] as const;
 
+const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
 const RESULTS_TAB_INDEX = 3;
 
@@ -74,143 +82,272 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 }
 
 export default function NewCyberRiskAssessmentPage() {
-  const navigate = useNavigate();
   const { presets, tokens } = useTheme();
   const { TabsPresets } = presets;
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState(0);
-  /** When true, assessment is in progress: Scoring is enabled and status shows In progress. */
-  const [assessmentInProgress, setAssessmentInProgress] = useState(false);
-  const [name, setName] = useState("");
-  const [assessmentId, setAssessmentId] = useState("");
-  const [assessmentType, setAssessmentType] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [initialDraft] = useState(loadCraNewAssessmentDraft);
+  const [activeTab, setActiveTab] = useState(initialDraft?.activeTab ?? 0);
+  /** Draft → Move to assessment; In progress → Approve assessment; then Approved assessment + Approve mitigation. */
+  const [assessmentPhase, setAssessmentPhase] = useState<AssessmentPhase>(
+    initialDraft?.assessmentPhase ?? "draft",
+  );
+  const [name, setName] = useState(initialDraft?.name ?? "");
+  const [assessmentId, setAssessmentId] = useState(initialDraft?.assessmentId ?? "");
+  const [assessmentType, setAssessmentType] = useState(initialDraft?.assessmentType ?? "");
+  const [startDate, setStartDate] = useState(initialDraft?.startDate ?? "");
+  const [dueDate, setDueDate] = useState(initialDraft?.dueDate ?? "");
+  /** Scope tab: card overview vs assets data grid (drives PageHeader). */
+  const [scopeSubView, setScopeSubView] = useState<ScopeSubView>(
+    initialDraft?.scopeSubView ?? "overview",
+  );
+
+  useEffect(() => {
+    saveCraNewAssessmentDraft({
+      activeTab,
+      assessmentPhase,
+      name,
+      assessmentId,
+      assessmentType,
+      startDate,
+      dueDate,
+      scopeSubView,
+    });
+  }, [
+    activeTab,
+    assessmentPhase,
+    name,
+    assessmentId,
+    assessmentType,
+    startDate,
+    dueDate,
+    scopeSubView,
+  ]);
+
+  useEffect(() => {
+    const st = location.state as { craReturnToScoring?: boolean } | null;
+    if (st?.craReturnToScoring) {
+      setActiveTab(SCORING_TAB_INDEX);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate]);
+
+  const isScopeAssetsEdit = activeTab === SCOPE_TAB_INDEX && scopeSubView === "assets";
+
+  useEffect(() => {
+    if (activeTab !== SCOPE_TAB_INDEX) {
+      setScopeSubView("overview");
+    }
+  }, [activeTab]);
+
+  const assessmentsUrl = "/cyber-risk/cyber-risk-assessments";
+
+  const breadcrumbs = (
+    <OverflowBreadcrumbs
+      leadingElement={<span>Asset manager</span>}
+      items={[
+        {
+          id: "crm",
+          label: "Cyber risk management",
+          url: assessmentsUrl,
+        },
+        {
+          id: "cra",
+          label: "Cyber risk analysis",
+          url: assessmentsUrl,
+        },
+      ]}
+      aria-label="Breadcrumbs"
+    >
+      {({ label, url }) => <NavLink to={url}>{label}</NavLink>}
+    </OverflowBreadcrumbs>
+  );
+
+  /** Edit asset scope: extended trail + hide current page crumb (matches Figma 10752-119596 pattern). */
+  const editScopeBreadcrumbs = (
+    <OverflowBreadcrumbs
+      leadingElement={<span>Asset manager</span>}
+      hideLastItem
+      items={[
+        { id: "crm", label: "Cyber risk management", url: assessmentsUrl },
+        { id: "cra", label: "Cyber risk analysis", url: assessmentsUrl },
+        {
+          id: "assessment",
+          label: name.trim() || "New cyber risk assessment",
+          url: assessmentsUrl,
+        },
+        { id: "scope_assets", label: "Assets", url: "#" },
+      ]}
+      aria-label="Breadcrumbs"
+    >
+      {({ label, url }) =>
+        url === "#" ? (
+          <Typography component="span" variant="body1">
+            {label}
+          </Typography>
+        ) : (
+          <NavLink to={url}>{label}</NavLink>
+        )
+      }
+    </OverflowBreadcrumbs>
+  );
+
+  const defaultPageTitle = (
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="center"
+      sx={{
+        gap: tokens.component.pageHeader.desktop.statusContainer.gap.value,
+        minWidth: 0,
+        width: "100%",
+      }}
+    >
+      <Typography
+        component="h1"
+        variant="h1"
+        sx={{
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          fontWeight: tokens.component.pageHeader.desktop.title.fontWeight.value,
+        }}
+      >
+        {name.trim() || "New cyber risk assessment"}
+      </Typography>
+      <Box sx={{ marginBottom: "auto", marginTop: 0.5, flexShrink: 0 }}>
+        {assessmentPhase === "draft" ? (
+          <StatusIndicator
+            customColor={({ semantic }) => ({
+              backgroundColor: semantic.color.status.neutral.backgroundVariant.value,
+              color: semantic.color.status.neutral.text.value,
+            })}
+            sx={{ display: "flex" }}
+            label="Draft"
+            aria-label="Assessment status: Draft"
+          />
+        ) : assessmentPhase === "inProgress" ? (
+          <StatusIndicator
+            color="information"
+            sx={{ display: "flex" }}
+            label="In progress"
+            aria-label="Assessment status: In progress"
+          />
+        ) : (
+          <StatusIndicator
+            color="success"
+            sx={{ display: "flex" }}
+            label="Approved assessment"
+            aria-label="Assessment status: Approved assessment"
+          />
+        )}
+      </Box>
+    </Stack>
+  );
+
+  const defaultMoreButton = (
+    <Button
+      variant="contained"
+      size="medium"
+      onClick={() => {
+        if (assessmentPhase === "draft") {
+          setAssessmentPhase("inProgress");
+          setActiveTab(SCORING_TAB_INDEX);
+          return;
+        }
+        if (assessmentPhase === "inProgress") {
+          setAssessmentPhase("assessmentApproved");
+          return;
+        }
+      }}
+    >
+      {assessmentPhase === "draft"
+        ? "Move to assessment"
+        : assessmentPhase === "inProgress"
+          ? "Approve assessment"
+          : "Approve mitigation"}
+    </Button>
+  );
 
   return (
     <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={0}>
         <PageHeader
-          pageTitle={
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="center"
-              sx={{
-                gap: tokens.component.pageHeader.desktop.statusContainer.gap.value,
-                minWidth: 0,
-                width: "100%",
-              }}
-            >
-              <Typography
-                component="h1"
-                variant="h1"
-                sx={{
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  fontWeight: tokens.component.pageHeader.desktop.title.fontWeight.value,
-                }}
-              >
-                {name.trim() || "New cyber risk assessment"}
-              </Typography>
-              <Box sx={{ marginBottom: "auto", marginTop: 0.5, flexShrink: 0 }}>
-                {assessmentInProgress ? (
-                  <StatusIndicator
-                    color="information"
-                    sx={{ display: "flex" }}
-                    label="In progress"
-                    aria-label="Assessment status: In progress"
-                  />
-                ) : (
-                  <StatusIndicator
-                    customColor={({ semantic }) => ({
-                      backgroundColor: semantic.color.status.neutral.backgroundVariant.value,
-                      color: semantic.color.status.neutral.text.value,
-                    })}
-                    sx={{ display: "flex" }}
-                    label="Draft"
-                    aria-label="Assessment status: Draft"
-                  />
-                )}
-              </Box>
-            </Stack>
+          pageTitle={isScopeAssetsEdit ? "Assets" : defaultPageTitle}
+          pageSubtitle={
+            isScopeAssetsEdit
+              ? "Choose which assets to include in this assessment."
+              : undefined
           }
-          breadcrumbs={
-            <OverflowBreadcrumbs
-              leadingElement={<span>Asset manager</span>}
-              items={[
-                {
-                  id: "crm",
-                  label: "Cyber risk management",
-                  url: "/cyber-risk/cyber-risk-assessments",
-                },
-                {
-                  id: "cra",
-                  label: "Cyber risk analysis",
-                  url: "/cyber-risk/cyber-risk-assessments",
-                },
-              ]}
-              aria-label="Breadcrumbs"
-            >
-              {({ label, url }) => <NavLink to={url}>{label}</NavLink>}
-            </OverflowBreadcrumbs>
+          breadcrumbs={isScopeAssetsEdit ? editScopeBreadcrumbs : breadcrumbs}
+          slotProps={
+            isScopeAssetsEdit
+              ? {
+                  backButton: {
+                    "aria-label": "Back to scope overview",
+                    onClick: () => setScopeSubView("overview"),
+                  },
+                }
+              : undefined
           }
           moreButton={
-            <Button
-              variant="contained"
-              size="medium"
-              onClick={() => {
-                if (!assessmentInProgress) {
-                  setAssessmentInProgress(true);
-                  setActiveTab(SCORING_TAB_INDEX);
-                  return;
-                }
-                navigate("/cyber-risk/cyber-risk-assessment");
-              }}
-            >
-              {assessmentInProgress ? "Conclude assessment" : "Move to assessment"}
-            </Button>
+            isScopeAssetsEdit ? (
+              <Stack direction="row" alignItems="center" gap={1}>
+                <Button variant="text" size="medium" onClick={() => setScopeSubView("overview")}>
+                  Cancel
+                </Button>
+                <Button variant="contained" size="medium" onClick={() => setScopeSubView("overview")}>
+                  Done
+                </Button>
+              </Stack>
+            ) : (
+              defaultMoreButton
+            )
           }
         />
 
-        <Tabs
-          value={activeTab}
-          onChange={(_e, v: number) => {
-            if (v === SCORING_TAB_INDEX && !assessmentInProgress) return;
-            if (v === RESULTS_TAB_INDEX && !assessmentInProgress) return;
-            setActiveTab(v);
-          }}
-          aria-label="New cyber risk assessment steps"
-          {...TabsPresets.Tabs.alignToPageHeader}
-          sx={[
-            TabsPresets.Tabs.alignToPageHeader?.sx,
-            { "& .MuiTabs-flexContainer": { gap: 0 } },
-          ]}
-        >
-          {TAB_LABELS.map((label, index) => {
-            const scoringLocked = index === SCORING_TAB_INDEX && !assessmentInProgress;
-            const resultsLocked = index === RESULTS_TAB_INDEX && !assessmentInProgress;
-            const tabDisabled = scoringLocked || resultsLocked;
-            return (
-              <Tab
-                key={`${label}-${index}`}
-                label={label}
-                id={`new-cra-tab-${index}`}
-                aria-controls={`new-cra-tabpanel-${index}`}
-                disabled={tabDisabled}
-                sx={
-                  tabDisabled
-                    ? ({ tokens: t }) => ({
-                        color: `${t.semantic.color.type.muted.value} !important`,
-                      })
-                    : undefined
-                }
-              />
-            );
-          })}
-        </Tabs>
+        {!isScopeAssetsEdit ? (
+          <Tabs
+            value={activeTab}
+            onChange={(_e, v: number) => {
+              const assessmentStarted = assessmentPhase !== "draft";
+              if (v === SCORING_TAB_INDEX && !assessmentStarted) return;
+              if (v === RESULTS_TAB_INDEX && !assessmentStarted) return;
+              setActiveTab(v);
+            }}
+            aria-label="New cyber risk assessment steps"
+            {...TabsPresets.Tabs.alignToPageHeader}
+            sx={[
+              TabsPresets.Tabs.alignToPageHeader?.sx,
+              { "& .MuiTabs-flexContainer": { gap: 0 } },
+            ]}
+          >
+            {TAB_LABELS.map((label, index) => {
+              const assessmentStarted = assessmentPhase !== "draft";
+              const scoringLocked = index === SCORING_TAB_INDEX && !assessmentStarted;
+              const resultsLocked = index === RESULTS_TAB_INDEX && !assessmentStarted;
+              const tabDisabled = scoringLocked || resultsLocked;
+              return (
+                <Tab
+                  key={`${label}-${index}`}
+                  label={label}
+                  id={`new-cra-tab-${index}`}
+                  aria-controls={`new-cra-tabpanel-${index}`}
+                  disabled={tabDisabled}
+                  sx={
+                    tabDisabled
+                      ? ({ tokens: t }) => ({
+                          color: `${t.semantic.color.type.muted.value} !important`,
+                        })
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </Tabs>
+        ) : null}
 
         <TabPanel value={activeTab} index={0}>
           <Stack gap={6} sx={{ pt: 3, pb: 4, maxWidth: 1280 }}>
@@ -401,10 +538,13 @@ export default function NewCyberRiskAssessmentPage() {
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <NewCyberRiskAssessmentScopeTab />
+          <NewCyberRiskAssessmentScopeTab
+            scopeSubView={scopeSubView}
+            onScopeSubViewChange={setScopeSubView}
+          />
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
-          <NewCyberRiskAssessmentScoringTab />
+          <NewCyberRiskAssessmentScoringTab assessmentName={name} />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>
           <NewCyberRiskAssessmentResultsTab />

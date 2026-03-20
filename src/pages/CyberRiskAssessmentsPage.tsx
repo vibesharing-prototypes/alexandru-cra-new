@@ -47,7 +47,7 @@ interface AssessmentRow {
   id: number;
   assessmentId: string;
   name: string;
-  status: "Draft" | "In progress" | "Concluded";
+  status: "Draft" | "In progress" | "Approved";
   cyberRisks: number;
   assets: number;
   threats: number;
@@ -75,7 +75,7 @@ const assessmentRows: AssessmentRow[] = [
     id: 2,
     assessmentId: "CRA-002",
     name: "Annual infrastructure review 2025",
-    status: "Concluded",
+    status: "Approved",
     cyberRisks: 5,
     assets: 27,
     threats: 4,
@@ -88,7 +88,7 @@ const assessmentRows: AssessmentRow[] = [
     id: 3,
     assessmentId: "CRA-003",
     name: "Cloud migration risk assessment",
-    status: "Concluded",
+    status: "Approved",
     cyberRisks: 3,
     assets: 12,
     threats: 2,
@@ -127,7 +127,7 @@ const assessmentRows: AssessmentRow[] = [
     id: 6,
     assessmentId: "CRA-006",
     name: "Ransomware resilience assessment",
-    status: "Concluded",
+    status: "Approved",
     cyberRisks: 5,
     assets: 30,
     threats: 5,
@@ -166,7 +166,7 @@ const assessmentRows: AssessmentRow[] = [
     id: 9,
     assessmentId: "CRA-009",
     name: "Data privacy impact assessment Q4",
-    status: "Concluded",
+    status: "Approved",
     cyberRisks: 4,
     assets: 19,
     threats: 3,
@@ -193,13 +193,13 @@ const assessmentRows: AssessmentRow[] = [
 const STATUS_COLORS = {
   draft: "#a0a2a5",
   inProgress: "#0086fa",
-  concluded: "#26c926",
+  approved: "#26c926",
 };
 
 const statusData = {
   draft: assessmentRows.filter((r) => r.status === "Draft").length,
   inProgress: assessmentRows.filter((r) => r.status === "In progress").length,
-  concluded: assessmentRows.filter((r) => r.status === "Concluded").length,
+  approved: assessmentRows.filter((r) => r.status === "Approved").length,
 };
 
 /** Figma: Assessments by business unit — moss scale + orange for zero-coverage BU */
@@ -215,17 +215,17 @@ const businessUnitData = [
 const BUSINESS_UNIT_COUNT = businessUnitData.length;
 
 function AssessmentsByStatusCard() {
-  const total = statusData.draft + statusData.inProgress + statusData.concluded;
+  const total = statusData.draft + statusData.inProgress + statusData.approved;
 
   const chartData = {
-    labels: ["Draft", "In progress", "Concluded"],
+    labels: ["Draft", "In progress", "Approved"],
     datasets: [
       {
-        data: [statusData.draft, statusData.inProgress, statusData.concluded],
+        data: [statusData.draft, statusData.inProgress, statusData.approved],
         backgroundColor: [
           STATUS_COLORS.draft,
           STATUS_COLORS.inProgress,
-          STATUS_COLORS.concluded,
+          STATUS_COLORS.approved,
         ],
         borderWidth: 0,
         cutout: "72%",
@@ -236,7 +236,7 @@ function AssessmentsByStatusCard() {
   const legendItems = [
     { label: "Draft", value: statusData.draft, color: STATUS_COLORS.draft },
     { label: "In progress", value: statusData.inProgress, color: STATUS_COLORS.inProgress },
-    { label: "Concluded", value: statusData.concluded, color: STATUS_COLORS.concluded },
+    { label: "Approved", value: statusData.approved, color: STATUS_COLORS.approved },
   ];
 
   return (
@@ -537,7 +537,7 @@ function StatusCell({ status }: { status: AssessmentRow["status"] }) {
   const colorMap: Record<AssessmentRow["status"], "generic" | "information" | "success"> = {
     Draft: "generic",
     "In progress": "information",
-    Concluded: "success",
+    Approved: "success",
   };
 
   return <StatusIndicator color={colorMap[status]} label={status} />;
