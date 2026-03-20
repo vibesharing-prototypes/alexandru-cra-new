@@ -401,7 +401,7 @@ function CyberRisksResultsTable({
             borderBottom: ({ tokens: t }) => `1px solid ${t.semantic.color.ui.divider.default.value}`,
           },
           "& .MuiTableBody-root .MuiTableCell-root": {
-            verticalAlign: "top",
+            verticalAlign: "middle",
           },
         }}
       >

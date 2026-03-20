@@ -40,20 +40,20 @@ const QUALITATIVE_DESCRIPTION = (
 
 const QUANTITATIVE_DESCRIPTION = (
   <>
-    Assessments are scored using numerical data, typically calculated as (Financial consequence x Frequency
-    of occurrence). Financial consequence is determined by the specific monetary value of the loss, and
-    frequency is determined by the probability of the event occurring within a given timeframe.{" "}
-    <br />
+    Assessments are scored using numerical data, typically calculated as (Financial consequence x Frequency of
+    occurrence). Financial consequence is determined by the specific monetary value of the loss, and frequency
+    is determined by the probability of the event occurring within a given timeframe. <br />
     The calculation often results in an Annualized loss expectancy (ALE)
   </>
 );
 
-export default function NewCyberRiskAssessmentMethodTab() {
+/**
+ * Assessment method, instructions, and attachments — embedded on the Details tab (formerly the Method tab).
+ */
+export default function NewCyberRiskAssessmentMethodSection() {
   const groupLabelId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [assessmentMethod, setAssessmentMethod] = useState<"qualitative" | "quantitative">(
-    "qualitative",
-  );
+  const [assessmentMethod, setAssessmentMethod] = useState<"qualitative" | "quantitative">("qualitative");
   const [instructions, setInstructions] = useState("");
 
   const handleMethodChange = useCallback((_event: React.ChangeEvent<HTMLInputElement>, value: string) => {
@@ -66,8 +66,8 @@ export default function NewCyberRiskAssessmentMethodTab() {
   }, []);
 
   return (
-    <Stack gap={4} sx={{ pt: 3, pb: 4 }}>
-      <Stack gap={2} sx={{ maxWidth: 1280 }}>
+    <Stack gap={3} sx={{ maxWidth: 1280, width: "100%" }}>
+      <Stack gap={2}>
         <Typography
           id={groupLabelId}
           variant="caption"
@@ -77,6 +77,8 @@ export default function NewCyberRiskAssessmentMethodTab() {
             color: t.semantic.color.type.default.value,
             letterSpacing: "0.3px",
             m: 0,
+            fontSize: "24px",
+            lineHeight: 1.3,
           })}
         >
           Select assessment method
@@ -171,7 +173,7 @@ export default function NewCyberRiskAssessmentMethodTab() {
         </FormControl>
       </Stack>
 
-      <Stack gap={3} sx={{ maxWidth: 1280 }}>
+      <Stack gap={3} sx={{ pt: 2 }}>
         <SectionHeader title="Instructions" headingLevel="h2" />
 
         <Stack gap={3}>
