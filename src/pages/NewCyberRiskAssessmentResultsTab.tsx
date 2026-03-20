@@ -1,0 +1,1153 @@
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { SectionHeader } from "@diligentcorp/atlas-react-bundle";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  IconButton,
+  Link,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  useTheme as useMuiTheme,
+} from "@mui/material";
+import {
+  DataGridPro,
+  type GridColDef,
+  type GridRenderCellParams,
+} from "@mui/x-data-grid-pro";
+import { Chart as ChartJS, ArcElement, Legend, Tooltip } from "chart.js";
+import { Doughnut } from "react-chartjs-2";
+
+import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
+import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
+
+type RagKey = "neg05" | "neg04" | "neg03" | "neu03" | "pos04";
+
+type RagPalette = {
+  negative: Record<"03" | "04" | "05", { value: string }>;
+  neutral: Record<"03", { value: string }>;
+  positive: Record<"04", { value: string }>;
+};
+
+function ragColor(tokens: { semantic: { color: { dataVisualization: { rag: RagPalette } } } }, rag: RagKey) {
+  const { rag: r } = tokens.semantic.color.dataVisualization;
+  switch (rag) {
+    case "neg05":
+      return r.negative["05"].value;
+    case "neg04":
+      return r.negative["04"].value;
+    case "neg03":
+      return r.negative["03"].value;
+    case "neu03":
+      return r.neutral["03"].value;
+    case "pos04":
+      return r.positive["04"].value;
+    default:
+      return r.neutral["03"].value;
+  }
+}
+
+/** Chart.js canvas cannot parse CSS variables — use literal color or computed RGB. */
+const RAG_COLOR_CANVAS_FALLBACK: Record<RagKey, string> = {
+  neg05: "#a01516",
+  neg04: "#c92624",
+  neg03: "#ea580c",
+  neu03: "#ffbf00",
+  pos04: "#26c926",
+};
+
+/** Solid white gaps between arcs; theme tokens can resolve to hues that read as yellow on canvas. */
+const DONUT_SEGMENT_BORDER = "#ffffff";
+
+function resolveColorForCanvas(cssColor: string, fallbackHex: string): string {
+  const trimmed = (cssColor ?? "").trim();
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (/^rgba?\(/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (typeof document === "undefined") {
+    return fallbackHex;
+  }
+  const el = document.createElement("div");
+  el.style.cssText =
+    "position:absolute;clip:rect(0,0,0,0);pointer-events:none;left:0;top:0;width:1px;height:1px;background-color:" +
+    trimmed;
+  document.body.appendChild(el);
+  const resolved = getComputedStyle(el).backgroundColor;
+  document.body.removeChild(el);
+  if (!resolved || resolved === "rgba(0, 0, 0, 0)" || resolved === "transparent") {
+    return fallbackHex;
+  }
+  return resolved;
+}
+
+type ScoreChip = { numeric: string; label: string; rag: RagKey };
+
+function ResultsRiskChip({ value }: { value: ScoreChip }) {
+  return (
+    <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16, py: 1 }}>
+      <Box
+        sx={({ tokens: t }) => ({
+          width: 16,
+          height: 16,
+          borderRadius: t.semantic.radius.sm.value,
+          flexShrink: 0,
+          bgcolor: ragColor(t, value.rag),
+        })}
+      />
+      <Typography
+        component="span"
+        sx={({ tokens: t }) => ({
+          fontSize: t.semantic.font.label.xs.fontSize.value,
+          lineHeight: t.semantic.font.label.xs.lineHeight.value,
+          letterSpacing: t.semantic.font.label.xs.letterSpacing.value,
+          fontWeight: t.semantic.font.label.xs.fontWeight.value,
+          color: t.semantic.color.type.default.value,
+          whiteSpace: "nowrap",
+        })}
+      >
+        {value.numeric} - {value.label}
+      </Typography>
+    </Stack>
+  );
+}
+
+/** Heatmap band 0 = very low … 4 = very high */
+const HEATMAP_BAND_COLORS: RagKey[] = ["pos04", "pos04", "neu03", "neg03", "neg05"];
+
+type HeatCell = { band: number; count: number | null };
+
+/** 5×5 matrix: rows = likelihood high → low, cols = impact low → high */
+const HEATMAP_DATA: HeatCell[][] = [
+  [
+    { band: 3, count: null },
+    { band: 3, count: null },
+    { band: 4, count: 1 },
+    { band: 4, count: null },
+    { band: 4, count: null },
+  ],
+  [
+    { band: 2, count: null },
+    { band: 3, count: null },
+    { band: 3, count: null },
+    { band: 4, count: null },
+    { band: 4, count: 1 },
+  ],
+  [
+    { band: 2, count: null },
+    { band: 2, count: null },
+    { band: 3, count: null },
+    { band: 3, count: null },
+    { band: 4, count: null },
+  ],
+  [
+    { band: 1, count: null },
+    { band: 2, count: null },
+    { band: 2, count: null },
+    { band: 3, count: null },
+    { band: 3, count: null },
+  ],
+  [
+    { band: 0, count: null },
+    { band: 1, count: null },
+    { band: 2, count: null },
+    { band: 2, count: null },
+    { band: 3, count: null },
+  ],
+];
+
+const HEATMAP_LEGEND = [
+  { range: "100 - 125", label: "Very high", count: 1, rag: "neg05" as RagKey },
+  { range: "75 - 99", label: "High", count: 1, rag: "neg03" as RagKey },
+  { range: "45 - 74", label: "Medium", count: null, rag: "neu03" as RagKey },
+  { range: "26 - 44", label: "Low", count: null, rag: "pos04" as RagKey },
+  { range: "1 - 25", label: "Very low", count: null, rag: "pos04" as RagKey },
+];
+
+const DONUT_SEGMENTS = [
+  { range: "21 - 25", label: "Very high", count: 2, colorKey: "neg05" as RagKey },
+  { range: "12 - 20", label: "High", count: 1, colorKey: "neg04" as RagKey },
+  { range: "8 - 11", label: "Medium", count: 1, colorKey: "neu03" as RagKey },
+  { range: "6 - 10", label: "Low", count: null, colorKey: "pos04" as RagKey },
+  { range: "1 - 5", label: "Very low", count: null, colorKey: "pos04" as RagKey },
+];
+
+type CyberRowKind = "cyberRisk" | "scenario";
+
+type CyberResultsRow = {
+  id: string;
+  kind: CyberRowKind;
+  groupId: string;
+  name: string;
+  impact: ScoreChip;
+  threat: ScoreChip;
+  vulnerability: ScoreChip;
+  likelihood: ScoreChip;
+  cyberRiskScore: ScoreChip;
+};
+
+const CYBER_RESULTS_ROWS: CyberResultsRow[] = [
+  {
+    id: "cr-rw",
+    kind: "cyberRisk",
+    groupId: "rw",
+    name: "Loss of revenue due to ransomware attack",
+    impact: { numeric: "4", label: "High", rag: "neg03" },
+    threat: { numeric: "5", label: "Very high", rag: "neg05" },
+    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
+    likelihood: { numeric: "20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "100", label: "Very high", rag: "neg05" },
+  },
+  {
+    id: "rw-s1",
+    kind: "scenario",
+    groupId: "rw",
+    name: "Loss of revenue due to Ransomware attack exploiting Unpatched web server on Payment gateway.",
+    impact: { numeric: "4", label: "High", rag: "neg03" },
+    threat: { numeric: "3", label: "Medium", rag: "neu03" },
+    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
+    likelihood: { numeric: "15", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "80", label: "High", rag: "neg04" },
+  },
+  {
+    id: "rw-s2",
+    kind: "scenario",
+    groupId: "rw",
+    name: "Loss of revenue due to Ransomware attack exploiting Misconfigured firewall on Customer database.",
+    impact: { numeric: "3", label: "Medium", rag: "neu03" },
+    threat: { numeric: "4", label: "High", rag: "neg03" },
+    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
+    likelihood: { numeric: "12", label: "Medium", rag: "neu03" },
+    cyberRiskScore: { numeric: "60", label: "Medium", rag: "neu03" },
+  },
+  {
+    id: "rw-s3",
+    kind: "scenario",
+    groupId: "rw",
+    name: "Loss of revenue due to Ransomware attack exploiting Weak credentials on Payment gateway.",
+    impact: { numeric: "5", label: "Very high", rag: "neg05" },
+    threat: { numeric: "5", label: "Very high", rag: "neg05" },
+    vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
+    likelihood: { numeric: "20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "100", label: "Very high", rag: "neg05" },
+  },
+  {
+    id: "rw-s4",
+    kind: "scenario",
+    groupId: "rw",
+    name: "Loss of revenue due to Ransomware attack exploiting Outdated OS on File server.",
+    impact: { numeric: "3", label: "Medium", rag: "neu03" },
+    threat: { numeric: "3", label: "Medium", rag: "neu03" },
+    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
+    likelihood: { numeric: "10", label: "Medium", rag: "neu03" },
+    cyberRiskScore: { numeric: "48", label: "Medium", rag: "neu03" },
+  },
+  {
+    id: "cr-ph",
+    kind: "cyberRisk",
+    groupId: "ph",
+    name: "Data breach due to phishing attack",
+    impact: { numeric: "3", label: "Medium", rag: "neu03" },
+    threat: { numeric: "5", label: "Very high", rag: "neg05" },
+    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
+    likelihood: { numeric: "15", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "75", label: "High", rag: "neg04" },
+  },
+];
+
+type AssetResultRow = {
+  id: string;
+  name: string;
+  assetId: string;
+  cyberRiskScore: ScoreChip;
+  criticality: ScoreChip;
+  confidentiality: ScoreChip;
+  integrity: ScoreChip;
+  availability: ScoreChip;
+};
+
+const ASSET_RESULT_ROWS: AssetResultRow[] = [
+  {
+    id: "1",
+    name: "Payment gateway API",
+    assetId: "AST-1020",
+    cyberRiskScore: { numeric: "16", label: "High", rag: "neg04" },
+    criticality: { numeric: "4", label: "High", rag: "neg03" },
+    confidentiality: { numeric: "5", label: "Very high", rag: "neg05" },
+    integrity: { numeric: "3", label: "Medium", rag: "neu03" },
+    availability: { numeric: "4", label: "High", rag: "neg03" },
+  },
+  {
+    id: "2",
+    name: "Customer database",
+    assetId: "AST-1005",
+    cyberRiskScore: { numeric: "25", label: "Very high", rag: "neg05" },
+    criticality: { numeric: "5", label: "Very high", rag: "neg05" },
+    confidentiality: { numeric: "5", label: "Very high", rag: "neg05" },
+    integrity: { numeric: "4", label: "High", rag: "neg03" },
+    availability: { numeric: "5", label: "Very high", rag: "neg05" },
+  },
+  {
+    id: "3",
+    name: "Social media accounts",
+    assetId: "AST-056",
+    cyberRiskScore: { numeric: "15", label: "High", rag: "neg03" },
+    criticality: { numeric: "3", label: "Medium", rag: "neu03" },
+    confidentiality: { numeric: "4", label: "High", rag: "neg03" },
+    integrity: { numeric: "2", label: "Low", rag: "pos04" },
+    availability: { numeric: "2", label: "Low", rag: "pos04" },
+  },
+];
+
+function ResultsNameCell({
+  row,
+  expanded,
+  onToggle,
+}: {
+  row: CyberResultsRow;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const isGroup = row.kind === "cyberRisk";
+  return (
+    <Stack
+      direction="row"
+      alignItems="flex-start"
+      gap={1}
+      sx={{
+        py: 1,
+        minHeight: 56,
+        pl: isGroup ? 0 : 4,
+      }}
+    >
+      {isGroup ? (
+        <IconButton
+          size="small"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={expanded ? "Collapse cyber risk" : "Expand cyber risk"}
+          sx={{ mt: 0.25, p: 0.5 }}
+        >
+          <Box
+            component="span"
+            sx={{
+              display: "inline-flex",
+              transform: expanded ? "rotate(0deg)" : "rotate(-90deg)",
+              transition: "transform 0.2s",
+            }}
+          >
+            <ExpandDownIcon aria-hidden />
+          </Box>
+        </IconButton>
+      ) : null}
+      <Typography
+        sx={({ tokens: t }) => ({
+          fontSize: t.semantic.font.text.md.fontSize.value,
+          lineHeight: t.semantic.font.text.md.lineHeight.value,
+          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+          color: t.semantic.color.type.default.value,
+          fontWeight: isGroup ? 600 : 400,
+          minWidth: 0,
+        })}
+      >
+        {row.name}
+      </Typography>
+    </Stack>
+  );
+}
+
+function CyberRisksResultsTable({
+  visibleRows,
+  expanded,
+  onToggleGroup,
+}: {
+  visibleRows: CyberResultsRow[];
+  expanded: Record<string, boolean>;
+  onToggleGroup: (groupId: string) => void;
+}) {
+  return (
+    <TableContainer
+      sx={({ tokens: t }) => ({
+        overflowX: "auto",
+        borderRadius: t.semantic.radius.md.value,
+        bgcolor: t.semantic.color.background.base.value,
+        maxWidth: 1280,
+      })}
+    >
+      <Table
+        stickyHeader
+        size="small"
+        sx={{
+          tableLayout: "fixed",
+          width: "100%",
+          minWidth: 1100,
+          borderCollapse: "separate",
+          borderSpacing: 0,
+          "& .MuiTableCell-root": {
+            borderBottom: ({ tokens: t }) => `1px solid ${t.semantic.color.ui.divider.default.value}`,
+          },
+          "& .MuiTableBody-root .MuiTableCell-root": {
+            verticalAlign: "top",
+          },
+        }}
+      >
+        <colgroup>
+          <col style={{ width: 360 }} />
+          <col style={{ width: 130 }} />
+          <col style={{ width: 150 }} />
+          <col style={{ width: 170 }} />
+          <col style={{ width: 120 }} />
+          <col style={{ width: 150 }} />
+          <col style={{ width: 176 }} />
+        </colgroup>
+        <TableHead>
+          <TableRow
+            sx={({ tokens: t }) => ({
+              "& .MuiTableCell-head": {
+                bgcolor: t.semantic.color.background.container.value,
+                fontSize: t.semantic.font.label.sm.fontSize.value,
+                lineHeight: t.semantic.font.label.sm.lineHeight.value,
+                letterSpacing: t.semantic.font.label.sm.letterSpacing.value,
+                fontWeight: 600,
+                color: t.semantic.color.type.default.value,
+                py: 0.5,
+                px: 2,
+                verticalAlign: "middle",
+              },
+            })}
+          >
+            <TableCell
+              sx={({ tokens: t }) => ({
+                position: "sticky",
+                left: 0,
+                zIndex: 3,
+                bgcolor: t.semantic.color.background.container.value,
+              })}
+            >
+              Name
+            </TableCell>
+            <TableCell>Impact</TableCell>
+            <TableCell sx={{ whiteSpace: "nowrap" }}>Threat severity</TableCell>
+            <TableCell sx={{ whiteSpace: "nowrap" }}>Vulnerability severity</TableCell>
+            <TableCell>Likelihood</TableCell>
+            <TableCell sx={{ whiteSpace: "nowrap" }}>Cyber risk score</TableCell>
+            <TableCell sx={{ whiteSpace: "nowrap" }}>Mitigation plan</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {visibleRows.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell
+                sx={({ tokens: t }) => ({
+                  position: "sticky",
+                  left: 0,
+                  zIndex: 2,
+                  bgcolor: t.semantic.color.background.base.value,
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                })}
+              >
+                <ResultsNameCell
+                  row={row}
+                  expanded={expanded[row.groupId] !== false}
+                  onToggle={() => onToggleGroup(row.groupId)}
+                />
+              </TableCell>
+              <TableCell sx={{ px: 2, py: 0 }}>
+                <ResultsRiskChip value={row.impact} />
+              </TableCell>
+              <TableCell sx={{ px: 2, py: 0 }}>
+                <ResultsRiskChip value={row.threat} />
+              </TableCell>
+              <TableCell sx={{ px: 2, py: 0 }}>
+                <ResultsRiskChip value={row.vulnerability} />
+              </TableCell>
+              <TableCell sx={{ px: 2, py: 0 }}>
+                <ResultsRiskChip value={row.likelihood} />
+              </TableCell>
+              <TableCell sx={{ px: 2, py: 0 }}>
+                <ResultsRiskChip value={row.cyberRiskScore} />
+              </TableCell>
+              <TableCell sx={{ px: 2, py: 0, verticalAlign: "middle" }}>
+                {row.kind === "cyberRisk" ? (
+                  <Button
+                    href="#"
+                    onClick={(e) => e.preventDefault()}
+                    size="small"
+                    variant="text"
+                    sx={({ tokens: t }) => ({
+                      fontWeight: 600,
+                      textTransform: "none",
+                      color: t.semantic.color.action.link.default.value,
+                    })}
+                  >
+                    + Mitigation plan
+                  </Button>
+                ) : null}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+}
+
+const ASSETS_DONUT_ACTIVE_SEGMENTS = DONUT_SEGMENTS.filter((s) => s.count != null && s.count > 0);
+
+function AssetsRiskDonut() {
+  const { tokens: t } = useMuiTheme();
+  const totalAssets = useMemo(
+    () => DONUT_SEGMENTS.reduce((sum, s) => sum + (s.count ?? 0), 0),
+    [],
+  );
+
+  const [arcCanvasColors, setArcCanvasColors] = useState(() =>
+    ASSETS_DONUT_ACTIVE_SEGMENTS.map((s) => RAG_COLOR_CANVAS_FALLBACK[s.colorKey]),
+  );
+
+  useLayoutEffect(() => {
+    setArcCanvasColors(
+      ASSETS_DONUT_ACTIVE_SEGMENTS.map((s) =>
+        resolveColorForCanvas(ragColor(t, s.colorKey), RAG_COLOR_CANVAS_FALLBACK[s.colorKey]),
+      ),
+    );
+  }, [t]);
+
+  const chartData = useMemo(
+    () => ({
+      labels: ASSETS_DONUT_ACTIVE_SEGMENTS.map((s) => s.label),
+      datasets: [
+        {
+          data: ASSETS_DONUT_ACTIVE_SEGMENTS.map((s) => s.count as number),
+          backgroundColor: arcCanvasColors,
+          borderColor: DONUT_SEGMENT_BORDER,
+          borderWidth: 2,
+          hoverBorderColor: DONUT_SEGMENT_BORDER,
+        },
+      ],
+    }),
+    [arcCanvasColors],
+  );
+
+  return (
+    <Box sx={{ position: "relative", width: 256, height: 256 }}>
+      <Doughnut
+        data={chartData}
+        options={{
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: "72%",
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true },
+          },
+          elements: {
+            arc: {
+              borderWidth: 2,
+              borderColor: DONUT_SEGMENT_BORDER,
+            },
+          },
+        }}
+      />
+      <Box
+        sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          textAlign: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <Typography
+          sx={({ tokens: th }) => ({
+            fontSize: 26,
+            lineHeight: "34px",
+            display: "block",
+            color: th.semantic.color.type.default.value,
+          })}
+        >
+          {totalAssets}
+        </Typography>
+        <Typography
+          variant="body1"
+          sx={({ tokens: th }) => ({
+            color: th.semantic.color.type.muted.value,
+            lineHeight: "24px",
+            letterSpacing: "0.2px",
+          })}
+        >
+          Assets
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function AssetsResultsGrid() {
+  const columns: GridColDef<AssetResultRow>[] = useMemo(
+    () => [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<AssetResultRow>) => (
+          <Link
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            underline="hover"
+            sx={({ tokens: t }) => ({
+              fontWeight: 600,
+              fontSize: t.semantic.font.text.md.fontSize.value,
+              color: t.semantic.color.action.link.default.value,
+            })}
+          >
+            {params.value as string}
+          </Link>
+        ),
+      },
+      {
+        field: "assetId",
+        headerName: "ID",
+        width: 120,
+      },
+      {
+        field: "cyberRiskScore",
+        headerName: "Cyber risk score",
+        width: 150,
+        sortable: false,
+        renderCell: (params: GridRenderCellParams<AssetResultRow>) => (
+          <ResultsRiskChip value={params.row.cyberRiskScore} />
+        ),
+      },
+      {
+        field: "criticality",
+        headerName: "Criticality level",
+        width: 140,
+        sortable: false,
+        renderCell: (params: GridRenderCellParams<AssetResultRow>) => (
+          <ResultsRiskChip value={params.row.criticality} />
+        ),
+      },
+      {
+        field: "confidentiality",
+        headerName: "Confidentiality",
+        width: 130,
+        sortable: false,
+        renderCell: (params: GridRenderCellParams<AssetResultRow>) => (
+          <ResultsRiskChip value={params.row.confidentiality} />
+        ),
+      },
+      {
+        field: "integrity",
+        headerName: "Integrity",
+        width: 120,
+        sortable: false,
+        renderCell: (params: GridRenderCellParams<AssetResultRow>) => (
+          <ResultsRiskChip value={params.row.integrity} />
+        ),
+      },
+      {
+        field: "availability",
+        headerName: "Availability",
+        width: 130,
+        sortable: false,
+        renderCell: (params: GridRenderCellParams<AssetResultRow>) => (
+          <ResultsRiskChip value={params.row.availability} />
+        ),
+      },
+    ],
+    [],
+  );
+
+  return (
+    <Box sx={{ width: "100%", maxWidth: 1280 }}>
+      <DataGridPro
+        rows={ASSET_RESULT_ROWS}
+        columns={columns}
+        autoHeight
+        disableRowSelectionOnClick
+        pinnedColumns={{ left: ["name"] }}
+        pinnedColumnsSectionSeparator="border"
+        getRowId={(r) => r.id}
+        hideFooter
+        slotProps={{
+          main: { "aria-label": "Assets in this assessment" },
+        }}
+        sx={({ tokens: t }) => ({
+          border: "none",
+          borderRadius: t.semantic.radius.md.value,
+          "& .MuiDataGrid-scrollShadow": { display: "none" },
+          "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
+          "& .MuiDataGrid-columnHeaders": {
+            backgroundColor: t.semantic.color.background.container.value,
+          },
+          "& .MuiDataGrid-columnHeaderTitle": {
+            fontWeight: 600,
+            fontSize: 12,
+            letterSpacing: "0.3px",
+          },
+          "& .MuiDataGrid-withBorderColor": {
+            borderColor: t.semantic.color.outline.default.value,
+          },
+        })}
+        showColumnVerticalBorder
+        showCellVerticalBorder
+      />
+    </Box>
+  );
+}
+
+type OverviewScope = "cyberRisks" | "riskScenarios";
+
+const OVERVIEW_SCOPE_OPTIONS: { value: OverviewScope; label: string }[] = [
+  { value: "cyberRisks", label: "Cyber risks" },
+  { value: "riskScenarios", label: "Risk scenarios" },
+];
+
+export default function NewCyberRiskAssessmentResultsTab() {
+  const { presets } = useMuiTheme();
+  const menuPosition =
+    presets.MenuPresets?.positionFromAnchorEl?.bottomRight ?? {};
+
+  const [overviewScope, setOverviewScope] = useState<OverviewScope>("cyberRisks");
+  const [overviewMenuAnchor, setOverviewMenuAnchor] = useState<null | HTMLElement>(null);
+  const overviewMenuOpen = Boolean(overviewMenuAnchor);
+  const overviewScopeLabel =
+    OVERVIEW_SCOPE_OPTIONS.find((o) => o.value === overviewScope)?.label ?? "Cyber risks";
+
+  const [cyberSectionExpanded, setCyberSectionExpanded] = useState(true);
+  const [assetsSectionExpanded, setAssetsSectionExpanded] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    rw: true,
+    ph: false,
+  });
+
+  const toggleGroup = useCallback((groupId: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [groupId]: !(prev[groupId] !== false) }));
+  }, []);
+
+  const visibleCyberRows = useMemo(() => {
+    const out: CyberResultsRow[] = [];
+    let currentGroup = "";
+    let groupOpen = true;
+    for (const row of CYBER_RESULTS_ROWS) {
+      if (row.kind === "cyberRisk") {
+        currentGroup = row.groupId;
+        groupOpen = expandedGroups[row.groupId] !== false;
+        out.push(row);
+        continue;
+      }
+      if (row.groupId === currentGroup && groupOpen) {
+        out.push(row);
+      }
+    }
+    return out;
+  }, [expandedGroups]);
+
+  return (
+    <Stack gap={6} sx={{ pt: 3, pb: 4, maxWidth: 1280 }}>
+      <Box
+        sx={({ tokens: t }) => ({
+          borderRadius: t.semantic.radius.md.value,
+          bgcolor: t.semantic.color.surface.variant.value,
+          p: 3,
+          width: "100%",
+        })}
+      >
+        <Stack gap={2}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent="space-between"
+            gap={2}
+          >
+            <Typography
+              component="h2"
+              sx={({ tokens: t }) => ({
+                fontSize: 22,
+                fontWeight: 600,
+                lineHeight: "28px",
+                color: t.semantic.color.type.default.value,
+              })}
+            >
+              Overview
+            </Typography>
+            <>
+              <Button
+                id="results-overview-scope-button"
+                variant="outlined"
+                color="inherit"
+                endIcon={<ExpandDownIcon />}
+                aria-controls={overviewMenuOpen ? "results-overview-scope-menu" : undefined}
+                aria-haspopup="true"
+                aria-expanded={overviewMenuOpen ? "true" : undefined}
+                onClick={(e) => setOverviewMenuAnchor(e.currentTarget)}
+                sx={({ tokens: t }) => ({
+                  minWidth: 182,
+                  bgcolor: t.semantic.color.surface.variant.value,
+                  borderColor: t.semantic.color.outline.default.value,
+                })}
+              >
+                Show {overviewScopeLabel}
+              </Button>
+              <Menu
+                id="results-overview-scope-menu"
+                anchorEl={overviewMenuAnchor}
+                open={overviewMenuOpen}
+                onClose={() => setOverviewMenuAnchor(null)}
+                slotProps={{
+                  list: {
+                    "aria-labelledby": "results-overview-scope-button",
+                  },
+                }}
+                {...menuPosition}
+              >
+                {OVERVIEW_SCOPE_OPTIONS.map((opt) => (
+                  <MenuItem
+                    key={opt.value}
+                    selected={overviewScope === opt.value}
+                    onClick={() => {
+                      setOverviewScope(opt.value);
+                      setOverviewMenuAnchor(null);
+                    }}
+                  >
+                    <ListItemText>{opt.label}</ListItemText>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          </Stack>
+
+          <Stack
+            direction={{ xs: "column", lg: "row" }}
+            gap={3}
+            alignItems="stretch"
+            sx={{ width: "100%" }}
+          >
+            <Card
+              sx={({ tokens: t }) => ({
+                flex: { lg: "1.5 1 0" },
+                minWidth: 0,
+                width: "100%",
+                border: "none",
+                bgcolor: t.semantic.color.background.base.value,
+                borderRadius: "16px",
+                boxShadow: "none",
+              })}
+            >
+              <CardContent
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1.5,
+                  p: 0,
+                  flex: 1,
+                }}
+              >
+                <Stack direction="row" alignItems="center" sx={{ width: "100%", minHeight: 32 }}>
+                  <Typography variant="h4" component="h3" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
+                    Cyber risks
+                  </Typography>
+                  <IconButton size="small" aria-label="More options for cyber risks chart">
+                    <MoreIcon aria-hidden />
+                  </IconButton>
+                </Stack>
+
+                <Stack direction="row" gap={1} alignItems="stretch" sx={{ width: "100%" }}>
+                  <Typography
+                    variant="caption"
+                    sx={({ tokens: th }) => ({
+                      color: th.semantic.color.type.muted.value,
+                      fontWeight: 600,
+                      writingMode: "vertical-rl",
+                      transform: "rotate(180deg)",
+                      textAlign: "center",
+                      alignSelf: "center",
+                      flexShrink: 0,
+                    })}
+                  >
+                    Likelihood
+                  </Typography>
+                  <Box sx={{ flex: 1, overflowX: "auto", minWidth: 0 }}>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(5, minmax(44px, 1fr))",
+                        gridTemplateRows: "repeat(5, 52px)",
+                        gap: 0.5,
+                        alignItems: "stretch",
+                        minWidth: 260,
+                      }}
+                    >
+                      {HEATMAP_DATA.map((row, ri) =>
+                        row.map((cell, ci) => (
+                          <Box
+                            key={`cell-${5 - ri}-${ci + 1}`}
+                            sx={({ tokens: th }) => ({
+                              gridColumn: ci + 1,
+                              gridRow: ri + 1,
+                              borderRadius: th.semantic.radius.sm.value,
+                              bgcolor: ragColor(th, HEATMAP_BAND_COLORS[cell.band] ?? "neu03"),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              minHeight: 48,
+                            })}
+                          >
+                            {cell.count != null ? (
+                              <Typography
+                                sx={({ tokens: th }) => ({
+                                  fontWeight: 800,
+                                  fontSize: 12,
+                                  color: th.semantic.color.type.inverse.value,
+                                })}
+                              >
+                                {cell.count}
+                              </Typography>
+                            ) : null}
+                          </Box>
+                        )),
+                      )}
+                    </Box>
+                  </Box>
+                </Stack>
+
+                <Stack direction="row" justifyContent="center" sx={{ width: "100%" }}>
+                  <Typography
+                    variant="caption"
+                    sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value, fontWeight: 600 })}
+                  >
+                    Impact
+                  </Typography>
+                </Stack>
+
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" },
+                    gap: 2,
+                    width: "100%",
+                  }}
+                >
+                  {HEATMAP_LEGEND.map((item) => (
+                    <Stack key={item.range} gap={0} alignItems="flex-start">
+                      <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16 }}>
+                        <Box
+                          sx={({ tokens: t }) => ({
+                            width: 16,
+                            height: 16,
+                            borderRadius: t.semantic.radius.sm.value,
+                            flexShrink: 0,
+                            bgcolor: ragColor(t, item.rag),
+                          })}
+                        />
+                        <Typography
+                          variant="textSm"
+                          sx={({ tokens: t }) => ({
+                            color: t.semantic.color.type.default.value,
+                            letterSpacing: "0.3px",
+                            lineHeight: "16px",
+                          })}
+                        >
+                          {item.range} {item.label}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" sx={{ pl: 3 }}>
+                        {item.count != null ? (
+                          <Link
+                            href="#"
+                            onClick={(e) => e.preventDefault()}
+                            underline="always"
+                            sx={({ tokens: t }) => ({
+                              fontWeight: 800,
+                              fontSize: 12,
+                              lineHeight: "16px",
+                              color: t.semantic.color.type.default.value,
+                            })}
+                          >
+                            {item.count}
+                          </Link>
+                        ) : (
+                          <Typography
+                            component="span"
+                            sx={({ tokens: t }) => ({
+                              fontSize: 12,
+                              color: t.semantic.color.type.muted.value,
+                            })}
+                          >
+                            —
+                          </Typography>
+                        )}
+                      </Stack>
+                    </Stack>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card
+              sx={({ tokens: t }) => ({
+                flex: { lg: "1 1 480px" },
+                minWidth: { lg: 320 },
+                width: "100%",
+                maxWidth: { lg: 480 },
+                border: "none",
+                bgcolor: t.semantic.color.background.base.value,
+                borderRadius: "16px",
+                boxShadow: "none",
+              })}
+            >
+              <CardContent
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1.5,
+                  p: 0,
+                  pb: 3,
+                  flex: 1,
+                }}
+              >
+                <Stack direction="row" alignItems="center" sx={{ width: "100%", minHeight: 32 }}>
+                  <Typography variant="h4" component="h3" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
+                    Assets by cyber risk score
+                  </Typography>
+                  <IconButton size="small" aria-label="More options for assets chart">
+                    <MoreIcon aria-hidden />
+                  </IconButton>
+                </Stack>
+
+                <Box
+                  sx={{
+                    position: "relative",
+                    flex: "1 1 auto",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 260,
+                    width: "100%",
+                  }}
+                >
+                  <AssetsRiskDonut />
+                </Box>
+
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
+                    gridTemplateRows: { xs: "none", sm: "repeat(2, minmax(0, auto))" },
+                    columnGap: 2,
+                    rowGap: 2,
+                    width: "100%",
+                  }}
+                >
+                  {DONUT_SEGMENTS.map((item) => (
+                    <Stack key={item.range} gap={0} alignItems="flex-start">
+                      <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16 }}>
+                        <Box
+                          sx={({ tokens: t }) => ({
+                            width: 16,
+                            height: 16,
+                            borderRadius: t.semantic.radius.sm.value,
+                            flexShrink: 0,
+                            bgcolor: ragColor(t, item.colorKey),
+                          })}
+                        />
+                        <Typography
+                          variant="textSm"
+                          sx={({ tokens: t }) => ({
+                            color: t.semantic.color.type.default.value,
+                            letterSpacing: "0.3px",
+                            lineHeight: "16px",
+                          })}
+                        >
+                          {item.range} {item.label}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" sx={{ pl: 3 }}>
+                        {item.count != null ? (
+                          <Link
+                            href="#"
+                            onClick={(e) => e.preventDefault()}
+                            underline="always"
+                            sx={({ tokens: t }) => ({
+                              fontWeight: 600,
+                              fontSize: t.semantic.font.text.md.fontSize.value,
+                              lineHeight: t.semantic.font.text.md.lineHeight.value,
+                              letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                              color: t.semantic.color.type.default.value,
+                            })}
+                          >
+                            {item.count}
+                          </Link>
+                        ) : (
+                          <Typography
+                            component="span"
+                            sx={({ tokens: t }) => ({
+                              fontSize: t.semantic.font.text.md.fontSize.value,
+                              lineHeight: t.semantic.font.text.md.lineHeight.value,
+                              letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                              color: t.semantic.color.type.default.value,
+                            })}
+                          >
+                            -
+                          </Typography>
+                        )}
+                      </Stack>
+                    </Stack>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          </Stack>
+        </Stack>
+      </Box>
+
+      <SectionHeader
+        title="Cyber risks"
+        headingLevel="h2"
+        isExpandable
+        isExpanded={cyberSectionExpanded}
+        expandButtonAriaLabel={cyberSectionExpanded ? "Collapse cyber risks section" : "Expand cyber risks section"}
+        onExpand={() => setCyberSectionExpanded(true)}
+        onCollapse={() => setCyberSectionExpanded(false)}
+      >
+        {cyberSectionExpanded ? (
+          <CyberRisksResultsTable
+            visibleRows={visibleCyberRows}
+            expanded={expandedGroups}
+            onToggleGroup={toggleGroup}
+          />
+        ) : null}
+      </SectionHeader>
+
+      <SectionHeader
+        title="Assets"
+        headingLevel="h2"
+        isExpandable
+        isExpanded={assetsSectionExpanded}
+        expandButtonAriaLabel={assetsSectionExpanded ? "Collapse assets section" : "Expand assets section"}
+        onExpand={() => setAssetsSectionExpanded(true)}
+        onCollapse={() => setAssetsSectionExpanded(false)}
+      >
+        {assetsSectionExpanded ? <AssetsResultsGrid /> : null}
+      </SectionHeader>
+    </Stack>
+  );
+}

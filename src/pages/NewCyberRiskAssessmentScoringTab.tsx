@@ -611,7 +611,18 @@ function NameCell({
             {row.tag}
           </Typography>
         </Box>
-        <Box sx={{ overflow: "hidden" }}>{row.title}</Box>
+        <Box
+          sx={{
+            minWidth: 0,
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+            "& .MuiTypography-root": { whiteSpace: "normal" },
+            "& .MuiLink-root": { whiteSpace: "normal" },
+          }}
+        >
+          {row.title}
+        </Box>
       </Stack>
     </Stack>
   );
@@ -652,11 +663,12 @@ export default function NewCyberRiskAssessmentScoringTab() {
       <Box
         sx={({ tokens: t }) => ({
           borderRadius: t.semantic.radius.md.value,
-          bgcolor: t.semantic.color.accent.red.background.value,
+          background: "none",
+          backgroundColor: "unset",
           overflow: "hidden",
           width: "100%",
           maxWidth: 1280,
-          p: 1,
+          p: 0,
         })}
       >
         <TableContainer
@@ -670,15 +682,28 @@ export default function NewCyberRiskAssessmentScoringTab() {
             stickyHeader
             size="small"
             sx={{
+              tableLayout: "fixed",
+              width: "100%",
               minWidth: 1100,
               borderCollapse: "separate",
               borderSpacing: 0,
               "& .MuiTableCell-root": {
                 borderBottom: ({ tokens: t }) => `1px solid ${t.semantic.color.ui.divider.default.value}`,
+              },
+              "& .MuiTableBody-root .MuiTableCell-root": {
                 verticalAlign: "top",
               },
             }}
           >
+            <colgroup>
+              <col style={{ width: 420 }} />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col style={{ width: 48 }} />
+            </colgroup>
             <TableHead>
               <TableRow
                 sx={({ tokens: t }) => ({
@@ -692,6 +717,7 @@ export default function NewCyberRiskAssessmentScoringTab() {
                     py: 0.5,
                     px: 2,
                     maxHeight: 56,
+                    verticalAlign: "middle",
                   },
                 })}
               >
@@ -700,9 +726,12 @@ export default function NewCyberRiskAssessmentScoringTab() {
                     position: "sticky",
                     left: 0,
                     zIndex: 3,
+                    width: 420,
                     minWidth: 320,
                     maxWidth: 420,
-                    boxShadow: ({ tokens: t }) => `4px 0 8px -4px ${t.semantic.color.ui.divider.default.value}`,
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
                   }}
                 >
                   Name
@@ -719,7 +748,6 @@ export default function NewCyberRiskAssessmentScoringTab() {
                     position: "sticky",
                     right: 0,
                     zIndex: 3,
-                    boxShadow: ({ tokens: t }) => `-4px 0 8px -4px ${t.semantic.color.ui.divider.default.value}`,
                   }}
                 />
               </TableRow>
@@ -733,9 +761,12 @@ export default function NewCyberRiskAssessmentScoringTab() {
                       left: 0,
                       zIndex: 2,
                       bgcolor: t.semantic.color.background.base.value,
+                      width: 420,
                       minWidth: 320,
                       maxWidth: 420,
-                      boxShadow: `4px 0 8px -4px ${t.semantic.color.ui.divider.default.value}`,
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
+                      overflowWrap: "break-word",
                     })}
                   >
                     <NameCell
@@ -766,7 +797,6 @@ export default function NewCyberRiskAssessmentScoringTab() {
                       right: 0,
                       zIndex: 2,
                       bgcolor: t.semantic.color.background.base.value,
-                      boxShadow: `-4px 0 8px -4px ${t.semantic.color.ui.divider.default.value}`,
                       verticalAlign: "middle",
                     })}
                   >

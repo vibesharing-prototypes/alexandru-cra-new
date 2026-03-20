@@ -33,6 +33,7 @@ import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
 import NewCyberRiskAssessmentMethodTab from "./NewCyberRiskAssessmentMethodTab.js";
 import NewCyberRiskAssessmentScoringTab from "./NewCyberRiskAssessmentScoringTab.js";
+import NewCyberRiskAssessmentResultsTab from "./NewCyberRiskAssessmentResultsTab.js";
 import NewCyberRiskAssessmentScopeTab from "./NewCyberRiskAssessmentScopeTab.js";
 
 const TAB_LABELS = [
@@ -90,21 +91,6 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
     >
       {children}
     </Typography>
-  );
-}
-
-function PlaceholderTab({ label }: { label: string }) {
-  return (
-    <Box
-      sx={({ tokens: t }) => ({
-        py: 6,
-        display: "flex",
-        justifyContent: "center",
-        color: t.semantic.color.type.muted.value,
-      })}
-    >
-      <Typography variant="body1">{label} content</Typography>
-    </Box>
   );
 }
 
@@ -217,8 +203,8 @@ export default function NewCyberRiskAssessmentPage() {
         <Tabs
           value={activeTab}
           onChange={(_e, v: number) => {
-            if (v >= 4) return;
             if (v === 3 && !assessmentInProgress) return;
+            if (v === 4 && !assessmentInProgress) return;
             setActiveTab(v);
           }}
           aria-label="New cyber risk assessment steps"
@@ -230,7 +216,7 @@ export default function NewCyberRiskAssessmentPage() {
         >
           {TAB_LABELS.map((label, index) => {
             const scoringLocked = index === 3 && !assessmentInProgress;
-            const resultsLocked = index === 4;
+            const resultsLocked = index === 4 && !assessmentInProgress;
             const tabDisabled = scoringLocked || resultsLocked;
             return (
               <Tab
@@ -611,7 +597,7 @@ export default function NewCyberRiskAssessmentPage() {
           <NewCyberRiskAssessmentScoringTab />
         </TabPanel>
         <TabPanel value={activeTab} index={4}>
-          <PlaceholderTab label="Results" />
+          <NewCyberRiskAssessmentResultsTab />
         </TabPanel>
       </Stack>
     </Container>
