@@ -244,7 +244,7 @@ export default function CyberRiskDetailsPage() {
             </OverflowBreadcrumbs>
           }
           statusIndicator={
-            <Box sx={{ marginBottom: "auto", marginTop: 0.5 }}>
+            <Box sx={{ flexShrink: 0 }}>
               <StatusIndicator
                 color="generic"
                 label="Draft"

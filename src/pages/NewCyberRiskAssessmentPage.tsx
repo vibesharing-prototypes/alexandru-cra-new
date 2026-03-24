@@ -87,7 +87,11 @@ export default function NewCyberRiskAssessmentPage() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [initialDraft] = useState(loadCraNewAssessmentDraft);
+  const isReturningFromScenario =
+    (location.state as { craReturnToScoring?: boolean } | null)?.craReturnToScoring === true;
+  const [initialDraft] = useState(() =>
+    isReturningFromScenario ? loadCraNewAssessmentDraft() : null,
+  );
   const [activeTab, setActiveTab] = useState(initialDraft?.activeTab ?? 0);
   /** Draft → Move to assessment; In progress → Approve assessment; then Approved assessment + Approve mitigation. */
   const [assessmentPhase, setAssessmentPhase] = useState<AssessmentPhase>(
@@ -217,7 +221,7 @@ export default function NewCyberRiskAssessmentPage() {
       >
         {name.trim() || "New cyber risk assessment"}
       </Typography>
-      <Box sx={{ marginBottom: "auto", marginTop: 0.5, flexShrink: 0 }}>
+      <Box sx={{ flexShrink: 0 }}>
         {assessmentPhase === "draft" ? (
           <StatusIndicator
             customColor={({ semantic }) => ({
