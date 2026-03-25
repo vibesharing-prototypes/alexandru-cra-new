@@ -264,13 +264,17 @@ function NameCell({
           aria-label={expanded ? "Collapse cyber risk" : "Expand cyber risk"}
           sx={{ mt: 0.25, p: 0.5 }}
         >
-          <ExpandDownIcon
+          <Box
+            component="span"
             aria-hidden
             sx={{
+              display: "inline-flex",
               transform: expanded ? "rotate(0deg)" : "rotate(-90deg)",
               transition: "transform 0.2s",
             }}
-          />
+          >
+            <ExpandDownIcon />
+          </Box>
         </IconButton>
       ) : null}
       <Stack gap={0.25} sx={{ minWidth: 0, flex: 1 }}>

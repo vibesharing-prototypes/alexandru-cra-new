@@ -177,16 +177,20 @@ export default function UploadFilesPage() {
           transition: "border-color 0.2s, background-color 0.2s",
         })}
       >
-        <UploadIcon
+        <Box
+          component="span"
           sx={({ tokens }) => ({
             fontSize: 48,
             color: tokens.semantic.color.type.muted.value,
+            display: "inline-flex",
           })}
-        />
+        >
+          <UploadIcon />
+        </Box>
         <Typography variant="body1" sx={({ tokens }) => ({ color: tokens.semantic.color.type.default.value })}>
           Drag and drop files here
         </Typography>
-        <Typography variant="body2" sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}>
+        <Typography variant="body1" sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}>
           or
         </Typography>
         <Button
@@ -225,15 +229,19 @@ export default function UploadFilesPage() {
                 gap: 2,
               })}
             >
-              <FileIcon
+              <Box
+                component="span"
                 sx={({ tokens }) => ({
                   color: tokens.semantic.color.type.muted.value,
                   fontSize: 24,
+                  display: "inline-flex",
                 })}
-              />
+              >
+                <FileIcon />
+              </Box>
               <Stack sx={{ flex: 1, minWidth: 0 }} gap={0.5}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="body2" noWrap>
+                  <Typography variant="body1" noWrap>
                     {uploadFile.file.name}
                   </Typography>
                   <Typography

@@ -227,7 +227,6 @@ function ScopeToolbar({
   return (
     <Toolbar
       aria-label="Scope assets toolbar"
-      sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", py: 1.5, px: 0, width: "100%" }}
     >
       <QuickFilter expanded>
         <QuickFilterControl

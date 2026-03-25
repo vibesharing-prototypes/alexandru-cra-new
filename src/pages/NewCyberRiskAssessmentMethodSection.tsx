@@ -110,7 +110,7 @@ export default function NewCyberRiskAssessmentMethodSection() {
                 />
                 <Box sx={{ pl: 4.5 }}>
                   <Typography
-                    variant="body2"
+                    variant="body1"
                     component="p"
                     sx={({ tokens: t }) => ({
                       m: 0,
@@ -152,7 +152,7 @@ export default function NewCyberRiskAssessmentMethodSection() {
                     />
                     <Box sx={{ pl: 4.5 }}>
                       <Typography
-                        variant="body2"
+                        variant="body1"
                         component="p"
                         sx={({ tokens: t }) => ({
                           m: 0,

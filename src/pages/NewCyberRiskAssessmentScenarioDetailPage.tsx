@@ -96,15 +96,21 @@ function ScoringMetricField({ label, value }: { label: string; value: CraScoreVa
             >
               {value.numeric} - {value.label}
             </Typography>
-            <ExpandDownIcon
+            <Box
+              component="span"
               aria-hidden
               sx={({ tokens: t }) => ({
                 flexShrink: 0,
                 color: t.semantic.color.type.muted.value,
                 width: 24,
                 height: 24,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
               })}
-            />
+            >
+              <ExpandDownIcon />
+            </Box>
           </>
         ) : (
           <Typography

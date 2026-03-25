@@ -722,10 +722,6 @@ const OVERVIEW_SCOPE_OPTIONS: { value: OverviewScope; label: string }[] = [
 ];
 
 export default function NewCyberRiskAssessmentResultsTab() {
-  const { presets } = useMuiTheme();
-  const menuPosition =
-    presets.MenuPresets?.positionFromAnchorEl?.bottomRight ?? {};
-
   const [overviewScope, setOverviewScope] = useState<OverviewScope>("cyberRisks");
   const [overviewMenuAnchor, setOverviewMenuAnchor] = useState<null | HTMLElement>(null);
   const overviewMenuOpen = Boolean(overviewMenuAnchor);
@@ -817,7 +813,7 @@ export default function NewCyberRiskAssessmentResultsTab() {
                     "aria-labelledby": "results-overview-scope-button",
                   },
                 }}
-                {...menuPosition}
+
               >
                 {OVERVIEW_SCOPE_OPTIONS.map((opt) => (
                   <MenuItem

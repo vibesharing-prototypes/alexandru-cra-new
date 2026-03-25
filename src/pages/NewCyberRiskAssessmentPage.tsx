@@ -418,13 +418,13 @@ export default function NewCyberRiskAssessmentPage() {
               </Box>
               <Box sx={{ flex: { md: "3 1 0" }, minWidth: { xs: "100%", md: 200 } }}>
                 <FormControl fullWidth>
-                  <InputLabel id="assessment-type-label" size="small">
+                  <InputLabel id="assessment-type-label" size="medium">
                     Assessment type
                   </InputLabel>
                   <Select
                     labelId="assessment-type-label"
                     label="Assessment type"
-                    size="small"
+                    size="medium"
                     displayEmpty
                     value={assessmentType}
                     onChange={(e) => setAssessmentType(e.target.value)}
@@ -434,7 +434,7 @@ export default function NewCyberRiskAssessmentPage() {
                       ) : (
                         <Typography
                           component="span"
-                          variant="body2"
+                          variant="body1"
                           sx={({ tokens: t }) => ({
                             color: t.semantic.color.type.muted.value,
                           })}

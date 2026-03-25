@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   PageHeader,
   OverflowBreadcrumbs,
@@ -545,7 +544,7 @@ function AvatarCell({ name, initials }: { name: string; initials: string }) {
 
   return (
     <Stack direction="row" alignItems="center" gap={1}>
-      <Avatar {...getAvatarProps({ size: "xSmall", color: "red" })}>{initials}</Avatar>
+      <Avatar {...getAvatarProps({ size: "small", color: "red" })}>{initials}</Avatar>
       <Typography variant="textMd">{name}</Typography>
     </Stack>
   );

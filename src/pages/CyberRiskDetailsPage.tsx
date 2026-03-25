@@ -176,12 +176,12 @@ function TabPanel({
 function PlaceholderContent({ label }: { label: string }) {
   return (
     <Box
-      sx={({ tokens }) => ({
+      sx={{
         py: 6,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-      })}
+      }}
     >
       <Typography
         variant="body1"

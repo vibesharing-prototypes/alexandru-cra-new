@@ -549,7 +549,7 @@ function OwnerCell({ name, initials }: { name: string; initials: string }) {
 
   return (
     <Stack direction="row" alignItems="center" gap={1}>
-      <Avatar {...getAvatarProps({ size: "xSmall", color: "blue" })}>{initials}</Avatar>
+      <Avatar {...getAvatarProps({ size: "small", color: "blue" })}>{initials}</Avatar>
       <Typography variant="textMd">{name}</Typography>
     </Stack>
   );
