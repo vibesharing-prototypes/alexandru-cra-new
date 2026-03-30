@@ -1,19 +1,59 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
-import { Box, Container, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  FormControl,
+  IconButton,
+  MenuItem,
+  Select,
+  type SelectChangeEvent,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router";
 
-import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
+import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
 import CraScenarioEmphasisTitle from "../components/CraScenarioEmphasisTitle.js";
 import {
+  type CraRagKey,
   type CraScoreValue,
   getCraScenarioById,
 } from "../data/craScoringScenarioLibrary.js";
 
 const NEW_CRA_PATH = "/cyber-risk/cyber-risk-assessments/new";
 const ASSESSMENTS_PATH = "/cyber-risk/cyber-risk-assessments";
+
+const SCORE_OPTIONS: NonNullable<CraScoreValue>[] = [
+  { numeric: "1", label: "Very low", rag: "pos04" },
+  { numeric: "2", label: "Low", rag: "neu03" },
+  { numeric: "3", label: "Medium", rag: "neg03" },
+  { numeric: "4", label: "High", rag: "neg04" },
+  { numeric: "5", label: "Very high", rag: "neg05" },
+];
+
+function productToScale(product: number): NonNullable<CraScoreValue> {
+  if (product <= 5) return SCORE_OPTIONS[0];
+  if (product <= 10) return SCORE_OPTIONS[1];
+  if (product <= 15) return SCORE_OPTIONS[2];
+  if (product <= 20) return SCORE_OPTIONS[3];
+  return SCORE_OPTIONS[4];
+}
+
+function numericOf(v: CraScoreValue): number {
+  if (!v) return 0;
+  const n = Number(v.numeric);
+  return Number.isFinite(n) ? n : 0;
+}
 
 type RagPalette = {
   negative: Record<"03" | "04" | "05", { value: string }>;
@@ -23,7 +63,7 @@ type RagPalette = {
 
 function ragSwatchColor(
   tokens: { semantic: { color: { dataVisualization: { rag: RagPalette } } } },
-  rag: NonNullable<CraScoreValue>["rag"],
+  rag: CraRagKey,
 ) {
   const { rag: r } = tokens.semantic.color.dataVisualization;
   switch (rag) {
@@ -42,9 +82,40 @@ function ragSwatchColor(
   }
 }
 
-function ScoringMetricField({ label, value }: { label: string; value: CraScoreValue }) {
+function RagSwatch({ rag }: { rag: CraRagKey }) {
   return (
-    <Stack gap={0.5}>
+    <Box
+      sx={({ tokens: t }) => ({
+        width: 16,
+        height: 16,
+        borderRadius: t.semantic.radius.sm.value,
+        flexShrink: 0,
+        bgcolor: ragSwatchColor(t, rag),
+      })}
+      aria-hidden
+    />
+  );
+}
+
+function ScoringMetricField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: CraScoreValue;
+  onChange: (next: CraScoreValue) => void;
+}) {
+  const handleChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      const selected = SCORE_OPTIONS.find((o) => o.numeric === e.target.value) ?? null;
+      onChange(selected);
+    },
+    [onChange],
+  );
+
+  return (
+    <Stack gap={0.5} sx={{ flex: 1, minWidth: 0 }}>
       <Typography
         variant="caption"
         component="p"
@@ -59,72 +130,137 @@ function ScoringMetricField({ label, value }: { label: string; value: CraScoreVa
       >
         {label}
       </Typography>
-      <Box
-        sx={({ tokens: t }) => ({
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-          minHeight: 48,
-          px: 2,
-          py: 1,
-          borderRadius: t.semantic.radius.md.value,
-          border: `1px solid ${t.semantic.color.outline.default.value}`,
-          bgcolor: t.semantic.color.background.base.value,
-        })}
-      >
-        {value ? (
-          <>
-            <Box
-              sx={({ tokens: t }) => ({
-                width: 16,
-                height: 16,
-                borderRadius: t.semantic.radius.sm.value,
-                flexShrink: 0,
-                bgcolor: ragSwatchColor(t, value.rag),
-              })}
-              aria-hidden
-            />
-            <Typography
-              sx={({ tokens: t }) => ({
-                flex: 1,
-                minWidth: 0,
-                fontSize: t.semantic.font.text.md.fontSize.value,
-                lineHeight: t.semantic.font.text.md.lineHeight.value,
-                letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                color: t.semantic.color.type.default.value,
-              })}
-            >
-              {value.numeric} - {value.label}
-            </Typography>
-            <Box
-              component="span"
-              aria-hidden
-              sx={({ tokens: t }) => ({
-                flexShrink: 0,
-                color: t.semantic.color.type.muted.value,
-                width: 24,
-                height: 24,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              })}
-            >
-              <ExpandDownIcon />
-            </Box>
-          </>
-        ) : (
-          <Typography
-            sx={({ tokens: t }) => ({
-              fontSize: t.semantic.font.text.md.fontSize.value,
-              lineHeight: t.semantic.font.text.md.lineHeight.value,
-              color: t.semantic.color.type.muted.value,
-            })}
-          >
-            Not scored
-          </Typography>
-        )}
-      </Box>
+      <FormControl fullWidth>
+        <Select
+          displayEmpty
+          value={value?.numeric ?? ""}
+          onChange={handleChange}
+          inputProps={{ "aria-label": label }}
+          renderValue={(selected) => {
+            const opt = SCORE_OPTIONS.find((o) => o.numeric === selected);
+            if (!opt) {
+              return (
+                <Typography
+                  component="span"
+                  sx={({ tokens: t }) => ({
+                    color: t.semantic.color.type.muted.value,
+                    fontSize: t.semantic.font.text.md.fontSize.value,
+                  })}
+                >
+                  Not scored
+                </Typography>
+              );
+            }
+            return (
+              <Stack direction="row" alignItems="center" gap={1}>
+                <RagSwatch rag={opt.rag} />
+                <span>
+                  {opt.numeric} - {opt.label}
+                </span>
+              </Stack>
+            );
+          }}
+        >
+          {SCORE_OPTIONS.map((opt) => (
+            <MenuItem key={opt.numeric} value={opt.numeric}>
+              <Stack direction="row" alignItems="center" gap={1}>
+                <RagSwatch rag={opt.rag} />
+                <span>
+                  {opt.numeric} - {opt.label}
+                </span>
+              </Stack>
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
     </Stack>
+  );
+}
+
+type PendingOverride = {
+  field: "likelihood" | "cyberRiskScore";
+  fieldLabel: string;
+  calculatedValue: NonNullable<CraScoreValue>;
+  newValue: NonNullable<CraScoreValue>;
+};
+
+function OverrideRationaleDialog({
+  pending,
+  onConfirm,
+  onDiscard,
+}: {
+  pending: PendingOverride | null;
+  onConfirm: (rationale: string) => void;
+  onDiscard: () => void;
+}) {
+  const [rationale, setRationale] = useState("");
+
+  useEffect(() => {
+    if (pending) setRationale("");
+  }, [pending]);
+
+  if (!pending) return null;
+
+  return (
+    <Dialog
+      open
+      onClose={onDiscard}
+      aria-labelledby="override-dialog-title"
+      aria-describedby="override-dialog-description"
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle component="div">
+        <h2 id="override-dialog-title">Override {pending.fieldLabel.toLowerCase()}</h2>
+        <p id="override-dialog-description">
+          The calculated value is{" "}
+          <strong>
+            {pending.calculatedValue.numeric} - {pending.calculatedValue.label}
+          </strong>
+          . Provide a rationale for changing it to{" "}
+          <strong>
+            {pending.newValue.numeric} - {pending.newValue.label}
+          </strong>
+          .
+        </p>
+        <IconButton
+          aria-label="Close"
+          onClick={onDiscard}
+          color="inherit"
+          size="small"
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>
+          Explain why the manually selected score better reflects the assessment than the
+          calculated value.
+        </DialogContentText>
+        <TextField
+          autoFocus
+          fullWidth
+          multiline
+          minRows={4}
+          label="Rationale"
+          placeholder="Enter your rationale for this override..."
+          value={rationale}
+          onChange={(e) => setRationale(e.target.value)}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button variant="text" onClick={onDiscard}>
+          Discard
+        </Button>
+        <Button
+          variant="contained"
+          disabled={rationale.trim().length === 0}
+          onClick={() => onConfirm(rationale.trim())}
+        >
+          Add rationale
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -132,11 +268,117 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
   const { scenarioId } = useParams<{ scenarioId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const assessmentNameFromNav = (location.state as { assessmentName?: string } | null)?.assessmentName;
+  const assessmentNameFromNav = (location.state as { assessmentName?: string } | null)
+    ?.assessmentName;
 
   const scenario = scenarioId ? getCraScenarioById(scenarioId) : undefined;
-
   const assessmentTitle = (assessmentNameFromNav ?? "").trim() || "New cyber risk assessment";
+
+  const [impact, setImpact] = useState<CraScoreValue>(scenario?.impact ?? null);
+  const [threat, setThreat] = useState<CraScoreValue>(scenario?.threat ?? null);
+  const [vulnerability, setVulnerability] = useState<CraScoreValue>(
+    scenario?.vulnerability ?? null,
+  );
+  const [likelihood, setLikelihood] = useState<CraScoreValue>(scenario?.likelihood ?? null);
+  const [cyberRiskScore, setCyberRiskScore] = useState<CraScoreValue>(
+    scenario?.cyberRiskScore ?? null,
+  );
+
+  const [scoringRationale, setScoringRationale] = useState(scenario?.rationale ?? "");
+  const [likelihoodOverridden, setLikelihoodOverridden] = useState(false);
+  const [cyberRiskOverridden, setCyberRiskOverridden] = useState(false);
+  const [pendingOverride, setPendingOverride] = useState<PendingOverride | null>(null);
+
+  const calculatedLikelihood = useMemo(() => {
+    const t = numericOf(threat);
+    const v = numericOf(vulnerability);
+    if (t === 0 || v === 0) return null;
+    return productToScale(t * v);
+  }, [threat, vulnerability]);
+
+  const calculatedCyberRisk = useMemo(() => {
+    const i = numericOf(impact);
+    const l = numericOf(likelihood);
+    if (i === 0 || l === 0) return null;
+    return productToScale(i * l);
+  }, [impact, likelihood]);
+
+  useEffect(() => {
+    if (!likelihoodOverridden && calculatedLikelihood) {
+      setLikelihood(calculatedLikelihood);
+    }
+  }, [calculatedLikelihood, likelihoodOverridden]);
+
+  useEffect(() => {
+    if (!cyberRiskOverridden && calculatedCyberRisk) {
+      setCyberRiskScore(calculatedCyberRisk);
+    }
+  }, [calculatedCyberRisk, cyberRiskOverridden]);
+
+  const handleLikelihoodChange = useCallback(
+    (next: CraScoreValue) => {
+      if (
+        calculatedLikelihood &&
+        next &&
+        next.numeric !== calculatedLikelihood.numeric
+      ) {
+        setPendingOverride({
+          field: "likelihood",
+          fieldLabel: "Likelihood",
+          calculatedValue: calculatedLikelihood,
+          newValue: next,
+        });
+        return;
+      }
+      setLikelihoodOverridden(false);
+      setLikelihood(next);
+    },
+    [calculatedLikelihood],
+  );
+
+  const handleCyberRiskChange = useCallback(
+    (next: CraScoreValue) => {
+      if (
+        calculatedCyberRisk &&
+        next &&
+        next.numeric !== calculatedCyberRisk.numeric
+      ) {
+        setPendingOverride({
+          field: "cyberRiskScore",
+          fieldLabel: "Cyber risk score",
+          calculatedValue: calculatedCyberRisk,
+          newValue: next,
+        });
+        return;
+      }
+      setCyberRiskOverridden(false);
+      setCyberRiskScore(next);
+    },
+    [calculatedCyberRisk],
+  );
+
+  const handleOverrideConfirm = useCallback(
+    (rationale: string) => {
+      if (!pendingOverride) return;
+      if (pendingOverride.field === "likelihood") {
+        setLikelihood(pendingOverride.newValue);
+        setLikelihoodOverridden(true);
+      } else {
+        setCyberRiskScore(pendingOverride.newValue);
+        setCyberRiskOverridden(true);
+      }
+      setScoringRationale((prev) => {
+        const update = `Update: ${rationale}`;
+        return prev.trim() ? `${update}\n\n${prev.trim()}` : update;
+      });
+      setPendingOverride(null);
+    },
+    [pendingOverride],
+  );
+
+  const handleOverrideDiscard = useCallback(() => {
+    setPendingOverride(null);
+  }, []);
 
   const breadcrumbs = useMemo(
     () => (
@@ -221,25 +463,50 @@ export default function NewCyberRiskAssessmentScenarioDetailPage() {
             })}
           >
             <Stack direction="row" gap={2}>
-              <ScoringMetricField label="Asset criticality" value={scenario.impact} />
-              <ScoringMetricField label="Threat severity" value={scenario.threat} />
-              <ScoringMetricField label="Vulnerability severity" value={scenario.vulnerability} />
-              <ScoringMetricField label="Likelihood" value={scenario.likelihood} />
-              <ScoringMetricField label="Cyber risk score" value={scenario.cyberRiskScore} />
+              <ScoringMetricField
+                label="Asset criticality"
+                value={impact}
+                onChange={setImpact}
+              />
+              <ScoringMetricField
+                label="Threat severity"
+                value={threat}
+                onChange={setThreat}
+              />
+              <ScoringMetricField
+                label="Vulnerability severity"
+                value={vulnerability}
+                onChange={setVulnerability}
+              />
+              <ScoringMetricField
+                label="Likelihood"
+                value={likelihood}
+                onChange={handleLikelihoodChange}
+              />
+              <ScoringMetricField
+                label="Cyber risk score"
+                value={cyberRiskScore}
+                onChange={handleCyberRiskChange}
+              />
             </Stack>
           </Box>
 
           <AssessmentWysiwygEditor
             fieldId="cra-scenario-scoring-rationale"
             label="Scoring rationale"
-            value={scenario.rationale}
-            onChange={() => {}}
-            readOnly
+            value={scoringRationale}
+            onChange={setScoringRationale}
             minRows={16}
             aria-label="Scoring rationale for this scenario"
           />
         </Stack>
       </Stack>
+
+      <OverrideRationaleDialog
+        pending={pendingOverride}
+        onConfirm={handleOverrideConfirm}
+        onDiscard={handleOverrideDiscard}
+      />
     </Container>
   );
 }

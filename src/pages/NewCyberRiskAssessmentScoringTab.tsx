@@ -168,57 +168,59 @@ function parseScoreNumeric(value: ScoreValue): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function scoreFromAggregatedNumeric(aggregated: number, referenceScenarios: ScoringRow[]): ScoreValue {
+type MetricKey = "impact" | "threat" | "vulnerability" | "likelihood" | "cyberRiskScore";
+
+function scoreFromAggregatedNumeric(
+  aggregated: number,
+  referenceValues: NonNullable<ScoreValue>[],
+): ScoreValue {
   const rounded = Math.round(aggregated);
-  const withScores = referenceScenarios.filter((s) => s.cyberRiskScore != null);
-  if (withScores.length === 0) return null;
-  let best = withScores[0].cyberRiskScore!;
+  if (referenceValues.length === 0) return null;
+  let best = referenceValues[0];
   let bestDist = Math.abs(parseScoreNumeric(best)! - aggregated);
-  for (const s of withScores) {
-    if (s.cyberRiskScore == null) continue;
-    const n = parseScoreNumeric(s.cyberRiskScore);
+  for (const v of referenceValues) {
+    const n = parseScoreNumeric(v);
     if (n == null) continue;
     const d = Math.abs(n - aggregated);
     if (d < bestDist) {
-      best = s.cyberRiskScore;
+      best = v;
       bestDist = d;
     }
   }
-  return {
-    numeric: String(rounded),
-    label: best.label,
-    rag: best.rag,
-  };
+  return { numeric: String(rounded), label: best.label, rag: best.rag };
 }
 
-function aggregateCyberRiskScoreForGroup(
+function aggregateMetricForGroup(
   scenariosInGroup: ScoringRow[],
+  metric: MetricKey,
   method: AggregationMethod,
 ): ScoreValue {
-  const withCyber = scenariosInGroup.filter((s) => s.cyberRiskScore != null);
-  if (withCyber.length === 0) return null;
+  const withValue = scenariosInGroup.filter((s) => s[metric] != null);
+  if (withValue.length === 0) return null;
+
+  const values = withValue.map((s) => s[metric]!);
 
   if (method === "highest") {
-    let bestRow = withCyber[0];
-    let bestN = parseScoreNumeric(bestRow.cyberRiskScore)!;
-    for (const s of withCyber) {
-      const n = parseScoreNumeric(s.cyberRiskScore)!;
+    let best = values[0];
+    let bestN = parseScoreNumeric(best)!;
+    for (const v of values) {
+      const n = parseScoreNumeric(v)!;
       if (n > bestN) {
         bestN = n;
-        bestRow = s;
+        best = v;
       }
     }
-    return bestRow.cyberRiskScore;
+    return best;
   }
 
-  const entries = withCyber.map((s) => ({
-    n: parseScoreNumeric(s.cyberRiskScore)!,
-    weight: parseScoreNumeric(s.likelihood) ?? 1,
+  const entries = values.map((v, i) => ({
+    n: parseScoreNumeric(v)!,
+    weight: parseScoreNumeric(withValue[i].likelihood) ?? 1,
   }));
 
   if (method === "average") {
     const sum = entries.reduce((acc, e) => acc + e.n, 0);
-    return scoreFromAggregatedNumeric(sum / entries.length, withCyber);
+    return scoreFromAggregatedNumeric(sum / entries.length, values);
   }
 
   let weightTotal = 0;
@@ -229,7 +231,7 @@ function aggregateCyberRiskScoreForGroup(
     weightTotal += w;
   }
   if (weightTotal === 0) return null;
-  return scoreFromAggregatedNumeric(weightedSum / weightTotal, withCyber);
+  return scoreFromAggregatedNumeric(weightedSum / weightTotal, values);
 }
 
 function NameCell({
@@ -356,11 +358,16 @@ export default function NewCyberRiskAssessmentScoringTab({
     return m;
   }, []);
 
-  const aggregatedCyberRiskByGroupId = useMemo(() => {
-    const result = new Map<string, ScoreValue>();
+  const aggregatedByGroupId = useMemo(() => {
+    const metrics: MetricKey[] = ["impact", "threat", "vulnerability", "likelihood", "cyberRiskScore"];
+    const result = new Map<string, Record<MetricKey, ScoreValue>>();
     if (aggregationMethod == null) return result;
     for (const [groupId, scenarios] of scenariosByGroupId) {
-      result.set(groupId, aggregateCyberRiskScoreForGroup(scenarios, aggregationMethod));
+      const agg = {} as Record<MetricKey, ScoreValue>;
+      for (const m of metrics) {
+        agg[m] = aggregateMetricForGroup(scenarios, m, aggregationMethod);
+      }
+      result.set(groupId, agg);
     }
     return result;
   }, [aggregationMethod, scenariosByGroupId]);
@@ -592,18 +599,18 @@ export default function NewCyberRiskAssessmentScoringTab({
                     }
                   >
                     <TableCell
-                      sx={({ tokens: t }) => ({
+                      sx={{
                         position: "sticky",
                         left: 0,
                         zIndex: 2,
-                        bgcolor: t.semantic.color.background.base.value,
+                        bgcolor: "inherit",
                         width: 420,
                         minWidth: 320,
                         maxWidth: 420,
                         whiteSpace: "normal",
                         wordBreak: "break-word",
                         overflowWrap: "break-word",
-                      })}
+                      }}
                     >
                       <NameCell
                         row={row}
@@ -612,23 +619,55 @@ export default function NewCyberRiskAssessmentScoringTab({
                       />
                     </TableCell>
                     <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell value={row.impact} />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell value={row.threat} />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell value={row.vulnerability} />
-                    </TableCell>
-                    <TableCell sx={{ px: 2, py: 0 }}>
-                      <RiskLegendCell value={row.likelihood} />
+                      <RiskLegendCell
+                        value={
+                          row.kind === "cyberRisk"
+                            ? aggregationMethod
+                              ? aggregatedByGroupId.get(row.groupId)?.impact ?? null
+                              : null
+                            : row.impact
+                        }
+                      />
                     </TableCell>
                     <TableCell sx={{ px: 2, py: 0 }}>
                       <RiskLegendCell
                         value={
                           row.kind === "cyberRisk"
                             ? aggregationMethod
-                              ? aggregatedCyberRiskByGroupId.get(row.groupId) ?? null
+                              ? aggregatedByGroupId.get(row.groupId)?.threat ?? null
+                              : null
+                            : row.threat
+                        }
+                      />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell
+                        value={
+                          row.kind === "cyberRisk"
+                            ? aggregationMethod
+                              ? aggregatedByGroupId.get(row.groupId)?.vulnerability ?? null
+                              : null
+                            : row.vulnerability
+                        }
+                      />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell
+                        value={
+                          row.kind === "cyberRisk"
+                            ? aggregationMethod
+                              ? aggregatedByGroupId.get(row.groupId)?.likelihood ?? null
+                              : null
+                            : row.likelihood
+                        }
+                      />
+                    </TableCell>
+                    <TableCell sx={{ px: 2, py: 0 }}>
+                      <RiskLegendCell
+                        value={
+                          row.kind === "cyberRisk"
+                            ? aggregationMethod
+                              ? aggregatedByGroupId.get(row.groupId)?.cyberRiskScore ?? null
                               : null
                             : row.cyberRiskScore
                         }
@@ -636,13 +675,13 @@ export default function NewCyberRiskAssessmentScoringTab({
                     </TableCell>
                     <TableCell
                       align="right"
-                      sx={({ tokens: t }) => ({
+                      sx={{
                         position: "sticky",
                         right: 0,
                         zIndex: 2,
-                        bgcolor: t.semantic.color.background.base.value,
+                        bgcolor: "inherit",
                         verticalAlign: "middle",
-                      })}
+                      }}
                     >
                       <IconButton
                         size="small"
