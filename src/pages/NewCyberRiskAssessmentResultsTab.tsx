@@ -5,6 +5,8 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
+  Chip,
   Drawer,
   FormControl,
   FormLabel,
@@ -34,7 +36,12 @@ import {
 } from "@mui/x-data-grid-pro";
 import { Chart as ChartJS, ArcElement, Legend as ChartLegend, Tooltip } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
+import { LocalizationProvider } from "@mui/x-date-pickers-pro";
+import { AdapterDateFns } from "@mui/x-date-pickers-pro/AdapterDateFns";
+import { DesktopDatePicker } from "@mui/x-date-pickers";
+import { format } from "date-fns";
 
+import ClearIcon from "@diligentcorp/atlas-react-bundle/icons/Clear";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
@@ -328,11 +335,29 @@ function ResultsNameCell({
 }
 
 const ISSUE_TYPE_OPTIONS = ["Issue", "Risk", "Control gap", "Finding"];
-const SEVERITY_OPTIONS = ["Very low", "Low", "Medium", "High", "Very high"];
+const SEVERITY_OPTIONS = [
+  "1 - Very low",
+  "2 - Low",
+  "3 - Medium",
+  "4 - High",
+  "5 - Very high",
+];
 const ORG_UNIT_OPTIONS = [
   "Chicago - Operations division - Incident response implementation",
   "New York - IT division - Security operations",
   "London - Engineering - Cloud infrastructure",
+];
+const RELATED_CONTROLS_OPTIONS = [
+  "Role-based access",
+  "Communication protocols",
+  "Performance metrics",
+  "Business continuity plans",
+  "Vendor Risk Management",
+  "Data Loss Prevention",
+  "Network Security Monitoring",
+  "Physical Security Controls",
+  "Third-Party Risk Assessment",
+  "Business Impact Analysis",
 ];
 
 function PlaceholderText({ text = "Choose an option" }: { text?: string }) {
@@ -368,9 +393,10 @@ function MitigationPlanSideSheet({
   const [name, setName] = useState("");
   const [issueType, setIssueType] = useState("");
   const [severity, setSeverity] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState<Date | null>(null);
   const [owners, setOwners] = useState("");
   const [orgUnit, setOrgUnit] = useState("");
+  const [relatedControls, setRelatedControls] = useState<string[]>([]);
   const [actionPlan, setActionPlan] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -378,12 +404,28 @@ function MitigationPlanSideSheet({
     setName("");
     setIssueType("");
     setSeverity("");
-    setDueDate("");
+    setDueDate(null);
     setOwners("");
     setOrgUnit("");
+    setRelatedControls([]);
     setActionPlan("");
     onClose();
   }, [onClose]);
+
+  const handleRelatedControlsChange = useCallback(
+    (event: SelectChangeEvent<string[]>) => {
+      const value = event.target.value;
+      setRelatedControls(typeof value === "string" ? value.split(",") : value);
+    },
+    [],
+  );
+
+  const handleDeleteControl = useCallback(
+    (controlToDelete: string) => {
+      setRelatedControls((prev) => prev.filter((c) => c !== controlToDelete));
+    },
+    [],
+  );
 
   return (
     <Drawer
@@ -476,12 +518,19 @@ function MitigationPlanSideSheet({
             </FormControl>
             <FormControl sx={{ flex: 5 }}>
               <FormLabel htmlFor="mp-due-date">Due date</FormLabel>
-              <TextField
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                slotProps={{ input: { id: "mp-due-date" } }}
-              />
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DesktopDatePicker
+                  value={dueDate}
+                  onChange={setDueDate}
+                  dayOfWeekFormatter={(day: Date) => format(day, "EEEEEE")}
+                  slotProps={{
+                    textField: {
+                      placeholder: "MM/DD/YYYY",
+                      id: "mp-due-date",
+                    },
+                  }}
+                />
+              </LocalizationProvider>
             </FormControl>
           </Stack>
 
@@ -517,7 +566,73 @@ function MitigationPlanSideSheet({
             </Select>
           </FormControl>
 
-          {/* Row 5: Action plan */}
+          {/* Row 5: Related controls */}
+          <FormControl fullWidth>
+            <FormLabel id="mp-related-controls-label">Related controls</FormLabel>
+            <Select
+              multiple
+              displayEmpty
+              value={relatedControls}
+              onChange={handleRelatedControlsChange}
+              labelId="mp-related-controls-label"
+              IconComponent={ExpandDownIcon}
+              endAdornment={
+                relatedControls.length > 0 ? (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRelatedControls([]);
+                    }}
+                    aria-label="Clear all selected controls"
+                    sx={{ mr: 2 }}
+                  >
+                    <ClearIcon aria-hidden />
+                  </IconButton>
+                ) : null
+              }
+              renderValue={(selected) => {
+                if (selected.length === 0) {
+                  return <PlaceholderText text="Choose controls" />;
+                }
+                return (
+                  <Stack direction="row" flexWrap="wrap" gap={1}>
+                    {selected.map((value) => (
+                      <Chip
+                        key={value}
+                        label={value}
+                        variant="outlined"
+                        size="small"
+                        onDelete={() => handleDeleteControl(value)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      />
+                    ))}
+                  </Stack>
+                );
+              }}
+              sx={{
+                "& .MuiSelect-select": {
+                  whiteSpace: "normal",
+                  height: "auto !important",
+                  minHeight: 92,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  pt: 1,
+                  pb: 1,
+                },
+              }}
+            >
+              {RELATED_CONTROLS_OPTIONS.map((opt) => (
+                <MenuItem key={opt} value={opt}>
+                  <Checkbox checked={relatedControls.includes(opt)} />
+                  <ListItemText primary={opt} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Row 6: Action plan */}
           <FormControl fullWidth>
             <FormLabel htmlFor="mp-action-plan">Action plan</FormLabel>
             <TextField
@@ -530,7 +645,7 @@ function MitigationPlanSideSheet({
             />
           </FormControl>
 
-          {/* Row 6: File uploader */}
+          {/* Row 7: File uploader */}
           <Box>
             <input
               ref={fileInputRef}

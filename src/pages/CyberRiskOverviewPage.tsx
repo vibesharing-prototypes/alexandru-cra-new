@@ -51,7 +51,7 @@ interface KpiItem {
 
 const kpiItems: KpiItem[] = [
   {
-    title: "Overall\ncyber risk score",
+    title: "Overall cyber risk score",
     value: "95 - High",
     trend: "increasing",
     trendLabel: "Increasing",

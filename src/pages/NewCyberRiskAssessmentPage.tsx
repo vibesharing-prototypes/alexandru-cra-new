@@ -93,7 +93,7 @@ export default function NewCyberRiskAssessmentPage() {
     isReturningFromScenario ? loadCraNewAssessmentDraft() : null,
   );
   const [activeTab, setActiveTab] = useState(initialDraft?.activeTab ?? 0);
-  /** Draft → Move to assessment; In progress → Approve assessment; then Approved assessment + Approve mitigation. */
+  /** Draft → Scoping → In progress → Approved assessment → Done (navigate to list). */
   const [assessmentPhase, setAssessmentPhase] = useState<AssessmentPhase>(
     initialDraft?.assessmentPhase ?? "draft",
   );
@@ -232,6 +232,13 @@ export default function NewCyberRiskAssessmentPage() {
             label="Draft"
             aria-label="Assessment status: Draft"
           />
+        ) : assessmentPhase === "scoping" ? (
+          <StatusIndicator
+            color="information"
+            sx={{ display: "flex" }}
+            label="Scoping"
+            aria-label="Assessment status: Scoping"
+          />
         ) : assessmentPhase === "inProgress" ? (
           <StatusIndicator
             color="information"
@@ -251,12 +258,26 @@ export default function NewCyberRiskAssessmentPage() {
     </Stack>
   );
 
+  const ctaLabel =
+    assessmentPhase === "draft"
+      ? "Move to scoping"
+      : assessmentPhase === "scoping"
+        ? "Move to assessment"
+        : assessmentPhase === "inProgress"
+          ? "Approve assessment"
+          : "Done";
+
   const defaultMoreButton = (
     <Button
       variant="contained"
       size="medium"
       onClick={() => {
         if (assessmentPhase === "draft") {
+          setAssessmentPhase("scoping");
+          setActiveTab(SCOPE_TAB_INDEX);
+          return;
+        }
+        if (assessmentPhase === "scoping") {
           setAssessmentPhase("inProgress");
           setActiveTab(SCORING_TAB_INDEX);
           return;
@@ -265,13 +286,10 @@ export default function NewCyberRiskAssessmentPage() {
           setAssessmentPhase("assessmentApproved");
           return;
         }
+        navigate(assessmentsUrl);
       }}
     >
-      {assessmentPhase === "draft"
-        ? "Move to assessment"
-        : assessmentPhase === "inProgress"
-          ? "Approve assessment"
-          : "Approve mitigation"}
+      {ctaLabel}
     </Button>
   );
 
@@ -316,7 +334,9 @@ export default function NewCyberRiskAssessmentPage() {
           <Tabs
             value={activeTab}
             onChange={(_e, v: number) => {
-              const assessmentStarted = assessmentPhase !== "draft";
+              const scopingStarted = assessmentPhase !== "draft";
+              const assessmentStarted = assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
+              if (v === SCOPE_TAB_INDEX && !scopingStarted) return;
               if (v === SCORING_TAB_INDEX && !assessmentStarted) return;
               if (v === RESULTS_TAB_INDEX && !assessmentStarted) return;
               setActiveTab(v);
@@ -329,10 +349,12 @@ export default function NewCyberRiskAssessmentPage() {
             ]}
           >
             {TAB_LABELS.map((label, index) => {
-              const assessmentStarted = assessmentPhase !== "draft";
+              const scopingStarted = assessmentPhase !== "draft";
+              const assessmentStarted = assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
+              const scopeLocked = index === SCOPE_TAB_INDEX && !scopingStarted;
               const scoringLocked = index === SCORING_TAB_INDEX && !assessmentStarted;
               const resultsLocked = index === RESULTS_TAB_INDEX && !assessmentStarted;
-              const tabDisabled = scoringLocked || resultsLocked;
+              const tabDisabled = scopeLocked || scoringLocked || resultsLocked;
               return (
                 <Tab
                   key={`${label}-${index}`}

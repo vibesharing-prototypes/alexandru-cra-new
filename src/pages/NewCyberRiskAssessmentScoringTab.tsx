@@ -43,7 +43,7 @@ type ScoringRow = {
   cyberRiskScore: ScoreValue;
 };
 
-type AggregationMethod = "highest" | "average" | "weightedAverage";
+type AggregationMethod = "highest" | "average";
 
 const SCENARIO_DETAIL_PATH = "/cyber-risk/cyber-risk-assessments/new/scenario";
 
@@ -308,6 +308,8 @@ export default function NewCyberRiskAssessmentScoringTab({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     rw: true,
     ph: true,
+    dd: true,
+    ie: true,
   });
 
   const goToScenario = useCallback(
@@ -367,7 +369,7 @@ export default function NewCyberRiskAssessmentScoringTab({
   }, [expanded]);
 
   const handleAggregationChange = useCallback((_event: React.ChangeEvent<HTMLInputElement>, value: string) => {
-    if (value === "highest" || value === "average" || value === "weightedAverage") {
+    if (value === "highest" || value === "average") {
       setAggregationMethod(value);
     }
   }, []);
@@ -417,21 +419,6 @@ export default function NewCyberRiskAssessmentScoringTab({
               value="average"
               control={<Radio />}
               label="Average"
-              slotProps={{
-                typography: {
-                  sx: ({ tokens: t }) => ({
-                    fontSize: t.semantic.font.text.md.fontSize.value,
-                    lineHeight: t.semantic.font.text.md.lineHeight.value,
-                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                    color: t.semantic.color.type.default.value,
-                  }),
-                },
-              }}
-            />
-            <FormControlLabel
-              value="weightedAverage"
-              control={<Radio />}
-              label="Weighted average"
               slotProps={{
                 typography: {
                   sx: ({ tokens: t }) => ({

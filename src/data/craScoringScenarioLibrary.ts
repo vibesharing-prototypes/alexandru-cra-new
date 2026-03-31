@@ -8,9 +8,11 @@ export type CraScoreValue = {
 
 export type CraTitleSegment = { text: string; emphasize?: boolean };
 
+export type CraScoringGroupId = "rw" | "ph" | "dd" | "ie";
+
 export type CraScenarioDefinition = {
   id: string;
-  groupId: "rw" | "ph";
+  groupId: CraScoringGroupId;
   tag: string;
   /** Plain title for breadcrumbs, document title, and search. */
   titlePlain: string;
@@ -26,7 +28,7 @@ export type CraScenarioDefinition = {
 export type CraCyberRiskDefinition = {
   kind: "cyberRisk";
   id: string;
-  groupId: "rw" | "ph";
+  groupId: CraScoringGroupId;
   tag: string;
   titleLinkText: string;
   impact: CraScoreValue;
@@ -39,12 +41,13 @@ export type CraCyberRiskDefinition = {
 export type CraScoringRowDefinition = CraCyberRiskDefinition | ({ kind: "scenario" } & CraScenarioDefinition);
 
 export const CRA_SCORING_ROW_DEFINITIONS: CraScoringRowDefinition[] = [
+  // ── Cyber risk 1: Ransomware attack ─────────────────────────────────
   {
     kind: "cyberRisk",
     id: "cr-rw",
     groupId: "rw",
     tag: "Cyber risk",
-    titleLinkText: "Loss of revenue due to Ransomware attack",
+    titleLinkText: "Ransomware attack",
     impact: null,
     threat: null,
     vulnerability: null,
@@ -57,9 +60,8 @@ export const CRA_SCORING_ROW_DEFINITIONS: CraScoringRowDefinition[] = [
     groupId: "rw",
     tag: "Scenario 1",
     titlePlain:
-      "Loss of revenue due to Ransomware attack exploiting Unpatched web server on Payment gateway.",
+      "Ransomware attack exploiting Unpatched web server on Payment gateway.",
     titleSegments: [
-      { text: "Loss of revenue due to " },
       { text: "Ransomware attack", emphasize: true },
       { text: " exploiting " },
       { text: "Unpatched web server", emphasize: true },
@@ -67,25 +69,22 @@ export const CRA_SCORING_ROW_DEFINITIONS: CraScoringRowDefinition[] = [
       { text: "Payment gateway", emphasize: true },
       { text: "." },
     ],
-    impact: { numeric: "4", label: "High", rag: "neg03" },
-    threat: { numeric: "3", label: "Medium", rag: "neu03" },
+    impact: { numeric: "5", label: "Very high", rag: "neg05" },
+    threat: { numeric: "4", label: "High", rag: "neg03" },
     vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
-    likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
-    cyberRiskScore: { numeric: "51–75", label: "Medium", rag: "neu03" },
-    rationale: `Update: Scores reflect the latest assessment pass for this scenario.
+    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
+    rationale: `Threat — Ransomware attack (severity: High): Ransomware operators actively target internet-facing payment infrastructure. The High rating reflects documented toolkits and initial-access brokers selling footholds in financial-services networks.
 
-Threat — Ransomware attack (severity: Medium): Ransomware is treated as a credible threat against revenue systems when delivery paths exist. The Medium rating reflects that execution still depends on user action or exposed services, not an always-on automated path.
+Vulnerability — Unpatched web server (severity: Very high): Missing patches on the web tier provide a well-documented entry point. Exploitation is often automated and scannable, making the window between disclosure and compromise short.
 
-Vulnerability — Unpatched web server (severity: Very high): Missing patches on an internet-facing web tier materially increase the chance of initial access. A Very high vulnerability score is appropriate because exploitation is often well documented and scanners can find the weakness quickly.
+Asset — Payment gateway (criticality: Very high): The payment gateway processes all customer transactions. Encryption or disruption of this system halts revenue collection and erodes customer trust immediately.
 
-Asset — Payment gateway (criticality: High): The payment gateway is a high-value asset. Disruption or encryption of this system directly affects collections and customer trust, so we assign High asset criticality (impact).
+Likelihood determination: High threat combined with Very high vulnerability produces a High likelihood — attackers have both motive and a straightforward exploitation path.
 
-Scoring rationale for the cyber risk
-Likelihood determination: Likelihood combines threat and vulnerability. A serious, exploitable weakness on a sensitive integration point supports a High likelihood outcome even when the threat actor must still complete a short chain of steps.
+Impact determination: Very high asset criticality means any successful ransomware event directly interrupts revenue and triggers regulatory reporting.
 
-Impact determination: Impact is driven by asset criticality. Loss of the payment gateway implies immediate revenue and operational impact, which keeps the impact side of the equation elevated.
-
-Risk calculation: Together, elevated likelihood and high impact produce a Medium overall cyber risk score in this qualitative model. Mitigations should prioritize patching and hardening the web tier, tightening access paths to the gateway, and validating backup and recovery for payment flows.`,
+Risk calculation: The resulting High cyber risk score warrants priority remediation: accelerate patching cadence for the web tier, harden network paths to the gateway, and validate immutable backups for payment data.`,
   },
   {
     kind: "scenario",
@@ -93,12 +92,11 @@ Risk calculation: Together, elevated likelihood and high impact produce a Medium
     groupId: "rw",
     tag: "Scenario 2",
     titlePlain:
-      "Loss of revenue due to Ransomware attack exploiting Missing Multi-Factor Authentication on Customer database.",
+      "Ransomware attack exploiting Lack of network segmentation on Customer database.",
     titleSegments: [
-      { text: "Loss of revenue due to " },
       { text: "Ransomware attack", emphasize: true },
       { text: " exploiting " },
-      { text: "Missing Multi-Factor Authentication", emphasize: true },
+      { text: "Lack of network segmentation", emphasize: true },
       { text: " on " },
       { text: "Customer database", emphasize: true },
       { text: "." },
@@ -108,90 +106,26 @@ Risk calculation: Together, elevated likelihood and high impact produce a Medium
     vulnerability: { numeric: "5", label: "Very high", rag: "neg05" },
     likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
     cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
-    rationale: `Update: This scenario carries the highest composite score in the ransomware branch because both impact and exploitability are at the top of the scale.
+    rationale: `Threat — Ransomware attack (severity: High): Ransomware against customer data stores is a High-severity threat given common double-extortion tactics and the speed at which operators move laterally after first access.
 
-Threat — Ransomware attack (severity: High): Ransomware against customer data stores is a High-severity threat given common double-extortion tactics and the speed at which operators move laterally after first access.
+Vulnerability — Lack of network segmentation (severity: Very high): Flat network architecture allows an attacker who gains any foothold to reach the customer database without additional barriers, making lateral movement trivial.
 
-Vulnerability — Missing MFA (severity: Very high): Absence of MFA on paths that can reach the customer database removes a basic control that stops credential stuffing and session hijack from turning into bulk data access. That gap warrants a Very high vulnerability score.
+Asset — Customer database (criticality: Very high): The customer database holds regulated personal data. Encryption or exfiltration triggers mandatory breach notification and significant financial exposure.
 
-Asset — Customer database (criticality: Very high): The customer database is classified as Very high criticality because it holds regulated and sensitive personal data where breach costs are structural, not one-time.
+Likelihood determination: High threat paired with Very high vulnerability produces High likelihood — once inside the network, the path to the database is unobstructed.
 
-Scoring rationale for the cyber risk
-Likelihood determination: High threat paired with Very high vulnerability produces a High likelihood: attackers have both motive and a straightforward path through weak authentication.
+Impact determination: Very high criticality ensures any successful attack has severe customer, legal, and financial consequences.
 
-Impact determination: Very high asset criticality means any successful encryption or exfiltration event has severe customer, legal, and financial consequences.
-
-Risk calculation: The model therefore surfaces a Very high cyber risk score. Remediation should start with enforced MFA, privileged access review, segmentation between workstations and the database tier, and immutable backups with tested restores.`,
+Risk calculation: High cyber risk score. Remediation should prioritize network segmentation, micro-segmentation around the database tier, privilege access management, and tested offline backups.`,
   },
-  {
-    kind: "scenario",
-    id: "rw-s3",
-    groupId: "rw",
-    tag: "Scenario 3",
-    titlePlain: "Data breach due to phishing attack.",
-    titleSegments: [{ text: "Data breach due to phishing attack" }],
-    impact: null,
-    threat: null,
-    vulnerability: null,
-    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
-    rationale: `Update: Several factor scores are not populated yet; the row still shows a High likelihood from phishing prevalence and a High cyber risk score driven by the available inputs.
 
-Threat — Phishing (severity: not scored in this row): Phishing is a common initial access vector. Once full threat scoring is completed, we expect at least a Medium to High rating based on campaign volume against your industry.
-
-Vulnerability — User awareness and controls (severity: not scored): Until phishing-resistant authentication and mail filtering outcomes are recorded, vulnerability remains an open item. Early evidence often lands in security awareness metrics rather than a single CVE-style score.
-
-Asset — Affected systems (criticality: not scored): Impact cannot be fully anchored until we identify which repositories or applications the phished account can reach.
-
-Scoring rationale for the cyber risk
-Likelihood determination: The High likelihood value reflects that employees regularly receive malicious messages and that a single successful click can start an incident chain.
-
-Impact determination: Impact is pending formal asset mapping; treat current results as directional until impact factors are added.
-
-Risk calculation: With likelihood High and incomplete impact data, the displayed cyber risk score should be revalidated after you attach assets and vulnerability context. Immediate actions: phishing simulations, MFA everywhere, and clear reporting paths for suspicious mail.`,
-  },
-  {
-    kind: "scenario",
-    id: "rw-s4",
-    groupId: "rw",
-    tag: "Scenario 4",
-    titlePlain:
-      "Loss of revenue due to Ransomware attack exploiting Missing Multi-Factor Authentication on Social media accounts.",
-    titleSegments: [
-      { text: "Loss of revenue due to " },
-      { text: "Ransomware attack", emphasize: true },
-      { text: " exploiting " },
-      { text: "Missing Multi-Factor Authentication", emphasize: true },
-      { text: " on " },
-      { text: "Social media accounts", emphasize: true },
-      { text: "." },
-    ],
-    impact: { numeric: "4", label: "High", rag: "neg03" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
-    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
-    cyberRiskScore: { numeric: "51–75", label: "Medium", rag: "neu03" },
-    rationale: `Update: All four factor inputs are aligned around High, which moderates to a Medium composite in this assessment methodology.
-
-Threat — Ransomware attack (severity: High): Social and marketing endpoints can be leveraged for credential theft that later maps to corporate SSO. The threat remains High even though the first hop is a social platform.
-
-Vulnerability — Missing MFA (severity: High): Social accounts without MFA are routinely compromised via reused passwords and push bombing. High is appropriate until MFA and recovery options are hardened.
-
-Asset — Social media accounts (criticality: High): Accounts are High criticality because they influence brand trust and can redirect customers or publish fraud; revenue and reputation effects are direct.
-
-Scoring rationale for the cyber risk
-Likelihood determination: Uniform High scores on threat, vulnerability, and likelihood indicate a credible, repeatable attack path that does not require exotic tooling.
-
-Impact determination: High criticality keeps losses meaningful but slightly below the customer-database scenario where regulated data volume is larger.
-
-Risk calculation: The blended outcome is a Medium cyber risk score. Next steps: enforce MFA, remove shared credentials, monitor OAuth grants to marketing tools, and document an account takeover runbook.`,
-  },
+  // ── Cyber risk 2: Phishing campaign ─────────────────────────────────
   {
     kind: "cyberRisk",
     id: "cr-ph",
     groupId: "ph",
     tag: "Cyber risk",
-    titleLinkText: "Loss of revenue due to Phishing attack on Social media accounts.",
+    titleLinkText: "Phishing campaign",
     impact: null,
     threat: null,
     vulnerability: null,
@@ -204,112 +138,91 @@ Risk calculation: The blended outcome is a Medium cyber risk score. Next steps: 
     groupId: "ph",
     tag: "Scenario 1",
     titlePlain:
-      "Data breach due to Phishing attack exploiting SQL Injection on Social media accounts.",
+      "Phishing campaign exploiting Insufficient employee security training on Email server.",
     titleSegments: [
-      { text: "Data breach due to " },
-      { text: "Phishing attack", emphasize: true },
+      { text: "Phishing campaign", emphasize: true },
       { text: " exploiting " },
-      { text: "SQL Injection", emphasize: true },
+      { text: "Insufficient employee security training", emphasize: true },
       { text: " on " },
-      { text: "Social media accounts", emphasize: true },
+      { text: "Email server", emphasize: true },
       { text: "." },
     ],
-    impact: { numeric: "5", label: "Very high", rag: "neg05" },
-    threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
+    impact: { numeric: "4", label: "High", rag: "neg03" },
+    threat: { numeric: "3", label: "Medium", rag: "neu03" },
+    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
     likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
-    cyberRiskScore: { numeric: "51–75", label: "Medium", rag: "neu03" },
-    rationale: `Update: Scores emphasize very high business impact if an injected social integration reaches internal APIs.
+    cyberRiskScore: { numeric: "26–50", label: "Low", rag: "pos04" },
+    rationale: `Threat — Phishing campaign (severity: Medium): Broad phishing campaigns are a common initial access vector. The Medium rating reflects that execution still depends on user interaction and the campaign is not narrowly targeted.
 
-Threat — Phishing attack (severity: High): Targeted phishing against operators of social properties is a High threat because it pairs social engineering with technical follow-through.
+Vulnerability — Insufficient employee security training (severity: High): Gaps in security awareness training leave employees susceptible to credential harvesting and malicious attachments, increasing the odds of successful initial compromise.
 
-Vulnerability — SQL injection (severity: Medium): Injection on a connected component is Medium here only where WAFs and parameterization partially contain risk; if proven on a production path, revisit and raise the score.
+Asset — Email server (criticality: High): The email server is a central communications hub. Compromise grants access to sensitive correspondence, internal credentials, and potential pivot points into other systems.
 
-Asset — Social media accounts (criticality: Very high): Brand-facing breach channels are Very high criticality when they can leak followers' data or spread malware.
+Likelihood determination: Medium threat combined with High vulnerability produces Medium likelihood — phishing is frequent but requires the human element to succeed.
 
-Scoring rationale for the cyber risk
-Likelihood determination: Medium likelihood reflects that both phishing and injection must line up; either control gap alone is serious, together they are plausible in integrated stacks.
+Impact determination: High asset criticality means a compromised email server exposes confidential communications and can serve as a launchpad for further attacks.
 
-Impact determination: Very high impact dominates the narrative—any confirmed data breach through this channel triggers broad notification obligations.
-
-Risk calculation: Net outcome is Medium cyber risk pending code fixes. Prioritize parameterized queries, least-privilege DB roles, and phishing-resistant MFA for anyone who can deploy or configure integrations.`,
+Risk calculation: Low cyber risk score reflects moderate likelihood against a high-value target. Prioritize phishing simulations, mandatory security awareness training, and phishing-resistant MFA for mail access.`,
   },
   {
     kind: "scenario",
     id: "ph-s2",
     groupId: "ph",
     tag: "Scenario 2",
-    titlePlain: "Account takeover via phishing email.",
-    titleSegments: [{ text: "Account takeover via phishing email" }],
-    impact: { numeric: "3", label: "Medium", rag: "neu03" },
-    threat: { numeric: "3", label: "Medium", rag: "neu03" },
-    vulnerability: { numeric: "2", label: "Low", rag: "pos04" },
-    likelihood: { numeric: "6–10", label: "Low", rag: "pos04" },
-    cyberRiskScore: { numeric: "1–25", label: "Very low", rag: "pos05" },
-    rationale: `Update: Very high likelihood is driven by phishing volume even though single-account impact is only Medium today.
-
-Threat — Phishing email (severity: Medium): Generic phishing is Medium severity relative to targeted APT activity, but still sufficient to capture credentials at scale.
-
-Vulnerability — User and mail controls (severity: Low): Low vulnerability indicates baseline controls (filtering, MFA on mail) are partly effective but not phishing-resistant everywhere.
-
-Asset — Employee mailboxes (criticality: Medium): Compromise is Medium criticality when mail alone cannot reach crown-jewel systems without additional steps.
-
-Scoring rationale for the cyber risk
-Likelihood determination: Very high likelihood follows from ubiquitous campaigns and human click risk, even with decent filtering.
-
-Impact determination: Medium impact caps the composite because the scenario stops short of immediate large-scale data loss.
-
-Risk calculation: Overall Medium cyber risk suggests continuous training, reporting buttons, and moving to FIDO2 or equivalent MFA for privileged users.`,
-  },
-  {
-    kind: "scenario",
-    id: "ph-s3",
-    groupId: "ph",
-    tag: "Scenario 3",
     titlePlain:
-      "Data breach due to Phishing attack exploiting SQL Injection on Social media accounts.",
+      "Phishing campaign exploiting Insufficient employee security training on Social media accounts.",
     titleSegments: [
-      { text: "Data breach due to " },
-      { text: "Phishing attack", emphasize: true },
+      { text: "Phishing campaign", emphasize: true },
       { text: " exploiting " },
-      { text: "SQL Injection", emphasize: true },
+      { text: "Insufficient employee security training", emphasize: true },
       { text: " on " },
       { text: "Social media accounts", emphasize: true },
       { text: "." },
     ],
-    impact: { numeric: "4", label: "High", rag: "neg03" },
+    impact: { numeric: "3", label: "Medium", rag: "neu03" },
     threat: { numeric: "4", label: "High", rag: "neg03" },
-    vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
-    likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
+    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
+    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
     cyberRiskScore: { numeric: "26–50", label: "Low", rag: "pos04" },
-    rationale: `Update: Compared with the first phishing + SQL scenario, likelihood is now High, pushing the composite toward High cyber risk.
+    rationale: `Threat — Phishing campaign (severity: High): Targeted phishing against social media operators is High severity because compromised brand accounts can be weaponized to distribute malware or fraudulent content to followers.
 
-Threat — Phishing attack (severity: High): Higher reported click rates or successful tests justify raising phishing from Medium to High.
+Vulnerability — Insufficient employee security training (severity: High): Marketing and social media staff without adequate training are prime targets for credential harvesting through impersonation of platform support or partner accounts.
 
-Vulnerability — SQL injection (severity: Medium): Same injection class as ph-s1; confirm whether this instance is reachable from externally influenced content—if yes, consider raising vulnerability.
+Asset — Social media accounts (criticality: Medium): Social media accounts have Medium criticality — compromise damages brand reputation and may spread disinformation, but does not directly expose regulated data.
 
-Asset — Social media accounts (criticality: High): High criticality acknowledges large follower datasets and marketing automation hooks.
+Likelihood determination: High threat paired with High vulnerability produces High likelihood — social media credentials are actively targeted and training gaps make success probable.
 
-Scoring rationale for the cyber risk
-Likelihood determination: High likelihood means the phishing-to-injection chain is no longer theoretical—telemetry or tests showed feasible paths.
+Impact determination: Medium criticality limits the blast radius to reputational damage and potential follower exposure rather than direct data breach.
 
-Impact determination: High impact aligns with substantive data exposure if queries return more than marketing identifiers.
+Risk calculation: Low cyber risk score despite High likelihood, constrained by the Medium impact ceiling. Enforce MFA on all social accounts, establish a takeover response playbook, and include social engineering scenarios in training.`,
+  },
 
-Risk calculation: Cyber risk score is High. Response: emergency code review, WAF tuning, credential rotation for integration accounts, and executive comms readiness.`,
+  // ── Cyber risk 3: DDoS attack ───────────────────────────────────────
+  {
+    kind: "cyberRisk",
+    id: "cr-dd",
+    groupId: "dd",
+    tag: "Cyber risk",
+    titleLinkText: "DDoS attack",
+    impact: null,
+    threat: null,
+    vulnerability: null,
+    likelihood: null,
+    cyberRiskScore: null,
   },
   {
     kind: "scenario",
-    id: "ph-s4",
-    groupId: "ph",
-    tag: "Scenario 4",
-    titlePlain: "Data breach due to Phishing attack exploiting SQL Injection on Customer database.",
+    id: "dd-s1",
+    groupId: "dd",
+    tag: "Scenario 1",
+    titlePlain:
+      "DDoS attack exploiting Open network ports on Payment gateway.",
     titleSegments: [
-      { text: "Data breach due to " },
-      { text: "Phishing attack", emphasize: true },
+      { text: "DDoS attack", emphasize: true },
       { text: " exploiting " },
-      { text: "SQL Injection", emphasize: true },
+      { text: "Open network ports", emphasize: true },
       { text: " on " },
-      { text: "Customer database", emphasize: true },
+      { text: "Payment gateway", emphasize: true },
       { text: "." },
     ],
     impact: { numeric: "5", label: "Very high", rag: "neg05" },
@@ -317,20 +230,127 @@ Risk calculation: Cyber risk score is High. Response: emergency code review, WAF
     vulnerability: { numeric: "4", label: "High", rag: "neg03" },
     likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
     cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
-    rationale: `Update: This is the maximum-severity phishing variant because it ends on the customer database with Very high threat and impact.
+    rationale: `Threat — DDoS attack (severity: Very high): DDoS attacks against payment infrastructure are Very high severity due to commoditized botnets and the direct revenue impact of even brief outages.
 
-Threat — Phishing attack (severity: Very high): Very high reflects credible, targeted lures against staff who can reach database tooling or VPNs that expose SQL services.
+Vulnerability — Open network ports (severity: High): Unnecessary open ports increase the attack surface and amplification potential. High severity reflects that the exposure is detectable and exploitable without sophisticated tooling.
 
-Vulnerability — SQL injection (severity: High): Injection flaws that can reach customer PII are High until proven fully remediated and retested.
+Asset — Payment gateway (criticality: Very high): Downtime on the payment gateway halts all transaction processing, causing immediate revenue loss and SLA violations with merchant partners.
 
-Asset — Customer database (criticality: Very high): Very high criticality is mandatory for regulated customer data stores.
+Likelihood determination: Very high threat combined with High vulnerability produces High likelihood — DDoS-for-hire services make attacks affordable and repeatable.
 
-Scoring rationale for the cyber risk
-Likelihood determination: High likelihood is appropriate when phishing success has been observed in sibling scenarios and technical vulnerabilities remain open.
+Impact determination: Very high criticality ensures any sustained outage has severe business and contractual consequences.
 
-Impact determination: Very high impact is non-negotiable for wholesale customer data exposure.
+Risk calculation: High cyber risk score. Deploy rate limiting, close unnecessary ports, implement DDoS mitigation services, and maintain a volumetric attack response runbook with ISP escalation contacts.`,
+  },
+  {
+    kind: "scenario",
+    id: "dd-s2",
+    groupId: "dd",
+    tag: "Scenario 2",
+    titlePlain:
+      "DDoS attack exploiting Missing intrusion detection system on DNS server.",
+    titleSegments: [
+      { text: "DDoS attack", emphasize: true },
+      { text: " exploiting " },
+      { text: "Missing intrusion detection system", emphasize: true },
+      { text: " on " },
+      { text: "DNS server", emphasize: true },
+      { text: "." },
+    ],
+    impact: { numeric: "5", label: "Very high", rag: "neg05" },
+    threat: { numeric: "4", label: "High", rag: "neg03" },
+    vulnerability: { numeric: "3", label: "Medium", rag: "neu03" },
+    likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
+    cyberRiskScore: { numeric: "51–75", label: "Medium", rag: "neu03" },
+    rationale: `Threat — DDoS attack (severity: High): DNS amplification and reflection attacks are a well-known vector. High severity reflects the ease of execution against resolvers and authoritative servers.
 
-Risk calculation: Cyber risk score is Very high. Treat as top-priority: incident readiness, zero-trust segmentation, database activity monitoring, and executive escalation for funding a fix.`,
+Vulnerability — Missing intrusion detection system (severity: Medium): Without IDS, anomalous traffic patterns go undetected until service degradation is reported by users, delaying response and increasing blast radius.
+
+Asset — DNS server (criticality: Very high): The DNS server is foundational infrastructure. Loss of name resolution renders all dependent services unreachable regardless of their individual health.
+
+Likelihood determination: High threat with Medium vulnerability yields Medium likelihood — the attack vector is viable but partial compensating controls exist.
+
+Impact determination: Very high criticality because DNS failure cascades across the entire service portfolio.
+
+Risk calculation: Medium cyber risk score. Deploy DNS-specific IDS rules, enable response rate limiting, diversify DNS providers, and pre-stage anycast failover configurations.`,
+  },
+
+  // ── Cyber risk 4: Insider data exfiltration ─────────────────────────
+  {
+    kind: "cyberRisk",
+    id: "cr-ie",
+    groupId: "ie",
+    tag: "Cyber risk",
+    titleLinkText: "Insider data exfiltration",
+    impact: null,
+    threat: null,
+    vulnerability: null,
+    likelihood: null,
+    cyberRiskScore: null,
+  },
+  {
+    kind: "scenario",
+    id: "ie-s1",
+    groupId: "ie",
+    tag: "Scenario 1",
+    titlePlain:
+      "Insider data exfiltration exploiting Missing data encryption at rest on Customer database.",
+    titleSegments: [
+      { text: "Insider data exfiltration", emphasize: true },
+      { text: " exploiting " },
+      { text: "Missing data encryption at rest", emphasize: true },
+      { text: " on " },
+      { text: "Customer database", emphasize: true },
+      { text: "." },
+    ],
+    impact: { numeric: "5", label: "Very high", rag: "neg05" },
+    threat: { numeric: "4", label: "High", rag: "neg03" },
+    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
+    likelihood: { numeric: "16–20", label: "High", rag: "neg03" },
+    cyberRiskScore: { numeric: "76–100", label: "High", rag: "neg03" },
+    rationale: `Threat — Insider data exfiltration (severity: High): Privileged insiders with database access represent a High threat because they already possess legitimate credentials and knowledge of where sensitive data resides.
+
+Vulnerability — Missing data encryption at rest (severity: High): Unencrypted data at rest means a malicious insider can copy raw data files or backups without triggering decryption-layer controls or key audit events.
+
+Asset — Customer database (criticality: Very high): The customer database holds regulated personal information. Bulk exfiltration triggers mandatory breach notification and significant legal exposure.
+
+Likelihood determination: High threat combined with High vulnerability produces High likelihood — the insider already has access and no encryption barrier stands in the way.
+
+Impact determination: Very high criticality ensures any confirmed exfiltration event has severe customer, regulatory, and financial consequences.
+
+Risk calculation: High cyber risk score. Implement encryption at rest with hardware-backed key management, enable database activity monitoring, enforce least-privilege access reviews, and deploy DLP controls on egress paths.`,
+  },
+  {
+    kind: "scenario",
+    id: "ie-s2",
+    groupId: "ie",
+    tag: "Scenario 2",
+    titlePlain:
+      "Insider data exfiltration exploiting Missing data loss prevention controls on Data warehouse.",
+    titleSegments: [
+      { text: "Insider data exfiltration", emphasize: true },
+      { text: " exploiting " },
+      { text: "Missing data loss prevention controls", emphasize: true },
+      { text: " on " },
+      { text: "Data warehouse", emphasize: true },
+      { text: "." },
+    ],
+    impact: { numeric: "4", label: "High", rag: "neg03" },
+    threat: { numeric: "3", label: "Medium", rag: "neu03" },
+    vulnerability: { numeric: "4", label: "High", rag: "neg03" },
+    likelihood: { numeric: "11–15", label: "Medium", rag: "neu03" },
+    cyberRiskScore: { numeric: "26–50", label: "Low", rag: "pos04" },
+    rationale: `Threat — Insider data exfiltration (severity: Medium): Analysts and data engineers routinely access the warehouse for legitimate purposes. The Medium rating reflects that while insider risk exists, the threat population is smaller and less motivated than for the customer database.
+
+Vulnerability — Missing data loss prevention controls (severity: High): Without DLP, large data exports via queries, API calls, or direct file copies go undetected, providing a clear exfiltration path.
+
+Asset — Data warehouse (criticality: High): The data warehouse aggregates business intelligence including financial metrics, operational KPIs, and derived customer insights. Exposure is damaging but less directly regulated than raw customer PII.
+
+Likelihood determination: Medium threat with High vulnerability yields Medium likelihood — the path exists but the threat actor pool is constrained.
+
+Impact determination: High criticality reflects competitive and strategic harm from exposure of aggregated business intelligence.
+
+Risk calculation: Low cyber risk score. Implement DLP policies on warehouse egress, enforce query-level audit logging, restrict bulk export permissions, and review access grants quarterly.`,
   },
 ];
 

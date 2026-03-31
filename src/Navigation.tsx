@@ -75,6 +75,7 @@ export default function Navigation() {
         <RoutedNavLink to="/cyber-risk/controls" label="Controls" />
         <RoutedNavLink to="/cyber-risk/threats" label="Threats" />
         <RoutedNavLink to="/cyber-risk/vulnerabilities" label="Vulnerabilities" />
+        <RoutedNavLink to="/cyber-risk/mitigation-plans" label="Mitigation plans" />
         {/* <RoutedNavLink to="/cyber-risk/file-import" label="File import" /> */}
       </NavSection>
 

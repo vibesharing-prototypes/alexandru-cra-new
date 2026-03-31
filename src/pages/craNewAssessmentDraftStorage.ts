@@ -1,9 +1,10 @@
-export type AssessmentPhase = "draft" | "inProgress" | "assessmentApproved";
+export type AssessmentPhase = "draft" | "scoping" | "inProgress" | "assessmentApproved";
 
 type ScopeSubView = "overview" | "assets";
 
 const STORAGE_KEY = "cra_new_assessment_draft_v1";
 
+const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
 const RESULTS_TAB_INDEX = 3;
 
@@ -19,7 +20,7 @@ export type CraNewAssessmentPersistedDraft = {
 };
 
 function isAssessmentPhase(v: unknown): v is AssessmentPhase {
-  return v === "draft" || v === "inProgress" || v === "assessmentApproved";
+  return v === "draft" || v === "scoping" || v === "inProgress" || v === "assessmentApproved";
 }
 
 function isScopeSubView(v: unknown): v is ScopeSubView {
@@ -32,7 +33,11 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
       ? raw.activeTab
       : 0;
   const assessmentPhase = isAssessmentPhase(raw.assessmentPhase) ? raw.assessmentPhase : "draft";
-  const assessmentStarted = assessmentPhase !== "draft";
+  const scopingStarted = assessmentPhase !== "draft";
+  const assessmentStarted = assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
+  if (!scopingStarted && activeTab === SCOPE_TAB_INDEX) {
+    activeTab = 0;
+  }
   if (!assessmentStarted && (activeTab === SCORING_TAB_INDEX || activeTab === RESULTS_TAB_INDEX)) {
     activeTab = 0;
   }
