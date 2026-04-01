@@ -19,48 +19,168 @@ const RISK_COUNT = 40;
 
 const OWNER_ROTATION = [7, 9, 14, 15, 20, 33, 39, 49, 1, 5] as const;
 
-/** Each name describes a single malicious action (sentence case). */
+/** Enterprise-style cyber risk statements (sentence case; acronyms kept uppercase). */
 const RISK_SEEDS: { name: string; status: CyberRiskStatus }[] = [
-  { name: "Ransomware deployment", status: "Mitigation" },
-  { name: "Phishing", status: "Monitoring" },
-  { name: "DDoS attack", status: "Assessment" },
-  { name: "Insider data exfiltration", status: "Mitigation" },
-  { name: "Business email compromise", status: "Monitoring" },
-  { name: "Compliance breach", status: "Assessment" },
-  { name: "Supply chain compromise", status: "Identification" },
-  { name: "Injection attack", status: "Mitigation" },
-  { name: "Malware infection", status: "Monitoring" },
-  { name: "Account takeover", status: "Assessment" },
-  { name: "Cloud service outage", status: "Identification" },
-  { name: "Advanced persistent threat", status: "Mitigation" },
-  { name: "Zero-day exploitation", status: "Assessment" },
-  { name: "Man-in-the-middle attack", status: "Monitoring" },
-  { name: "Cryptojacking", status: "Identification" },
-  { name: "Credential stuffing", status: "Mitigation" },
-  { name: "Trade secret theft", status: "Assessment" },
-  { name: "Privacy breach", status: "Monitoring" },
-  { name: "Infrastructure attack", status: "Assessment" },
-  { name: "API abuse", status: "Identification" },
-  { name: "Data tampering", status: "Mitigation" },
-  { name: "Unpatched system exploitation", status: "Assessment" },
-  { name: "Vendor data breach", status: "Monitoring" },
-  { name: "Website defacement", status: "Identification" },
-  { name: "Cloud misconfiguration exploit", status: "Mitigation" },
-  { name: "Double extortion", status: "Mitigation" },
-  { name: "Extended outage", status: "Assessment" },
-  { name: "Fraudulent data manipulation", status: "Identification" },
-  { name: "Industrial espionage", status: "Assessment" },
-  { name: "Regulatory penalty exposure", status: "Monitoring" },
-  { name: "Vendor disruption", status: "Mitigation" },
-  { name: "Session hijacking", status: "Assessment" },
-  { name: "Customer PII exposure", status: "Mitigation" },
-  { name: "System failure", status: "Identification" },
-  { name: "Insecure API exploitation", status: "Mitigation" },
-  { name: "Operational disruption", status: "Assessment" },
-  { name: "IoT compromise", status: "Assessment" },
-  { name: "USB-based intrusion", status: "Identification" },
-  { name: "DNS hijacking", status: "Monitoring" },
-  { name: "SIM swapping fraud", status: "Identification" },
+  {
+    name: "Ransomware and extortion disrupting critical operations and data availability",
+    status: "Mitigation",
+  },
+  {
+    name: "Phishing and impersonation compromising workforce and customer credentials",
+    status: "Monitoring",
+  },
+  {
+    name: "Denial-of-service events impairing service availability and revenue",
+    status: "Assessment",
+  },
+  {
+    name: "Insider actions or negligence leading to unauthorized data exfiltration",
+    status: "Mitigation",
+  },
+  {
+    name: "Business email compromise and payment fraud against the organization",
+    status: "Monitoring",
+  },
+  {
+    name: "Cyber incidents triggering regulatory non-compliance and enforcement action",
+    status: "Assessment",
+  },
+  {
+    name: "Supply chain compromise through vendors, software, or managed services",
+    status: "Identification",
+  },
+  {
+    name: "Application-layer attacks compromising confidentiality and integrity of data",
+    status: "Mitigation",
+  },
+  {
+    name: "Malware infection, illicit cryptomining, and lateral movement across systems",
+    status: "Monitoring",
+  },
+  {
+    name: "Account takeover enabling unauthorized access to systems and privileged functions",
+    status: "Assessment",
+  },
+  {
+    name: "Cloud or SaaS dependency failures causing extended operational outage",
+    status: "Identification",
+  },
+  {
+    name: "Sophisticated and AI-assisted cyber threats maintaining covert, long-term access",
+    status: "Mitigation",
+  },
+  {
+    name: "Exploitation of unpatched or zero-day vulnerabilities before remediations deploy",
+    status: "Assessment",
+  },
+  {
+    name: "Adversary-in-the-middle attacks intercepting or altering sensitive communications",
+    status: "Monitoring",
+  },
+  {
+    name: "Sophisticated cyber threats and AI-related security vulnerabilities",
+    status: "Identification",
+  },
+  {
+    name: "Credential stuffing and password reuse breaching customer or workforce accounts",
+    status: "Mitigation",
+  },
+  {
+    name: "Theft or leakage of trade secrets and competitively sensitive information",
+    status: "Assessment",
+  },
+  {
+    name: "Cyber incidents compromising confidential information and data subject privacy",
+    status: "Monitoring",
+  },
+  {
+    name: "Cyber resilience gap — IT infrastructure vulnerability exposure",
+    status: "Assessment",
+  },
+  {
+    name: "API abuse and excessive access undermining data protection and service integrity",
+    status: "Identification",
+  },
+  {
+    name: "Unauthorized data tampering affecting records, reporting, and auditability",
+    status: "Mitigation",
+  },
+  {
+    name: "Exploitation of delayed patching and legacy systems exposed to the internet",
+    status: "Assessment",
+  },
+  {
+    name: "Third-party or vendor breach exposing hosted, shared, or processed data",
+    status: "Monitoring",
+  },
+  {
+    name: "Public-facing defacement and reputational harm to brand and stakeholder trust",
+    status: "Identification",
+  },
+  {
+    name: "Cloud misconfiguration exposing storage, identities, or administrative paths",
+    status: "Mitigation",
+  },
+  {
+    name: "Double extortion combining encryption with threatened publication of stolen data",
+    status: "Mitigation",
+  },
+  {
+    name: "Prolonged technology outage exceeding recovery time and continuity tolerances",
+    status: "Assessment",
+  },
+  {
+    name: "Fraudulent data manipulation affecting transactions, analytics, or financial reporting",
+    status: "Identification",
+  },
+  {
+    name: "Targeted espionage against strategic plans, M&A, and intellectual property",
+    status: "Assessment",
+  },
+  {
+    name: "Regulatory and contractual penalties following security and privacy failures",
+    status: "Monitoring",
+  },
+  {
+    name: "Critical vendor or service disruption cascading into dependent business processes",
+    status: "Mitigation",
+  },
+  {
+    name: "Session hijacking and token theft enabling impersonation of legitimate users",
+    status: "Assessment",
+  },
+  {
+    name: "Customer PII exposure through breach, misdelivery, or inadequate safeguards",
+    status: "Mitigation",
+  },
+  {
+    name: "Security control or platform failure leaving assets temporarily undefended",
+    status: "Identification",
+  },
+  {
+    name: "Insecure API and integration design enabling data leakage or abuse",
+    status: "Mitigation",
+  },
+  {
+    name: "Cyber security breaches causing financial and reputational damage",
+    status: "Assessment",
+  },
+  {
+    name: "IoT and connected-device compromise expanding exposure into enterprise networks",
+    status: "Assessment",
+  },
+  {
+    name: "Malicious removable media and physical media vectors in sensitive environments",
+    status: "Identification",
+  },
+  {
+    name: "DNS hijacking or poisoning redirecting users, mail, or application traffic",
+    status: "Monitoring",
+  },
+  {
+    name: "SIM-swapping and telecom fraud circumventing SMS and voice-based authentication",
+    status: "Identification",
+  },
 ];
 
 function dedupePush(arr: string[], id: string): void {

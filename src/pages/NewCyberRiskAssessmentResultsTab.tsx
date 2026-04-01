@@ -47,12 +47,15 @@ import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
 import { type CraRagKey } from "../data/craScoringScenarioLibrary.js";
+import { assets } from "../data/assets.js";
 import {
   RAG_DATA_VIZ_CANVAS_FALLBACK,
   RAG_FIVE_POINT_BAND_KEYS,
   ragDataVizColor,
   resolveColorForCanvas,
 } from "../data/ragDataVisualization.js";
+
+const RELATED_ASSET_OPTIONS = assets.map((a) => a.name);
 
 ChartJS.register(ArcElement, Tooltip, ChartLegend);
 
@@ -449,6 +452,7 @@ function MitigationPlanSideSheet({
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [owners, setOwners] = useState("");
   const [orgUnit, setOrgUnit] = useState("");
+  const [relatedAssets, setRelatedAssets] = useState<string[]>([]);
   const [relatedControls, setRelatedControls] = useState<string[]>([]);
   const [actionPlan, setActionPlan] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -460,10 +464,23 @@ function MitigationPlanSideSheet({
     setDueDate(null);
     setOwners("");
     setOrgUnit("");
+    setRelatedAssets([]);
     setRelatedControls([]);
     setActionPlan("");
     onClose();
   }, [onClose]);
+
+  const handleRelatedAssetsChange = useCallback(
+    (event: SelectChangeEvent<string[]>) => {
+      const value = event.target.value;
+      setRelatedAssets(typeof value === "string" ? value.split(",") : value);
+    },
+    [],
+  );
+
+  const handleDeleteAsset = useCallback((assetToDelete: string) => {
+    setRelatedAssets((prev) => prev.filter((a) => a !== assetToDelete));
+  }, []);
 
   const handleRelatedControlsChange = useCallback(
     (event: SelectChangeEvent<string[]>) => {
@@ -619,7 +636,73 @@ function MitigationPlanSideSheet({
             </Select>
           </FormControl>
 
-          {/* Row 5: Related controls */}
+          {/* Row 5: Assets */}
+          <FormControl fullWidth>
+            <FormLabel id="mp-related-assets-label">Assets</FormLabel>
+            <Select
+              multiple
+              displayEmpty
+              value={relatedAssets}
+              onChange={handleRelatedAssetsChange}
+              labelId="mp-related-assets-label"
+              IconComponent={ExpandDownIcon}
+              endAdornment={
+                relatedAssets.length > 0 ? (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRelatedAssets([]);
+                    }}
+                    aria-label="Clear all selected assets"
+                    sx={{ mr: 2 }}
+                  >
+                    <ClearIcon aria-hidden />
+                  </IconButton>
+                ) : null
+              }
+              renderValue={(selected) => {
+                if (selected.length === 0) {
+                  return <PlaceholderText text="Choose assets" />;
+                }
+                return (
+                  <Stack direction="row" flexWrap="wrap" gap={1}>
+                    {selected.map((value) => (
+                      <Chip
+                        key={value}
+                        label={value}
+                        variant="outlined"
+                        size="small"
+                        onDelete={() => handleDeleteAsset(value)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      />
+                    ))}
+                  </Stack>
+                );
+              }}
+              sx={{
+                "& .MuiSelect-select": {
+                  whiteSpace: "normal",
+                  height: "auto !important",
+                  minHeight: 92,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                  pt: 1,
+                  pb: 1,
+                },
+              }}
+            >
+              {RELATED_ASSET_OPTIONS.map((opt) => (
+                <MenuItem key={opt} value={opt}>
+                  <Checkbox checked={relatedAssets.includes(opt)} />
+                  <ListItemText primary={opt} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Row 6: Related controls */}
           <FormControl fullWidth>
             <FormLabel id="mp-related-controls-label">Related controls</FormLabel>
             <Select
@@ -685,7 +768,7 @@ function MitigationPlanSideSheet({
             </Select>
           </FormControl>
 
-          {/* Row 6: Action plan */}
+          {/* Row 7: Action plan */}
           <FormControl fullWidth>
             <FormLabel htmlFor="mp-action-plan">Action plan</FormLabel>
             <TextField
@@ -698,7 +781,7 @@ function MitigationPlanSideSheet({
             />
           </FormControl>
 
-          {/* Row 7: File uploader */}
+          {/* Row 8: File uploader */}
           <Box>
             <input
               ref={fileInputRef}

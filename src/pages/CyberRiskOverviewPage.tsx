@@ -30,6 +30,7 @@ import {
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import ArrowUpIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowUp";
 import ArrowDownIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowDown";
+import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 
 import { type RiskHeatmapLevel, ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import ResidualRisksMatrix from "../components/ResidualRisksMatrix.js";
@@ -580,6 +581,17 @@ export default function CyberRiskOverviewPage() {
             >
               {({ label, url }) => <NavLink to={url}>{label}</NavLink>}
             </OverflowBreadcrumbs>
+          }
+          moreButton={
+            <Button
+              variant="contained"
+              color="primary"
+              size="medium"
+              startIcon={<DownloadIcon aria-hidden />}
+              aria-label="Export cyber risk management overview"
+            >
+              Export
+            </Button>
           }
         />
 

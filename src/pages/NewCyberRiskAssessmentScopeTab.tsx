@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Card,
+  CardActionArea,
   CardContent,
   InputAdornment,
   Link,
@@ -41,14 +42,33 @@ import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { threats } from "../data/threats.js";
 import { vulnerabilities } from "../data/vulnerabilities.js";
-import type { FivePointScaleValue } from "../data/types.js";
+import { getUserById } from "../data/users.js";
+import type {
+  FivePointScaleValue,
+  MockCyberRisk,
+  MockThreat,
+  MockVulnerability,
+} from "../data/types.js";
+import {
+  includedAssetIdSet,
+  scopedCyberRisks,
+  scopedThreats,
+  scopedVulnerabilities,
+  SCOPE_CATALOG_TOTALS,
+} from "./scopeAssessmentRollup.js";
 
-export type ScopeSubView = "overview" | "assets";
+export type ScopeSubView =
+  | "overview"
+  | "assets"
+  | "scopedCyberRisks"
+  | "scopedThreats"
+  | "scopedVulnerabilities";
 
 type ScopeViewFilter = "all" | "included" | "excluded";
 
 export type ScopeAssetRow = {
   id: number;
+  assetId: string;
   included: boolean;
   assetName: string;
   assetType: string;
@@ -95,6 +115,7 @@ function buildScopeRows(): ScopeAssetRow[] {
 
   return assets.map((a, i) => ({
     id: i + 1,
+    assetId: a.id,
     included: false,
     assetName: a.name,
     assetType: a.assetType,
@@ -188,6 +209,52 @@ function ScopeToolbar({
         </ToggleButton>
         <ToggleButton value="excluded">Not included</ToggleButton>
       </ToggleButtonGroup>
+    </Toolbar>
+  );
+}
+
+function ScopeEntitySlimToolbar({ ariaLabel }: { ariaLabel: string }) {
+  return (
+    <Toolbar aria-label={ariaLabel}>
+      <QuickFilter expanded>
+        <QuickFilterControl
+          render={({ ref, value, ...other }) => (
+            <TextField
+              {...other}
+              inputRef={ref}
+              value={value ?? ""}
+              label="Search by"
+              placeholder="Search by"
+              size="small"
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon aria-hidden />
+                    </InputAdornment>
+                  ),
+                  ...other.slotProps?.input,
+                },
+                ...other.slotProps,
+              }}
+            />
+          )}
+        />
+      </QuickFilter>
+      <FilterPanelTrigger
+        render={(props) => (
+          <Button {...props} startIcon={<FilterIcon />} aria-label="Show filters">
+            Filter
+          </Button>
+        )}
+      />
+      <ColumnsPanelTrigger
+        render={(props) => (
+          <Button {...props} startIcon={<ColumnsIcon />} aria-label="Select columns">
+            Columns
+          </Button>
+        )}
+      />
     </Toolbar>
   );
 }
@@ -365,6 +432,8 @@ function ScopeObjectTypeCard({
   totalCount,
   countNoun,
   trailingAction,
+  onCardClick,
+  cardActionAriaLabel,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -373,7 +442,110 @@ function ScopeObjectTypeCard({
   /** Shown after the fraction, e.g. “Assets” → “0 / 124 Assets”. */
   countNoun: string;
   trailingAction?: React.ReactNode;
+  onCardClick?: () => void;
+  cardActionAriaLabel?: string;
 }) {
+  const inner = (
+    <CardContent
+      sx={{
+        pt: 0,
+        px: 0,
+        pb: 3,
+        "&:last-child": { pb: 3 },
+      }}
+    >
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "auto minmax(0, 1fr) auto",
+          gridTemplateRows: "auto auto",
+          columnGap: 1.5,
+          rowGap: 2,
+          alignItems: "start",
+        }}
+      >
+        <Box
+          sx={({ tokens: t }) => ({
+            gridRow: "1 / 3",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: t.semantic.radius.md.value,
+            bgcolor: t.semantic.color.surface.variant.value,
+            color: t.semantic.color.type.default.value,
+            flexShrink: 0,
+          })}
+        >
+          {icon}
+        </Box>
+        <Typography
+          component="h3"
+          variant="h3"
+          fontWeight={600}
+          sx={({ tokens: t }) => ({
+            gridColumn: 2,
+            gridRow: 1,
+            color: t.semantic.color.type.default.value,
+            alignSelf: "center",
+          })}
+        >
+          {title}
+        </Typography>
+        {trailingAction ? (
+          <Box
+            sx={{
+              gridColumn: 3,
+              gridRow: 1,
+              justifySelf: "end",
+              alignSelf: "center",
+            }}
+          >
+            {trailingAction}
+          </Box>
+        ) : null}
+        <Stack
+          gap={0.5}
+          sx={{ gridColumn: "2 / 4", gridRow: 2, minWidth: 0 }}
+          aria-label={`${title} scope counts`}
+        >
+          <Typography
+            variant="caption"
+            component="p"
+            sx={({ tokens: t }) => ({
+              m: 0,
+              color: t.semantic.color.type.muted.value,
+              letterSpacing: "0.3px",
+              fontSize: t.semantic.font.label.sm.fontSize.value,
+              lineHeight: t.semantic.font.label.sm.lineHeight.value,
+            })}
+          >
+            Included in this assessment
+          </Typography>
+          <Typography
+            component="p"
+            variant="body1"
+            sx={({ tokens: t }) => ({
+              m: 0,
+              color: t.semantic.color.type.default.value,
+              letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+              lineHeight: t.semantic.font.text.md.lineHeight.value,
+              fontSize: t.semantic.font.text.md.fontSize.value,
+            })}
+          >
+            <Box component="span" sx={{ fontWeight: 700 }}>
+              {includedCount}
+            </Box>
+            <Box component="span" sx={{ fontWeight: 400 }}>
+              {` / ${totalCount} ${countNoun}`}
+            </Box>
+          </Typography>
+        </Stack>
+      </Box>
+    </CardContent>
+  );
+
   return (
     <Card
       variant="outlined"
@@ -388,104 +560,23 @@ function ScopeObjectTypeCard({
         boxShadow: "none",
       })}
     >
-      <CardContent
-        sx={{
-          pt: 0,
-          px: 0,
-          pb: 3,
-          "&:last-child": { pb: 3 },
-        }}
-      >
-        <Box
+      {onCardClick ? (
+        <CardActionArea
+          onClick={onCardClick}
+          aria-label={cardActionAriaLabel ?? `View ${title} included in this assessment`}
           sx={{
-            display: "grid",
-            gridTemplateColumns: "auto minmax(0, 1fr) auto",
-            gridTemplateRows: "auto auto",
-            columnGap: 1.5,
-            rowGap: 2,
-            alignItems: "start",
+            alignItems: "stretch",
+            justifyContent: "flex-start",
+            "& .MuiCardActionArea-focusHighlight": {
+              opacity: 0,
+            },
           }}
         >
-          <Box
-            sx={({ tokens: t }) => ({
-              gridRow: "1 / 3",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: t.semantic.radius.md.value,
-              bgcolor: t.semantic.color.surface.variant.value,
-              color: t.semantic.color.type.default.value,
-              flexShrink: 0,
-            })}
-          >
-            {icon}
-          </Box>
-          <Typography
-            component="h3"
-            variant="h3"
-            fontWeight={600}
-            sx={({ tokens: t }) => ({
-              gridColumn: 2,
-              gridRow: 1,
-              color: t.semantic.color.type.default.value,
-              alignSelf: "center",
-            })}
-          >
-            {title}
-          </Typography>
-          {trailingAction ? (
-            <Box
-              sx={{
-                gridColumn: 3,
-                gridRow: 1,
-                justifySelf: "end",
-                alignSelf: "center",
-              }}
-            >
-              {trailingAction}
-            </Box>
-          ) : null}
-          <Stack
-            gap={0.5}
-            sx={{ gridColumn: "2 / 4", gridRow: 2, minWidth: 0 }}
-            aria-label={`${title} scope counts`}
-          >
-            <Typography
-              variant="caption"
-              component="p"
-              sx={({ tokens: t }) => ({
-                m: 0,
-                color: t.semantic.color.type.muted.value,
-                letterSpacing: "0.3px",
-                fontSize: t.semantic.font.label.sm.fontSize.value,
-                lineHeight: t.semantic.font.label.sm.lineHeight.value,
-              })}
-            >
-              Included in this assessment
-            </Typography>
-            <Typography
-              component="p"
-              variant="body1"
-              sx={({ tokens: t }) => ({
-                m: 0,
-                color: t.semantic.color.type.default.value,
-                letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                lineHeight: t.semantic.font.text.md.lineHeight.value,
-                fontSize: t.semantic.font.text.md.fontSize.value,
-              })}
-            >
-              <Box component="span" sx={{ fontWeight: 700 }}>
-                {includedCount}
-              </Box>
-              <Box component="span" sx={{ fontWeight: 400 }}>
-                {` / ${totalCount} ${countNoun}`}
-              </Box>
-            </Typography>
-          </Stack>
-        </Box>
-      </CardContent>
+          {inner}
+        </CardActionArea>
+      ) : (
+        inner
+      )}
     </Card>
   );
 }
@@ -493,19 +584,29 @@ function ScopeObjectTypeCard({
 function ScopeOverviewCards({
   totalAssets,
   includedAssets,
+  includedCyberRisks,
+  includedThreats,
+  includedVulnerabilities,
   onEditAssetsScope,
+  onOpenCyberRisks,
+  onOpenThreats,
+  onOpenVulnerabilities,
 }: {
   totalAssets: number;
   includedAssets: number;
+  includedCyberRisks: number;
+  includedThreats: number;
+  includedVulnerabilities: number;
   onEditAssetsScope: () => void;
+  onOpenCyberRisks: () => void;
+  onOpenThreats: () => void;
+  onOpenVulnerabilities: () => void;
 }) {
   const { presets } = useTheme();
   const CardHeaderIcon = presets.CardComponentsPresets?.components?.CardHeaderIcon;
 
   const wrapHeaderIcon = (icon: React.ReactElement) =>
     CardHeaderIcon ? <CardHeaderIcon icon={icon} /> : icon;
-
-  const hasScopedAssets = includedAssets > 0;
 
   const editScopeAction = (
     <Button
@@ -546,23 +647,29 @@ function ScopeOverviewCards({
         <ScopeObjectTypeCard
           title="Cyber risks"
           icon={wrapHeaderIcon(<CertCyberRiskStrategyIcon size="lg" aria-hidden />)}
-          includedCount={hasScopedAssets ? 12 : 0}
-          totalCount={12}
+          includedCount={includedCyberRisks}
+          totalCount={SCOPE_CATALOG_TOTALS.cyberRisks}
           countNoun="Cyber risks"
+          onCardClick={onOpenCyberRisks}
+          cardActionAriaLabel="View cyber risks included in this assessment"
         />
         <ScopeObjectTypeCard
           title="Threats"
           icon={wrapHeaderIcon(<HistoryIcon size="lg" aria-hidden />)}
-          includedCount={hasScopedAssets ? 8 : 0}
-          totalCount={18}
+          includedCount={includedThreats}
+          totalCount={SCOPE_CATALOG_TOTALS.threats}
           countNoun="Threats"
+          onCardClick={onOpenThreats}
+          cardActionAriaLabel="View threats included in this assessment"
         />
         <ScopeObjectTypeCard
           title="Vulnerabilities"
           icon={wrapHeaderIcon(<DocumentIcon size="lg" aria-hidden />)}
-          includedCount={hasScopedAssets ? 6 : 0}
-          totalCount={24}
+          includedCount={includedVulnerabilities}
+          totalCount={SCOPE_CATALOG_TOTALS.vulnerabilities}
           countNoun="Vulnerabilities"
+          onCardClick={onOpenVulnerabilities}
+          cardActionAriaLabel="View vulnerabilities included in this assessment"
         />
       </Box>
     </Stack>
@@ -841,6 +948,298 @@ function ScopeAssetsDataGrid({
   );
 }
 
+function ScopeScopedCyberRisksGrid({
+  rows,
+  hasIncludedAssets,
+}: {
+  rows: MockCyberRisk[];
+  hasIncludedAssets: boolean;
+}) {
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+
+  const columns: GridColDef<MockCyberRisk>[] = useMemo(
+    () => [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 240,
+        renderCell: (params: GridRenderCellParams<MockCyberRisk>) => (
+          <Link href="#" underline="hover" onClick={(e: React.MouseEvent) => e.preventDefault()}>
+            {params.value as string}
+          </Link>
+        ),
+      },
+      { field: "id", headerName: "ID", width: 110 },
+      { field: "status", headerName: "Workflow status", width: 140 },
+      {
+        field: "cyberRiskScoreCombined",
+        headerName: "Cyber risk score",
+        width: 180,
+        valueGetter: (_v, row) => `${row.cyberRiskScore} - ${row.cyberRiskScoreLabel}`,
+      },
+      {
+        field: "ownerId",
+        headerName: "Owner",
+        width: 200,
+        valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
+      },
+    ],
+    [],
+  );
+
+  return (
+    <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
+      {rows.length === 0 ? (
+        <Typography
+          variant="body2"
+          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
+        >
+          {hasIncludedAssets
+            ? "No cyber risks are linked to the assets in scope."
+            : "Include assets in this assessment to see related cyber risks."}
+        </Typography>
+      ) : null}
+      <Box sx={{ width: "100%", minHeight: 400 }}>
+        <DataGridPro
+          rows={rows}
+          columns={columns}
+          getRowId={(r) => r.id}
+          pagination
+          autoHeight
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          pageSizeOptions={[10, 25, 50]}
+          showToolbar
+          slots={{
+            toolbar: () => (
+              <ScopeEntitySlimToolbar ariaLabel="Scoped cyber risks toolbar" />
+            ),
+          }}
+          disableRowSelectionOnClick
+          slotProps={{
+            main: { "aria-label": "Cyber risks linked to assets in assessment scope." },
+            basePagination: { material: { labelRowsPerPage: "Rows" } },
+          }}
+          initialState={{
+            sorting: { sortModel: [{ field: "name", sort: "asc" }] },
+          }}
+          sx={({ tokens: t }) => ({
+            border: "none",
+            borderRadius: t.semantic.radius.md.value,
+            "& .MuiDataGrid-scrollShadow": { display: "none" },
+            "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: t.semantic.color.surface.variant.value,
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: 600,
+              fontSize: 12,
+              letterSpacing: "0.3px",
+            },
+            "& .MuiDataGrid-withBorderColor": {
+              borderColor: t.semantic.color.outline.default.value,
+            },
+          })}
+          showColumnVerticalBorder
+          showCellVerticalBorder
+        />
+      </Box>
+    </Stack>
+  );
+}
+
+function ScopeScopedThreatsGrid({
+  rows,
+  hasIncludedAssets,
+}: {
+  rows: MockThreat[];
+  hasIncludedAssets: boolean;
+}) {
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+
+  const columns: GridColDef<MockThreat>[] = useMemo(
+    () => [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 240,
+        renderCell: (params: GridRenderCellParams<MockThreat>) => (
+          <Link href="#" underline="hover" onClick={(e: React.MouseEvent) => e.preventDefault()}>
+            {params.value as string}
+          </Link>
+        ),
+      },
+      { field: "id", headerName: "ID", width: 110 },
+      { field: "source", headerName: "Source", width: 130 },
+      { field: "status", headerName: "Status", width: 120 },
+      {
+        field: "ownerId",
+        headerName: "Owner",
+        width: 200,
+        valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
+      },
+    ],
+    [],
+  );
+
+  return (
+    <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
+      {rows.length === 0 ? (
+        <Typography
+          variant="body2"
+          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
+        >
+          {hasIncludedAssets
+            ? "No threats are linked to the assets in scope."
+            : "Include assets in this assessment to see related threats."}
+        </Typography>
+      ) : null}
+      <Box sx={{ width: "100%", minHeight: 400 }}>
+        <DataGridPro
+          rows={rows}
+          columns={columns}
+          getRowId={(r) => r.id}
+          pagination
+          autoHeight
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          pageSizeOptions={[10, 25, 50]}
+          showToolbar
+          slots={{
+            toolbar: () => <ScopeEntitySlimToolbar ariaLabel="Scoped threats toolbar" />,
+          }}
+          disableRowSelectionOnClick
+          slotProps={{
+            main: { "aria-label": "Threats linked to assets in assessment scope." },
+            basePagination: { material: { labelRowsPerPage: "Rows" } },
+          }}
+          initialState={{
+            sorting: { sortModel: [{ field: "name", sort: "asc" }] },
+          }}
+          sx={({ tokens: t }) => ({
+            border: "none",
+            borderRadius: t.semantic.radius.md.value,
+            "& .MuiDataGrid-scrollShadow": { display: "none" },
+            "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: t.semantic.color.surface.variant.value,
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: 600,
+              fontSize: 12,
+              letterSpacing: "0.3px",
+            },
+            "& .MuiDataGrid-withBorderColor": {
+              borderColor: t.semantic.color.outline.default.value,
+            },
+          })}
+          showColumnVerticalBorder
+          showCellVerticalBorder
+        />
+      </Box>
+    </Stack>
+  );
+}
+
+function ScopeScopedVulnerabilitiesGrid({
+  rows,
+  hasIncludedAssets,
+}: {
+  rows: MockVulnerability[];
+  hasIncludedAssets: boolean;
+}) {
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+
+  const columns: GridColDef<MockVulnerability>[] = useMemo(
+    () => [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 240,
+        renderCell: (params: GridRenderCellParams<MockVulnerability>) => (
+          <Link href="#" underline="hover" onClick={(e: React.MouseEvent) => e.preventDefault()}>
+            {params.value as string}
+          </Link>
+        ),
+      },
+      { field: "id", headerName: "ID", width: 110 },
+      { field: "domain", headerName: "Domain", width: 130 },
+      { field: "status", headerName: "Status", width: 120 },
+      { field: "primaryCIAImpact", headerName: "Primary CIA impact", width: 160 },
+      {
+        field: "ownerId",
+        headerName: "Owner",
+        width: 200,
+        valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
+      },
+    ],
+    [],
+  );
+
+  return (
+    <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
+      {rows.length === 0 ? (
+        <Typography
+          variant="body2"
+          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
+        >
+          {hasIncludedAssets
+            ? "No vulnerabilities are linked to the assets in scope."
+            : "Include assets in this assessment to see related vulnerabilities."}
+        </Typography>
+      ) : null}
+      <Box sx={{ width: "100%", minHeight: 400 }}>
+        <DataGridPro
+          rows={rows}
+          columns={columns}
+          getRowId={(r) => r.id}
+          pagination
+          autoHeight
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          pageSizeOptions={[10, 25, 50]}
+          showToolbar
+          slots={{
+            toolbar: () => (
+              <ScopeEntitySlimToolbar ariaLabel="Scoped vulnerabilities toolbar" />
+            ),
+          }}
+          disableRowSelectionOnClick
+          slotProps={{
+            main: { "aria-label": "Vulnerabilities linked to assets in assessment scope." },
+            basePagination: { material: { labelRowsPerPage: "Rows" } },
+          }}
+          initialState={{
+            sorting: { sortModel: [{ field: "name", sort: "asc" }] },
+          }}
+          sx={({ tokens: t }) => ({
+            border: "none",
+            borderRadius: t.semantic.radius.md.value,
+            "& .MuiDataGrid-scrollShadow": { display: "none" },
+            "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: t.semantic.color.surface.variant.value,
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: 600,
+              fontSize: 12,
+              letterSpacing: "0.3px",
+            },
+            "& .MuiDataGrid-withBorderColor": {
+              borderColor: t.semantic.color.outline.default.value,
+            },
+          })}
+          showColumnVerticalBorder
+          showCellVerticalBorder
+        />
+      </Box>
+    </Stack>
+  );
+}
+
 type NewCyberRiskAssessmentScopeTabProps = {
   scopeSubView: ScopeSubView;
   onScopeSubViewChange: (view: ScopeSubView) => void;
@@ -854,15 +1253,54 @@ export default function NewCyberRiskAssessmentScopeTab({
 
   const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
 
+  const includedAssetIds = useMemo(() => includedAssetIdSet(rows), [rows]);
+
+  const scopedCrRows = useMemo(
+    () => scopedCyberRisks(includedAssetIds),
+    [includedAssetIds],
+  );
+  const scopedThreatRows = useMemo(() => scopedThreats(includedAssetIds), [includedAssetIds]);
+  const scopedVulnRows = useMemo(
+    () => scopedVulnerabilities(includedAssetIds),
+    [includedAssetIds],
+  );
+
   if (scopeSubView === "assets") {
     return <ScopeAssetsDataGrid rows={rows} setRows={setRows} />;
+  }
+
+  if (scopeSubView === "scopedCyberRisks") {
+    return (
+      <ScopeScopedCyberRisksGrid rows={scopedCrRows} hasIncludedAssets={includedCount > 0} />
+    );
+  }
+
+  if (scopeSubView === "scopedThreats") {
+    return (
+      <ScopeScopedThreatsGrid rows={scopedThreatRows} hasIncludedAssets={includedCount > 0} />
+    );
+  }
+
+  if (scopeSubView === "scopedVulnerabilities") {
+    return (
+      <ScopeScopedVulnerabilitiesGrid
+        rows={scopedVulnRows}
+        hasIncludedAssets={includedCount > 0}
+      />
+    );
   }
 
   return (
     <ScopeOverviewCards
       totalAssets={rows.length}
       includedAssets={includedCount}
+      includedCyberRisks={scopedCrRows.length}
+      includedThreats={scopedThreatRows.length}
+      includedVulnerabilities={scopedVulnRows.length}
       onEditAssetsScope={() => onScopeSubViewChange("assets")}
+      onOpenCyberRisks={() => onScopeSubViewChange("scopedCyberRisks")}
+      onOpenThreats={() => onScopeSubViewChange("scopedThreats")}
+      onOpenVulnerabilities={() => onScopeSubViewChange("scopedVulnerabilities")}
     />
   );
 }

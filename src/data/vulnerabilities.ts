@@ -20,7 +20,7 @@ type VulnTemplate = {
   cia: CIAImpact;
 };
 
-/** Six rotating templates per asset class (names stay generic; asset is appended in the row). */
+/** Six rotating templates per asset class (names stay generic; asset link is via assetIds). */
 const TEMPLATES: Record<AssetType, VulnTemplate[]> = {
   Application: [
     {
@@ -320,7 +320,7 @@ function buildVulnerabilities(): MockVulnerability[] {
       const cyberRiskIds: string[] = [];
       out.push({
         id: padId("VUL", vulnSeq),
-        name: `${template.title} (${asset.name})`,
+        name: template.title,
         ownerId: asset.ownerId,
         domain: template.domain,
         status: template.status,

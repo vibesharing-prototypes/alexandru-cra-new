@@ -32,6 +32,32 @@ import NewCyberRiskAssessmentResultsTab from "./NewCyberRiskAssessmentResultsTab
 import NewCyberRiskAssessmentScopeTab, {
   type ScopeSubView,
 } from "./NewCyberRiskAssessmentScopeTab.js";
+
+const SCOPE_DETAIL_PAGE: Record<
+  Exclude<ScopeSubView, "overview">,
+  { title: string; subtitle: string; crumb: string }
+> = {
+  assets: {
+    title: "Assets",
+    subtitle: "Choose which assets to include in this assessment.",
+    crumb: "Assets",
+  },
+  scopedCyberRisks: {
+    title: "Cyber risks",
+    subtitle: "Cyber risks linked to assets included in this assessment.",
+    crumb: "Cyber risks",
+  },
+  scopedThreats: {
+    title: "Threats",
+    subtitle: "Threats linked to assets included in this assessment.",
+    crumb: "Threats",
+  },
+  scopedVulnerabilities: {
+    title: "Vulnerabilities",
+    subtitle: "Vulnerabilities linked to assets included in this assessment.",
+    crumb: "Vulnerabilities",
+  },
+};
 import {
   loadCraNewAssessmentDraft,
   saveCraNewAssessmentDraft,
@@ -137,7 +163,13 @@ export default function NewCyberRiskAssessmentPage() {
     }
   }, [location.state, location.pathname, navigate]);
 
-  const isScopeAssetsEdit = activeTab === SCOPE_TAB_INDEX && scopeSubView === "assets";
+  const isScopeDetailView =
+    activeTab === SCOPE_TAB_INDEX && scopeSubView !== "overview";
+
+  const scopeDetail =
+    isScopeDetailView
+      ? SCOPE_DETAIL_PAGE[scopeSubView as Exclude<ScopeSubView, "overview">]
+      : undefined;
 
   useEffect(() => {
     if (activeTab !== SCOPE_TAB_INDEX) {
@@ -168,8 +200,8 @@ export default function NewCyberRiskAssessmentPage() {
     </OverflowBreadcrumbs>
   );
 
-  /** Edit asset scope: extended trail + hide current page crumb (matches Figma 10752-119596 pattern). */
-  const editScopeBreadcrumbs = (
+  /** Scope subviews: extended trail + hide current page crumb (matches Figma 10752-119596 pattern). */
+  const scopeDetailBreadcrumbs = scopeDetail ? (
     <OverflowBreadcrumbs
       leadingElement={<span>Asset manager</span>}
       hideLastItem
@@ -181,7 +213,7 @@ export default function NewCyberRiskAssessmentPage() {
           label: name.trim() || "New cyber risk assessment",
           url: assessmentsUrl,
         },
-        { id: "scope_assets", label: "Assets", url: "#" },
+        { id: "scope_detail", label: scopeDetail.crumb, url: "#" },
       ]}
       aria-label="Breadcrumbs"
     >
@@ -195,7 +227,7 @@ export default function NewCyberRiskAssessmentPage() {
         )
       }
     </OverflowBreadcrumbs>
-  );
+  ) : null;
 
   const defaultPageTitle = (
     <Stack
@@ -318,15 +350,11 @@ export default function NewCyberRiskAssessmentPage() {
     <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack gap={0}>
         <PageHeader
-          pageTitle={isScopeAssetsEdit ? "Assets" : defaultPageTitle}
-          pageSubtitle={
-            isScopeAssetsEdit
-              ? "Choose which assets to include in this assessment."
-              : undefined
-          }
-          breadcrumbs={isScopeAssetsEdit ? editScopeBreadcrumbs : breadcrumbs}
+          pageTitle={scopeDetail ? scopeDetail.title : defaultPageTitle}
+          pageSubtitle={scopeDetail ? scopeDetail.subtitle : undefined}
+          breadcrumbs={scopeDetailBreadcrumbs ?? breadcrumbs}
           slotProps={
-            isScopeAssetsEdit
+            scopeDetail
               ? {
                   backButton: {
                     "aria-label": "Back to scope overview",
@@ -336,7 +364,7 @@ export default function NewCyberRiskAssessmentPage() {
               : undefined
           }
           moreButton={
-            isScopeAssetsEdit ? (
+            scopeDetail ? (
               <Stack direction="row" alignItems="center" gap={1}>
                 <Button variant="text" size="medium" onClick={() => setScopeSubView("overview")}>
                   Cancel
@@ -351,7 +379,7 @@ export default function NewCyberRiskAssessmentPage() {
           }
         />
 
-        {!isScopeAssetsEdit ? (
+        {!isScopeDetailView ? (
           <Tabs
             value={activeTab}
             onChange={(_e, v: number) => {

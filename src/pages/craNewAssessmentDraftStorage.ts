@@ -1,6 +1,11 @@
 export type AssessmentPhase = "draft" | "scoping" | "inProgress" | "assessmentApproved";
 
-type ScopeSubView = "overview" | "assets";
+type ScopeSubView =
+  | "overview"
+  | "assets"
+  | "scopedCyberRisks"
+  | "scopedThreats"
+  | "scopedVulnerabilities";
 
 const STORAGE_KEY = "cra_new_assessment_draft_v1";
 
@@ -24,7 +29,13 @@ function isAssessmentPhase(v: unknown): v is AssessmentPhase {
 }
 
 function isScopeSubView(v: unknown): v is ScopeSubView {
-  return v === "overview" || v === "assets";
+  return (
+    v === "overview" ||
+    v === "assets" ||
+    v === "scopedCyberRisks" ||
+    v === "scopedThreats" ||
+    v === "scopedVulnerabilities"
+  );
 }
 
 function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPersistedDraft {
