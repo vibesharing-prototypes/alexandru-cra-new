@@ -12,6 +12,7 @@ export type {
   ControlType,
   ControlFrequency,
   ThreatSource,
+  ThreatDomain,
   VulnerabilityDomain,
   CIAImpact,
   AssetType,
@@ -46,7 +47,11 @@ export {
 export { users, getUserById } from "./users.js";
 export { businessUnits, getBusinessUnitById } from "./businessUnits.js";
 export { assets, getAssetById } from "./assets.js";
-export { threats, getThreatById } from "./threats.js";
+export {
+  threats,
+  getThreatById,
+  remapThreatIdFromLegacySequential,
+} from "./threats.js";
 export { vulnerabilities, getVulnerabilityById } from "./vulnerabilities.js";
 export { controls, getControlById } from "./controls.js";
 export { cyberRisks, getCyberRiskById } from "./cyberRisks.js";

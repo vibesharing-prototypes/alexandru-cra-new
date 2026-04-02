@@ -39,7 +39,7 @@ import {
 import { threats } from "../data/threats.js";
 import { getAssetById } from "../data/assets.js";
 import { getUserById } from "../data/users.js";
-import type { FivePointScaleLabel, ThreatSource } from "../data/types.js";
+import type { FivePointScaleLabel } from "../data/types.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -62,12 +62,6 @@ function seededRandom(seed: number) {
   const x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
 }
-
-const SOURCE_LABEL: Record<ThreatSource, string> = {
-  Deliberate: "Deliberate",
-  Accidental: "Accidental",
-  Environmental: "Environmental",
-};
 
 interface AssetCriticalityCounts {
   veryHigh: number;
@@ -152,7 +146,7 @@ const threatRows: ThreatRow[] = threats.map((t, i) => {
     aggregatedAssets: t.assetIds.length,
     assetsByCriticality,
     vulnerabilities: t.vulnerabilityIds.length,
-    threatDomain: SOURCE_LABEL[t.source],
+    threatDomain: t.domain,
     created: "23 Jan 2025",
     createdBy: owner?.fullName ?? "Unassigned",
     createdByInitials: owner?.initials ?? "",
@@ -181,15 +175,15 @@ function aggregateSeverityFromThreats(): {
   return buckets;
 }
 
-function aggregateSourcesFromThreats(): { label: string; value: number }[] {
+function aggregateTop5ThreatDomains(): { label: string; value: number }[] {
   const counts: Record<string, number> = {};
   for (const t of threats) {
-    const label = SOURCE_LABEL[t.source];
-    counts[label] = (counts[label] ?? 0) + 1;
+    counts[t.domain] = (counts[t.domain] ?? 0) + 1;
   }
   return Object.entries(counts)
     .map(([label, value]) => ({ label, value }))
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
 }
 
 const THREAT_SEVERITY_CHART_RAG: RagDataVizKey[] = ["pos05", "pos04", "neu03", "neg03", "neg05"];
@@ -359,21 +353,21 @@ function ThreatsBySeverityCard() {
 
 function Top5ThreatDomainsCard() {
   const { tokens } = useTheme();
-  const sourceBars = useMemo(() => aggregateSourcesFromThreats(), []);
+  const domainBars = useMemo(() => aggregateTop5ThreatDomains(), []);
   const maxValue = useMemo(
-    () => (sourceBars.length > 0 ? Math.max(...sourceBars.map((d) => d.value)) : 1),
-    [sourceBars],
+    () => (domainBars.length > 0 ? Math.max(...domainBars.map((d) => d.value)) : 1),
+    [domainBars],
   );
   const yMax = Math.max(10, Math.ceil(maxValue / 10) * 10);
 
   const barColors = ["#e22e33", "#dc5731", "#d4732e", "#cb8b2b", "#bfa126"];
 
   const chartData = {
-    labels: sourceBars.map((_, i) => String(i + 1)),
+    labels: domainBars.map((_, i) => String(i + 1)),
     datasets: [
       {
-        data: sourceBars.map((d) => d.value),
-        backgroundColor: sourceBars.map((_, i) => barColors[i % barColors.length]),
+        data: domainBars.map((d) => d.value),
+        backgroundColor: domainBars.map((_, i) => barColors[i % barColors.length]),
         borderWidth: 0,
         borderRadius: 4,
         maxBarThickness: 64,
@@ -386,11 +380,11 @@ function Top5ThreatDomainsCard() {
       <CardHeader
         title={
           <Typography variant="h4" component="h3" fontWeight="600">
-            Threats by source
+            Top 5 threat domains
           </Typography>
         }
         action={
-          <Button variant="text" size="small" aria-label="More options for threats by source chart">
+          <Button variant="text" size="small" aria-label="More options for top 5 threat domains chart">
             <MoreIcon aria-hidden />
           </Button>
         }
@@ -440,8 +434,15 @@ function Top5ThreatDomainsCard() {
           />
         </Box>
 
-        <Stack gap={1}>
-          {sourceBars.map((d, i) => (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gridTemplateRows: "repeat(3, 1fr)",
+            gap: 1,
+          }}
+        >
+          {domainBars.map((d, i) => (
             <Stack key={d.label} direction="row" gap={0.5} alignItems="baseline">
               <Typography
                 variant="labelXs"
@@ -467,7 +468,7 @@ function Top5ThreatDomainsCard() {
               </Typography>
             </Stack>
           ))}
-        </Stack>
+        </Box>
       </CardContent>
     </Card>
   );

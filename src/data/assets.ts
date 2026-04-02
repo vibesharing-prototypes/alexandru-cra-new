@@ -1,6 +1,8 @@
 import { getFivePointLabel, padId } from "./types.js";
 import type { MockAsset, AssetType, FivePointScaleValue, AssetStatus } from "./types.js";
 
+/** Canonical asset catalog. `threatIds` / `relationships.threatIds` are populated in `threats.ts` (many-to-many). */
+
 type AssetRow = [
   name: string,
   assetType: AssetType,

@@ -1072,6 +1072,12 @@ function ScopeScopedThreatsGrid({
         ),
       },
       { field: "id", headerName: "ID", width: 110 },
+      {
+        field: "domain",
+        headerName: "Threat domain",
+        flex: 1,
+        minWidth: 200,
+      },
       { field: "source", headerName: "Source", width: 130 },
       { field: "status", headerName: "Status", width: 120 },
       {

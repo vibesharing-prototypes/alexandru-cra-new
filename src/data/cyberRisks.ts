@@ -209,8 +209,9 @@ function linkCyberRiskToEntities(risk: MockCyberRisk): void {
 }
 
 function buildCyberRisks(): MockCyberRisk[] {
-  if (threats.length !== 80) {
-    throw new Error(`Expected 80 threats to build ${RISK_COUNT} cyber risks`);
+  const threatCount = threats.length;
+  if (threatCount < 2) {
+    throw new Error(`Need at least 2 threats to build ${RISK_COUNT} cyber risks`);
   }
   if (RISK_SEEDS.length !== RISK_COUNT) {
     throw new Error("RISK_SEEDS must match RISK_COUNT");
@@ -229,8 +230,13 @@ function buildCyberRisks(): MockCyberRisk[] {
   const out: MockCyberRisk[] = [];
 
   for (let i = 0; i < RISK_COUNT; i++) {
-    const t0 = threats[i * 2]!;
-    const t1 = threats[i * 2 + 1]!;
+    let i0 = (i * 2) % threatCount;
+    let i1 = (i * 2 + 1) % threatCount;
+    if (i1 === i0) {
+      i1 = (i1 + 1) % threatCount;
+    }
+    const t0 = threats[i0]!;
+    const t1 = threats[i1]!;
     const seed = RISK_SEEDS[i]!;
 
     const threatIds = [t0.id, t1.id];

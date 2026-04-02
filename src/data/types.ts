@@ -52,6 +52,19 @@ export type ControlFrequency =
 
 export type ThreatSource = "Deliberate" | "Accidental" | "Environmental";
 
+/** Enterprise threat taxonomy for reporting and heat maps. */
+export type ThreatDomain =
+  | "Identity & Access Management"
+  | "Endpoint & Device"
+  | "Network & Infrastructure"
+  | "Application & API"
+  | "Data & Information"
+  | "Cloud & Virtualisation"
+  | "Physical & Facilities"
+  | "Supply Chain & Third Party"
+  | "Operational Technology (OT/ICS)"
+  | "People & Workforce";
+
 export type VulnerabilityDomain =
   | "Technology"
   | "People"
@@ -125,6 +138,7 @@ export interface MockThreat {
   source: ThreatSource;
   status: ThreatStatus;
   controlFrequency: ControlFrequency;
+  domain: ThreatDomain;
   cyberRiskIds: string[];
   assetIds: string[];
   vulnerabilityIds: string[];

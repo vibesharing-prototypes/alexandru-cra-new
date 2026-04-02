@@ -1,5 +1,18 @@
 import { padId } from "./types.js";
 import type { MockCyberRiskAssessment, AssessmentStatus } from "./types.js";
+import { remapThreatIdFromLegacySequential } from "./threats.js";
+
+function dedupeIdsPreserveOrder(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
 
 type AssessmentRow = [
   name: string,
@@ -79,7 +92,9 @@ export const cyberRiskAssessments: MockCyberRiskAssessment[] = raw.map(
     dueDate,
     assetIds: astIdxs.map((n) => padId("AST", n)),
     cyberRiskIds: crIdxs.map((n) => padId("CR", n)),
-    threatIds: thrIdxs.map((n) => padId("THR", n)),
+    threatIds: dedupeIdsPreserveOrder(
+      thrIdxs.map((n) => remapThreatIdFromLegacySequential(n)),
+    ),
     vulnerabilityIds: vulnIdxs.map((n) => padId("VUL", n)),
     scenarioIds: scIdxs.map((n) => padId("SC", n)),
   }),
