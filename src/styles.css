@@ -1,0 +1,11 @@
+@import "@diligentcorp/atlas-react-bundle/styles";
+@import "@diligentcorp/atlas-react-bundle/global-nav.css";
+
+/*
+ * Prototype AppLayout sets the global nav to z-index: 1. MUI sticky table
+ * headers use 2–3 and Atlas tabs use 3–4 on tab labels, so scrolling content
+ * was painting over the header. Align with MUI zIndex.appBar so chrome stays on top.
+ */
+.AtlasPrototypeAppLayout mock-hb-global-navigator {
+  z-index: 1100 !important;
+}
