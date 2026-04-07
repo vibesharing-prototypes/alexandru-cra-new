@@ -1076,7 +1076,13 @@ function ScopeScopedThreatsGrid({
         flex: 1,
         minWidth: 200,
       },
-      { field: "source", headerName: "Source", width: 130 },
+      {
+        field: "sources",
+        headerName: "Threat source types",
+        flex: 1,
+        minWidth: 200,
+        valueGetter: (_v, row) => row.sources.join(", "),
+      },
       { field: "status", headerName: "Status", width: 120 },
       {
         field: "ownerId",

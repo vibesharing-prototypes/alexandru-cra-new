@@ -11,6 +11,7 @@ import UploadFilesPage from "./pages/UploadFilesPage.js";
 import FindingsPage from "./pages/FindingsPage.js";
 import CyberRiskDetailsPage from "./pages/CyberRiskDetailsPage.js";
 import ThreatsPage from "./pages/ThreatsPage.js";
+import ThreatDetailPage from "./pages/ThreatDetailPage.js";
 import CyberRiskAssessmentsPage from "./pages/CyberRiskAssessmentsPage.js";
 import NewCyberRiskAssessmentPage from "./pages/NewCyberRiskAssessmentPage.js";
 import NewCyberRiskAssessmentScenarioDetailPage from "./pages/NewCyberRiskAssessmentScenarioDetailPage.js";
@@ -96,6 +97,10 @@ export default function App() {
         <Route
           path="cyber-risk/controls"
           element={<ControlsPage />}
+        />
+        <Route
+          path="cyber-risk/threats/:threatId"
+          element={<ThreatDetailPage />}
         />
         <Route
           path="cyber-risk/threats"

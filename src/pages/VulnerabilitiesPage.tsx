@@ -39,6 +39,10 @@ import {
   type RagDataVizKey,
 } from "../data/ragDataVisualization.js";
 import type { FivePointScaleValue, FivePointScaleLabel } from "../data/types.js";
+import {
+  atlasNavigationTabsSlotProps,
+  atlasNavigationTabsSx,
+} from "../utils/atlasNavigationTabsSx.js";
 import ImportIcon from "@diligentcorp/atlas-react-bundle/icons/Import";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
@@ -352,6 +356,8 @@ function VulnerabilitiesDataGrid() {
 }
 
 export default function VulnerabilitiesPage() {
+  const { presets } = useTheme();
+  const { TabsPresets } = presets;
   const [activeTab, setActiveTab] = useState(1);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -396,6 +402,12 @@ export default function VulnerabilitiesPage() {
             onChange={handleTabChange}
             className="atlas-size-large"
             aria-label="Vulnerability page tabs"
+            {...TabsPresets.Tabs.alignToPageHeader}
+            slotProps={atlasNavigationTabsSlotProps}
+            sx={{
+              ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
+              ...atlasNavigationTabsSx,
+            }}
           >
             <Tab label="Overview" id="vuln-tab-0" aria-controls="vuln-tabpanel-0" />
             <Tab label="Vulnerability categories" id="vuln-tab-1" aria-controls="vuln-tabpanel-1" />

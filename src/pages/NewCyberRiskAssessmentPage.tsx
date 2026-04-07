@@ -32,6 +32,15 @@ import NewCyberRiskAssessmentResultsTab from "./NewCyberRiskAssessmentResultsTab
 import NewCyberRiskAssessmentScopeTab, {
   type ScopeSubView,
 } from "./NewCyberRiskAssessmentScopeTab.js";
+import {
+  loadCraNewAssessmentDraft,
+  saveCraNewAssessmentDraft,
+  type AssessmentPhase,
+} from "./craNewAssessmentDraftStorage.js";
+import {
+  atlasNavigationTabsSlotProps,
+  atlasNavigationTabsSx,
+} from "../utils/atlasNavigationTabsSx.js";
 
 const SCOPE_DETAIL_PAGE: Record<
   Exclude<ScopeSubView, "overview">,
@@ -58,11 +67,6 @@ const SCOPE_DETAIL_PAGE: Record<
     crumb: "Vulnerabilities",
   },
 };
-import {
-  loadCraNewAssessmentDraft,
-  saveCraNewAssessmentDraft,
-  type AssessmentPhase,
-} from "./craNewAssessmentDraftStorage.js";
 
 const TAB_LABELS = ["Details", "Scope", "Scoring", "Results"] as const;
 
@@ -417,12 +421,14 @@ export default function NewCyberRiskAssessmentPage() {
               if (v === RESULTS_TAB_INDEX && !assessmentStarted) return;
               setActiveTab(v);
             }}
+            className="atlas-size-large"
             aria-label="New cyber risk assessment steps"
             {...TabsPresets.Tabs.alignToPageHeader}
-            sx={[
-              TabsPresets.Tabs.alignToPageHeader?.sx,
-              { "& .MuiTabs-flexContainer": { gap: 0 } },
-            ]}
+            slotProps={atlasNavigationTabsSlotProps}
+            sx={{
+              ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
+              ...atlasNavigationTabsSx,
+            }}
           >
             {TAB_LABELS.map((label, index) => {
               const scopingStarted = assessmentPhase !== "draft";
