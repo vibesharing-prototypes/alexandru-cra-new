@@ -97,6 +97,32 @@ export type VulnerabilityDomain =
   | "Process"
   | "Physical";
 
+/** Default single-select options for “Vulnerability type” (within domain). ISO 27005 / NIST CSF–aligned library. */
+export const VULNERABILITY_TYPE_OPTIONS = [
+  "Patch / Update Management",
+  "Security Configuration",
+  "Unsupported / End-of-Life Technology",
+  "Authentication and Access Control",
+  "Cryptographic Weakness",
+  "Network Security Weakness",
+  "Application Security Defect",
+  "Cloud Security Misconfiguration",
+  "Asset Visibility and Inventory Gap",
+  "Logging, Monitoring and Detection Gap",
+  "Data Protection Weakness",
+  "Identity and Privilege Management",
+  "Security Awareness and Training Gap",
+  "Insider Risk and Human Error",
+  "Policy and Governance Gap",
+  "Change and Release Management Weakness",
+  "Incident Response Readiness Gap",
+  "Third-Party and Vendor Risk",
+  "Software Supply Chain Risk",
+  "Physical and Environmental Security Gap",
+] as const;
+
+export type VulnerabilityType = (typeof VULNERABILITY_TYPE_OPTIONS)[number];
+
 export type CIAImpact = "Confidentiality" | "Integrity" | "Availability";
 
 export type AssetType =
@@ -247,13 +273,29 @@ export interface MockVulnerabilityRelationships {
   scenarioIds: string[];
 }
 
+/**
+ * Vulnerability category (library row), aligned with ISO 27005 / NIST CSF framing.
+ * Meta ID (`id`) and display ID are customer-configurable in product; prototype uses seeded values.
+ */
 export interface MockVulnerability {
+  /** Meta / system identifier (e.g. VUL-001). */
   id: string;
+  /** Display identifier shown to users (e.g. VUL-CAT-001). */
+  displayId: string;
+  /** Short, recognisable label (required). */
   name: string;
-  ownerId: string;
+  /** Optional narrative — scope and boundary of the category. */
+  description?: string;
   domain: VulnerabilityDomain;
+  /** Optional finer classification within the domain. */
+  vulnerabilityType?: VulnerabilityType;
   status: VulnerabilityStatus;
-  primaryCIAImpact: CIAImpact;
+  /** One or more CIA triad pillars affected (multi-select). */
+  primaryCIAImpact: CIAImpact[];
+  /** User lookup — accountable owners for review and accuracy (ordered). */
+  ownerIds: string[];
+  /** Supplementary references only (not primary structured data). */
+  attachments: MockThreatAttachment[];
   cyberRiskIds: string[];
   /** Single asset per row; mirrors `relationships.assetId`. */
   assetIds: string[];

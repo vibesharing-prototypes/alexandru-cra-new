@@ -41,7 +41,10 @@ import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualizatio
 import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { threats } from "../data/threats.js";
-import { vulnerabilities } from "../data/vulnerabilities.js";
+import {
+  isVulnerabilityActiveForAssessment,
+  vulnerabilities,
+} from "../data/vulnerabilities.js";
 import { getUserById, joinUserFullNames } from "../data/users.js";
 import type {
   FivePointScaleValue,
@@ -107,6 +110,7 @@ function buildScopeRows(): ScopeAssetRow[] {
 
   const vulnCountByAsset = new Map<string, number>();
   for (const v of vulnerabilities) {
+    if (!isVulnerabilityActiveForAssessment(v)) continue;
     for (const aid of v.assetIds) {
       vulnCountByAsset.set(aid, (vulnCountByAsset.get(aid) ?? 0) + 1);
     }
@@ -1175,15 +1179,29 @@ function ScopeScopedVulnerabilitiesGrid({
           </Link>
         ),
       },
-      { field: "id", headerName: "ID", width: 110 },
+      { field: "id", headerName: "Meta ID", width: 100 },
+      { field: "displayId", headerName: "Display ID", width: 120 },
       { field: "domain", headerName: "Domain", width: 130 },
-      { field: "status", headerName: "Status", width: 120 },
-      { field: "primaryCIAImpact", headerName: "Primary CIA impact", width: 160 },
       {
-        field: "ownerId",
+        field: "vulnerabilityType",
+        headerName: "Type",
+        flex: 1,
+        minWidth: 200,
+        valueGetter: (_v, row) => row.vulnerabilityType ?? "—",
+      },
+      { field: "status", headerName: "Status", width: 120 },
+      {
+        field: "primaryCIAImpact",
+        headerName: "Primary CIA impact",
+        width: 200,
+        valueGetter: (_v, row) =>
+          row.primaryCIAImpact.length ? row.primaryCIAImpact.join(" · ") : "—",
+      },
+      {
+        field: "ownerIds",
         headerName: "Owner",
         width: 200,
-        valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
+        valueGetter: (_v, row) => joinUserFullNames(row.ownerIds),
       },
     ],
     [],

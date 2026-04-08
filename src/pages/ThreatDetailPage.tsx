@@ -1,5 +1,8 @@
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
+import TableIcon from "@diligentcorp/atlas-react-bundle/icons/Table";
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
+import { RelationCard } from "../components/RelationCard.js";
+import ThreatDetailAssessmentsTab from "../components/ThreatDetailAssessmentsTab.js";
 import ThreatDetailHeader from "../components/ThreatDetailHeader.js";
 import {
   Alert,
@@ -39,6 +42,11 @@ import {
 } from "../data/types.js";
 import { getThreatById } from "../data/threats.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
+import {
+  rowsForThreatAssetIds,
+  rowsForThreatCyberRiskIds,
+  rowsForThreatVulnerabilityIds,
+} from "../utils/threatRelationshipRows.js";
 
 /** Atlas user-lookup `Autocomplete` option shape (`OptionType.user`). */
 type ThreatOwnerLookupOption = {
@@ -254,6 +262,25 @@ export default function ThreatDetailPage() {
     </Button>
   );
 
+  const relationshipLinkUnlinkAction = (
+    <Button variant="text" size="small">
+      Link / Unlink
+    </Button>
+  );
+
+  const relationshipAssetRows = useMemo(
+    () => (threat ? rowsForThreatAssetIds(threat.assetIds) : []),
+    [threat],
+  );
+  const relationshipVulnerabilityRows = useMemo(
+    () => (threat ? rowsForThreatVulnerabilityIds(threat.vulnerabilityIds) : []),
+    [threat],
+  );
+  const relationshipCyberRiskRows = useMemo(
+    () => (threat ? rowsForThreatCyberRiskIds(threat.cyberRiskIds) : []),
+    [threat],
+  );
+
   if (!threatId || !threat) {
     return <Navigate to="/cyber-risk/threats" replace />;
   }
@@ -288,12 +315,23 @@ export default function ThreatDetailPage() {
                 gap: tokens.core.spacing["6"].value,
               })}
             >
-              {/* Row 1: Threat name + Custom ID */}
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ width: "100%" }}>
-                <Box sx={{ flex: { md: "3 1 0" }, minWidth: 0 }}>
+              {/* Row 1: Name (6/12), Threat domain (4/12), Custom ID (2/12); 16px gutters (core.spacing["2"]) */}
+              <Box
+                sx={({ tokens }) => ({
+                  display: "grid",
+                  width: "100%",
+                  columnGap: tokens.core.spacing["2"].value,
+                  rowGap: tokens.core.spacing["2"].value,
+                  gridTemplateColumns: {
+                    xs: "minmax(0, 1fr)",
+                    md: "repeat(12, minmax(0, 1fr))",
+                  },
+                })}
+              >
+                <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 6" }, minWidth: 0 }}>
                   <FormControl fullWidth sx={{ gap: 0 }} required>
                     <FormLabel htmlFor="threat-detail-name" sx={fieldLabelSx}>
-                      Threat name
+                      Name
                     </FormLabel>
                     <TextField
                       id="threat-detail-name"
@@ -307,27 +345,7 @@ export default function ThreatDetailPage() {
                     />
                   </FormControl>
                 </Box>
-                <Box sx={{ flex: { md: "1 1 200px" }, minWidth: 0 }}>
-                  <FormControl fullWidth sx={{ gap: 0 }}>
-                    <FormLabel htmlFor="threat-detail-custom-id" sx={fieldLabelSx}>
-                      Custom ID
-                    </FormLabel>
-                    <TextField
-                      id="threat-detail-custom-id"
-                      value={displayId}
-                      onChange={(e) => setDisplayId(e.target.value)}
-                      placeholder="e.g. T-0001"
-                      fullWidth
-                      margin="none"
-                      sx={{ mt: 0 }}
-                    />
-                  </FormControl>
-                </Box>
-              </Stack>
-
-              {/* Row 2: Threat domain, source types, actors, attack vectors */}
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ width: "100%" }}>
-                <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
+                <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" }, minWidth: 0 }}>
                   <FormControl fullWidth margin="none">
                     <InputLabel id="threat-domain-label" sx={fieldLabelSx}>
                       Threat domain
@@ -346,6 +364,26 @@ export default function ThreatDetailPage() {
                     </Select>
                   </FormControl>
                 </Box>
+                <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 2" }, minWidth: 0 }}>
+                  <FormControl fullWidth sx={{ gap: 0 }}>
+                    <FormLabel htmlFor="threat-detail-custom-id" sx={fieldLabelSx}>
+                      Custom ID
+                    </FormLabel>
+                    <TextField
+                      id="threat-detail-custom-id"
+                      value={displayId}
+                      onChange={(e) => setDisplayId(e.target.value)}
+                      placeholder="e.g. T-0001"
+                      fullWidth
+                      margin="none"
+                      sx={{ mt: 0 }}
+                    />
+                  </FormControl>
+                </Box>
+              </Box>
+
+              {/* Row 2: Source types, actors, attack vectors */}
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ width: "100%" }}>
                 <Box sx={{ flex: "1 1 0", minWidth: 0 }}>
                   <MultiComboBox
                     label="Threat source type"
@@ -401,8 +439,8 @@ export default function ThreatDetailPage() {
                   <Autocomplete
                     multiple
                     id="threat-detail-owner-lookup"
-                    options={threatOwnerLookupOptions}
-                    value={selectedThreatOwners}
+                    options={threatOwnerLookupOptions as never}
+                    value={selectedThreatOwners as never}
                     onChange={(_, newValue) => setOwnerIds(newValue.map((o) => o.id))}
                     getOptionLabel={(option) => option.label}
                     isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -553,10 +591,29 @@ export default function ThreatDetailPage() {
             aria-labelledby="threat-tab-1"
             sx={{ py: 3 }}
           >
-            <Typography variant="textMd" sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}>
-              Linked assets, vulnerabilities, and other relationships can be surfaced here when you are ready to
-              extend this tab.
-            </Typography>
+            <Stack spacing={3}>
+              <RelationCard
+                objectTypeTitle="Assets"
+                linkedObjectsNounPhrase="assets"
+                icon={<TableIcon aria-hidden />}
+                items={relationshipAssetRows}
+                headerAction={relationshipLinkUnlinkAction}
+              />
+              <RelationCard
+                objectTypeTitle="Vulnerabilities"
+                linkedObjectsNounPhrase="vulnerabilities"
+                icon={<TableIcon aria-hidden />}
+                items={relationshipVulnerabilityRows}
+                headerAction={relationshipLinkUnlinkAction}
+              />
+              <RelationCard
+                objectTypeTitle="Cyber risks"
+                linkedObjectsNounPhrase="cyber risks"
+                icon={<TableIcon aria-hidden />}
+                items={relationshipCyberRiskRows}
+                headerAction={relationshipLinkUnlinkAction}
+              />
+            </Stack>
           </Box>
         )}
 
@@ -580,10 +637,7 @@ export default function ThreatDetailPage() {
             aria-labelledby="threat-tab-3"
             sx={{ py: 3 }}
           >
-            <Typography variant="textMd" sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}>
-              Assessments for this threat will appear here. Only threats with status Active appear in assessment
-              dropdowns.
-            </Typography>
+            <ThreatDetailAssessmentsTab threatId={threat.id} threatAssetIds={threat.assetIds} />
           </Box>
         )}
       </Stack>

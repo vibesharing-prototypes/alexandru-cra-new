@@ -20,6 +20,7 @@ import ControlsPage from "./pages/ControlsPage.js";
 import CyberRisksPage from "./pages/CyberRisksPage.js";
 import MitigationPlansPage from "./pages/MitigationPlansPage.js";
 import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
+import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
 
 export default function App() {
   return (
@@ -109,6 +110,10 @@ export default function App() {
         <Route
           path="cyber-risk/mitigation-plans"
           element={<MitigationPlansPage />}
+        />
+        <Route
+          path="cyber-risk/vulnerabilities/:vulnerabilityId"
+          element={<VulnerabilityDetailPage />}
         />
         <Route
           path="cyber-risk/vulnerabilities"

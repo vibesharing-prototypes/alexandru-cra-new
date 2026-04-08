@@ -20,9 +20,17 @@ interface StatusDropdownProps {
   options: string[];
   onChange: (value: string) => void;
   "aria-label"?: string;
+  /** Override color for specific labels. Keys are label strings, values are StatusIndicator color tokens. */
+  colorMap?: Record<string, StatusIndicatorColor>;
 }
 
-function statusColorForLabel(label: string): StatusIndicatorColor {
+function statusColorForLabel(
+  label: string,
+  colorMap?: Record<string, StatusIndicatorColor>,
+): StatusIndicatorColor {
+  if (colorMap && Object.prototype.hasOwnProperty.call(colorMap, label)) {
+    return colorMap[label]!;
+  }
   return (
     CONTROL_STATUS_INDICATOR_COLORS[label as keyof typeof CONTROL_STATUS_INDICATOR_COLORS] ??
     "subtle"
@@ -35,12 +43,14 @@ function statusColorForLabel(label: string): StatusIndicatorColor {
  *
  * Chip colours follow the control status mapping (Draft → subtle, Active → success,
  * Archived → generic). Unknown labels fall back to subtle.
+ * Pass `colorMap` to override colours for specific label strings (e.g. assessment phases).
  */
 export default function StatusDropdown({
   value,
   options,
   onChange,
   "aria-label": ariaLabel = "Status",
+  colorMap,
 }: StatusDropdownProps) {
   const { tokens } = useTheme();
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -85,7 +95,7 @@ export default function StatusDropdown({
           },
         }}
       >
-        <StatusIndicator color={statusColorForLabel(value)} label={value} />
+        <StatusIndicator color={statusColorForLabel(value, colorMap)} label={value} />
         <Box
           aria-hidden
           sx={{
