@@ -2,17 +2,16 @@ import {
   OverflowBreadcrumbs,
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
-import CloudIcon from "@diligentcorp/atlas-react-bundle/icons/Cloud";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
-import { Box, IconButton, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
+import { Button, IconButton, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
 import { NavLink, useNavigate } from "react-router";
 
 import type { ThreatStatus } from "../data/types.js";
 import MetaTag from "./MetaTag.js";
 import StatusDropdown from "./StatusDropdown.js";
 import {
-  atlasNavigationTabsSlotProps,
-  atlasNavigationTabsSx,
+  atlasPageHeaderNavigationTabsSx,
+  atlasPageHeaderTabsSlotProps,
 } from "../utils/atlasNavigationTabsSx.js";
 
 const THREAT_STATUSES: ThreatStatus[] = ["Draft", "Active", "Archived"];
@@ -91,17 +90,9 @@ export default function ThreatDetailHeader({
         }
         moreButton={
           <Stack direction="row" alignItems="center" gap={1}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              gap={0.5}
-              sx={({ tokens }) => ({
-                color: tokens.semantic.color.type.muted.value,
-              })}
-            >
-              <CloudIcon aria-hidden />
-              <Typography variant="textSm">Saved</Typography>
-            </Stack>
+            <Button variant="contained" size="medium" type="button">
+              Save
+            </Button>
             <IconButton aria-label="More actions" size="small">
               <MoreIcon aria-hidden />
             </IconButton>
@@ -134,56 +125,23 @@ export default function ThreatDetailHeader({
         <MetaTag label="Last updated by" value={createdBy} />
       </Stack>
 
-      <Box
+      <Tabs
+        value={tab}
+        onChange={(_, v) => onTabChange(v)}
+        className="atlas-size-large"
+        aria-label="Threat sections"
+        {...TabsPresets.Tabs.alignToPageHeader}
+        slotProps={atlasPageHeaderTabsSlotProps}
         sx={{
-          width: "100%",
-          maxWidth: "100%",
-          minWidth: 0,
-          alignSelf: "stretch",
-          borderBottom: ({ tokens: t }) =>
-            `${t.semantic.borderWidth.thin.value} solid ${t.semantic.color.ui.divider.default.value}`,
+          ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
+          ...atlasPageHeaderNavigationTabsSx,
         }}
       >
-        <Tabs
-          value={tab}
-          onChange={(_, v) => onTabChange(v)}
-          className="atlas-size-large"
-          aria-label="Threat sections"
-          {...TabsPresets.Tabs.alignToPageHeader}
-          slotProps={{
-            ...atlasNavigationTabsSlotProps,
-            indicator: {
-              sx: { display: "none" },
-            },
-          }}
-          sx={{
-            ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
-            ...atlasNavigationTabsSx,
-            width: "100%",
-            maxWidth: "100%",
-            minWidth: 0,
-            boxSizing: "border-box",
-            paddingInlineStart: 0,
-            marginInline: 0,
-            marginLeft: 0,
-            marginRight: 0,
-            borderBottom: "none",
-            // Baseline comes from the wrapper so it spans the full container width (Atlas tab preset
-            // often uses a root ::after that only spans the tab row width).
-            "&::after": {
-              display: "none",
-            },
-            "& .MuiTabs-scroller": {
-              marginInline: 0,
-            },
-          }}
-        >
-          <Tab label="Details" id="threat-tab-0" aria-controls="threat-panel-0" />
-          <Tab label="Relationships" id="threat-tab-1" aria-controls="threat-panel-1" />
-          <Tab label="Threat intel" id="threat-tab-2" aria-controls="threat-panel-2" />
-          <Tab label="Assessments" id="threat-tab-3" aria-controls="threat-panel-3" />
-        </Tabs>
-      </Box>
+        <Tab label="Details" id="threat-tab-0" aria-controls="threat-panel-0" />
+        <Tab label="Relationships" id="threat-tab-1" aria-controls="threat-panel-1" />
+        <Tab label="Threat intel" id="threat-tab-2" aria-controls="threat-panel-2" />
+        <Tab label="Assessments" id="threat-tab-3" aria-controls="threat-panel-3" />
+      </Tabs>
     </Stack>
   );
 }

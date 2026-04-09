@@ -446,8 +446,11 @@ function ScopeObjectTypeCard({
   const inner = (
     <CardContent
       sx={{
-        pt: 0,
-        px: 0,
+        flex: 1,
+        width: "100%",
+        boxSizing: "border-box",
+        pt: 2,
+        px: 3,
         pb: 3,
         "&:last-child": { pb: 3 },
       }}
@@ -550,6 +553,10 @@ function ScopeObjectTypeCard({
       sx={({ tokens: t }) => ({
         minWidth: 0,
         width: "100%",
+        p: 0,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
         borderRadius: t.semantic.radius.lg.value,
         borderStyle: "solid",
         borderColor: t.semantic.color.ui.divider.default.value,
@@ -563,6 +570,12 @@ function ScopeObjectTypeCard({
           onClick={onCardClick}
           aria-label={cardActionAriaLabel ?? `View ${title} included in this assessment`}
           sx={{
+            flex: 1,
+            alignSelf: "stretch",
+            width: "100%",
+            minHeight: "100%",
+            display: "flex",
+            flexDirection: "column",
             alignItems: "stretch",
             justifyContent: "flex-start",
             "& .MuiCardActionArea-focusHighlight": {

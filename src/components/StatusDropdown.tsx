@@ -1,7 +1,7 @@
 import { StatusIndicator } from "@diligentcorp/atlas-react-bundle";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import { Box, Menu, MenuItem, useTheme } from "@mui/material";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 /** Matches control status colours in `ControlsPage.tsx` (`STATUS_COLOR_MAP`). */
 export const CONTROL_STATUS_INDICATOR_COLORS: Record<
@@ -22,6 +22,8 @@ interface StatusDropdownProps {
   "aria-label"?: string;
   /** Override color for specific labels. Keys are label strings, values are StatusIndicator color tokens. */
   colorMap?: Record<string, StatusIndicatorColor>;
+  /** When set, replaces the default StatusIndicator chip (e.g. custom assessment status styling). */
+  renderChip?: (args: { value: string }) => ReactNode;
 }
 
 function statusColorForLabel(
@@ -51,6 +53,7 @@ export default function StatusDropdown({
   onChange,
   "aria-label": ariaLabel = "Status",
   colorMap,
+  renderChip,
 }: StatusDropdownProps) {
   const { tokens } = useTheme();
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -95,7 +98,11 @@ export default function StatusDropdown({
           },
         }}
       >
-        <StatusIndicator color={statusColorForLabel(value, colorMap)} label={value} />
+        {renderChip ? (
+          renderChip({ value })
+        ) : (
+          <StatusIndicator color={statusColorForLabel(value, colorMap)} label={value} />
+        )}
         <Box
           aria-hidden
           sx={{

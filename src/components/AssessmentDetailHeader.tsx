@@ -2,15 +2,19 @@ import {
   OverflowBreadcrumbs,
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
-import { Button, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
+import { Button, IconButton, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
 import { NavLink, useNavigate } from "react-router";
 
+import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
+
+import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
 import type { AssessmentPhase } from "../pages/craNewAssessmentDraftStorage.js";
+import AssessmentStatus from "./AssessmentStatus.js";
 import MetaTag from "./MetaTag.js";
 import StatusDropdown from "./StatusDropdown.js";
 import {
-  atlasNavigationTabsSlotProps,
-  atlasNavigationTabsSx,
+  atlasPageHeaderNavigationTabsSx,
+  atlasPageHeaderTabsSlotProps,
 } from "../utils/atlasNavigationTabsSx.js";
 
 const ASSESSMENTS_URL = "/cyber-risk/cyber-risk-assessments";
@@ -26,6 +30,7 @@ const ASSESSMENT_PHASE_LABELS: Record<AssessmentPhase, string> = {
   draft: "Draft",
   scoping: "Scoping",
   inProgress: "In progress",
+  overdue: "Overdue",
   assessmentApproved: "Approved assessment",
 };
 
@@ -33,17 +38,17 @@ const PHASE_LABEL_TO_PHASE: Record<string, AssessmentPhase> = {
   Draft: "draft",
   Scoping: "scoping",
   "In progress": "inProgress",
+  Overdue: "overdue",
   "Approved assessment": "assessmentApproved",
 };
 
-const ASSESSMENT_STATUS_COLORS: Record<
-  string,
-  "subtle" | "information" | "success" | "generic"
-> = {
-  Draft: "subtle",
-  Scoping: "information",
-  "In progress": "information",
-  "Approved assessment": "success",
+/** Maps PageHeader phase labels to canonical list/grid status tokens for `AssessmentStatus` colors. */
+const PHASE_LABEL_TO_ASSESSMENT_STATUS: Record<string, AssessmentStatusValue> = {
+  Draft: "Draft",
+  Scoping: "Scoping",
+  "In progress": "In progress",
+  Overdue: "Overdue",
+  "Approved assessment": "Approved",
 };
 
 const ALL_PHASE_DISPLAY_LABELS = Object.values(ASSESSMENT_PHASE_LABELS);
@@ -67,6 +72,10 @@ export type AssessmentDetailHeaderProps = {
   onScopeSubViewBack: () => void;
   /** Called when the "Done" CTA is pressed in scope-detail mode. */
   onScopeDetailDone: () => void;
+  /** Tertiary Save action (main header only; not shown in scope-detail mode). */
+  onSave?: () => void;
+  /** Tertiary More icon action (main header only). */
+  onMoreClick?: () => void;
 };
 
 export default function AssessmentDetailHeader({
@@ -82,6 +91,8 @@ export default function AssessmentDetailHeader({
   scopeDetail,
   onScopeSubViewBack,
   onScopeDetailDone,
+  onSave = () => {},
+  onMoreClick = () => {},
 }: AssessmentDetailHeaderProps) {
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
@@ -138,11 +149,11 @@ export default function AssessmentDetailHeader({
       ? "Move to scoping"
       : assessmentPhase === "scoping"
         ? "Move to assessment"
-        : assessmentPhase === "inProgress"
+        : assessmentPhase === "inProgress" || assessmentPhase === "overdue"
           ? "Approve assessment"
           : "Done";
 
-  const defaultMoreButton =
+  const primaryCta =
     assessmentPhase === "assessmentApproved" ? (
       <Stack direction="row" alignItems="center" gap={1}>
         <Button
@@ -178,7 +189,7 @@ export default function AssessmentDetailHeader({
             onActiveTabChange(SCORING_TAB_INDEX);
             return;
           }
-          if (assessmentPhase === "inProgress") {
+          if (assessmentPhase === "inProgress" || assessmentPhase === "overdue") {
             onPhaseChange("assessmentApproved");
             onActiveTabChange(RESULTS_TAB_INDEX);
             return;
@@ -188,6 +199,24 @@ export default function AssessmentDetailHeader({
         {ctaLabel}
       </Button>
     );
+
+  const defaultMoreButton = (
+    <Stack
+      direction="row"
+      alignItems="center"
+      sx={({ tokens: t }) => ({
+        gap: t.core.spacing["2"].value,
+      })}
+    >
+      <Button variant="text" size="medium" onClick={onSave}>
+        Save
+      </Button>
+      {primaryCta}
+      <IconButton size="medium" aria-label="More options" onClick={onMoreClick}>
+        <MoreIcon aria-hidden />
+      </IconButton>
+    </Stack>
+  );
 
   const scopeDetailMoreButton = (
     <Stack direction="row" alignItems="center" gap={1}>
@@ -201,7 +230,12 @@ export default function AssessmentDetailHeader({
   );
 
   return (
-    <Stack component="section" aria-label="Assessment detail header" spacing={0}>
+    <Stack
+      component="section"
+      aria-label="Assessment detail header"
+      spacing={0}
+      sx={{ width: "100%", alignSelf: "stretch", minWidth: 0 }}
+    >
       <PageHeader
         containerProps={{
           sx: {
@@ -220,8 +254,13 @@ export default function AssessmentDetailHeader({
                 const phase = PHASE_LABEL_TO_PHASE[label];
                 if (phase) onPhaseChange(phase);
               }}
-              colorMap={ASSESSMENT_STATUS_COLORS}
               aria-label="Assessment status"
+              renderChip={({ value: v }) => (
+                <AssessmentStatus
+                  status={PHASE_LABEL_TO_ASSESSMENT_STATUS[v] ?? "Draft"}
+                  label={v}
+                />
+              )}
             />
           )
         }
@@ -268,7 +307,9 @@ export default function AssessmentDetailHeader({
           onChange={(_e, v: number) => {
             const scopingStarted = assessmentPhase !== "draft";
             const assessmentStarted =
-              assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
+              assessmentPhase === "inProgress" ||
+              assessmentPhase === "overdue" ||
+              assessmentPhase === "assessmentApproved";
             if (v === SCOPE_TAB_INDEX && !scopingStarted) return;
             if (v === SCORING_TAB_INDEX && !assessmentStarted) return;
             if (v === RESULTS_TAB_INDEX && !assessmentStarted) return;
@@ -277,16 +318,18 @@ export default function AssessmentDetailHeader({
           className="atlas-size-large"
           aria-label="Cyber risk assessment sections"
           {...TabsPresets.Tabs.alignToPageHeader}
-          slotProps={atlasNavigationTabsSlotProps}
+          slotProps={atlasPageHeaderTabsSlotProps}
           sx={{
             ...(TabsPresets.Tabs.alignToPageHeader?.sx as Record<string, unknown> | undefined),
-            ...atlasNavigationTabsSx,
+            ...atlasPageHeaderNavigationTabsSx,
           }}
         >
           {TAB_LABELS.map((label, index) => {
             const scopingStarted = assessmentPhase !== "draft";
             const assessmentStarted =
-              assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
+              assessmentPhase === "inProgress" ||
+              assessmentPhase === "overdue" ||
+              assessmentPhase === "assessmentApproved";
             const scopeLocked = index === SCOPE_TAB_INDEX && !scopingStarted;
             const scoringLocked = index === SCORING_TAB_INDEX && !assessmentStarted;
             const resultsLocked = index === RESULTS_TAB_INDEX && !assessmentStarted;

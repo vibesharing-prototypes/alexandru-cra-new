@@ -32,12 +32,12 @@ const raw: AssessmentRow[] = [
   ["Q1 2026 enterprise risk assessment", 7, "Approved", "Full assessment", "2026-01-06", "2026-03-31", [1, 2, 7], [1, 26], [1], [1, 10], [1, 2, 41, 42]],
   ["Annual cybersecurity review 2026", 14, "In progress", "Annual review", "2026-01-15", "2026-06-30", [2, 3, 28, 43], [2, 8, 12], [2, 3, 13], [3, 35], [3, 4, 13, 14]],
   ["Payment systems security assessment", 9, "Approved", "Targeted assessment", "2025-11-01", "2026-01-31", [1, 5, 16], [1, 8, 32], [1, 3, 17], [1, 20], [1, 5, 47]],
-  ["Cloud infrastructure risk evaluation", 29, "In progress", "Infrastructure review", "2026-02-01", "2026-04-30", [8, 29, 50], [11, 25, 49], [23, 46], [31, 32, 48], [19, 20, 39, 40]],
+  ["Cloud infrastructure risk evaluation", 29, "Overdue", "Infrastructure review", "2026-02-01", "2026-04-30", [8, 29, 50], [11, 25, 49], [23, 46], [31, 32, 48], [19, 20, 39, 40]],
   ["Third-party vendor risk assessment", 9, "In progress", "Vendor assessment", "2026-01-20", "2026-05-15", [24, 4, 29], [7, 23, 31], [9, 36], [19, 43], [11, 12, 36, 37]],
   ["Data privacy compliance audit", 33, "Approved", "Compliance audit", "2025-10-01", "2025-12-31", [2, 17, 35], [4, 30, 48], [5], [7, 35, 36], [7, 8, 30]],
   ["Network security penetration test", 15, "Approved", "Penetration test", "2026-02-15", "2026-03-15", [6, 11, 12, 36], [3, 14, 41], [4, 14, 37], [6, 33], [5, 6, 25, 26]],
-  ["Application security review", 27, "In progress", "Code review", "2026-03-01", "2026-05-31", [13, 18, 21], [8, 24, 40], [3, 15, 24], [3, 18, 21], [13, 33, 38]],
-  ["Incident response readiness assessment", 49, "Draft", "Tabletop exercise", "2026-04-01", "2026-06-30", [49, 50, 7], [1, 36], [1, 30], [42], [1, 2]],
+  ["Application security review", 27, "Overdue", "Code review", "2026-03-01", "2026-05-31", [13, 18, 21], [8, 24, 40], [3, 15, 24], [3, 18, 21], [13, 33, 38]],
+  ["Incident response readiness assessment", 49, "Scoping", "Tabletop exercise", "2026-04-01", "2026-06-30", [49, 50, 7], [1, 36], [1, 30], [42], [1, 2]],
   ["Business continuity risk evaluation", 20, "In progress", "BCP review", "2026-02-01", "2026-04-15", [10, 50], [27, 34, 36], [30, 33, 34], [14, 34, 42], [43, 50]],
   ["Endpoint security assessment", 39, "Approved", "Technical assessment", "2025-12-01", "2026-02-28", [39, 34, 3], [9, 22, 42], [12, 19, 42], [12, 37, 39], [15, 16, 35]],
   ["Identity and access management review", 7, "In progress", "IAM review", "2026-03-01", "2026-05-31", [7, 14], [16, 28], [7, 11, 16], [2, 4, 30], [28, 29, 44]],
@@ -52,7 +52,7 @@ const raw: AssessmentRow[] = [
   ["API security assessment", 13, "Approved", "Penetration test", "2025-11-15", "2026-01-15", [13, 18], [20, 35], [24, 47], [13, 23, 29], [13, 26, 33, 34]],
   ["Physical security review", 38, "In progress", "Physical assessment", "2026-03-01", "2026-04-30", [36, 10], [29, 39], [29, 31], [34], [50]],
   ["Social engineering resilience test", 36, "Approved", "Penetration test", "2025-10-15", "2025-12-15", [3, 43, 23], [2, 10, 42, 50], [2, 10, 22, 39], [35], [3, 4, 17, 18]],
-  ["Disaster recovery assessment", 10, "In progress", "BCP review", "2026-02-01", "2026-04-30", [50, 10], [27, 36, 37], [30, 31, 33], [14, 34], [43, 50]],
+  ["Disaster recovery assessment", 10, "Overdue", "BCP review", "2026-02-01", "2026-04-30", [50, 10], [27, 36, 37], [30, 31, 33], [14, 34], [43, 50]],
   ["Encryption standards review", 40, "Approved", "Technical assessment", "2025-12-15", "2026-02-15", [6, 40, 14], [14, 26], [6, 49], [5, 40, 49], [25, 26, 41, 42]],
   ["Insider threat assessment", 20, "In progress", "Full assessment", "2026-03-15", "2026-06-15", [2, 7, 17, 28], [4, 17, 29], [5, 16], [7, 8, 26], [7, 8, 30, 44, 45]],
   ["Web application security review", 27, "Approved", "Penetration test", "2025-09-01", "2025-11-30", [13, 19, 21], [8, 24, 40], [3, 15, 18], [3, 18, 21], [13, 33, 38]],
@@ -66,12 +66,12 @@ const raw: AssessmentRow[] = [
   ["IoT and OT security evaluation", 48, "Draft", "Technical assessment", "2026-05-01", "2026-07-31", [37, 48], [38, 45], [40, 41], [10, 50], []],
   ["HR systems security audit", 1, "Approved", "Targeted assessment", "2025-11-01", "2026-01-31", [15, 41, 46], [39, 42], [21, 42], [38], []],
   ["Executive cybersecurity briefing Q1", 7, "Approved", "Executive review", "2026-01-05", "2026-01-31", [1, 2, 7], [1, 12, 26, 33], [1, 13], [1, 8, 35], [1, 2, 21, 41]],
-  ["Wireless network security assessment", 37, "In progress", "Technical assessment", "2026-03-15", "2026-04-30", [37], [38, 45], [28, 41], [36, 38], []],
+  ["Wireless network security assessment", 37, "Overdue", "Technical assessment", "2026-03-15", "2026-04-30", [37], [38, 45], [28, 41], [36, 38], []],
   ["Backup and restore validation", 10, "Approved", "Technical assessment", "2025-12-01", "2026-01-31", [10, 50], [27, 34, 37], [30], [14], [43, 50]],
   ["Certificate infrastructure review", 40, "Draft", "Technical assessment", "2026-05-15", "2026-07-15", [40, 6], [26, 49], [49], [5, 40, 49], [25, 42]],
   ["Security awareness program assessment", 1, "In progress", "Program review", "2026-02-01", "2026-04-30", [3, 43], [2, 5, 10, 50], [2, 10, 22, 38, 39], [35], [3, 4, 17, 18]],
   ["Privilege access review Q1", 20, "Approved", "IAM review", "2026-01-15", "2026-02-28", [7, 14, 2], [4, 16, 28], [5, 16], [8, 9, 26], [7, 8, 28, 29, 44]],
-  ["Patch compliance assessment", 39, "In progress", "Technical assessment", "2026-03-01", "2026-04-15", [3, 39, 38, 34], [9, 22], [12, 19], [1, 12, 37], [15, 16, 35]],
+  ["Patch compliance assessment", 39, "Overdue", "Technical assessment", "2026-03-01", "2026-04-15", [3, 39, 38, 34], [9, 22], [12, 19], [1, 12, 37], [15, 16, 35]],
   ["DDoS resilience test", 15, "Approved", "Penetration test", "2025-10-01", "2025-11-30", [1, 11, 12], [3], [4, 14], [6, 11, 23, 27], [5, 6]],
   ["Data governance review", 9, "Draft", "Compliance audit", "2026-06-01", "2026-08-31", [2, 17, 35], [4, 17, 48], [5], [7, 36], [7, 8, 30]],
   ["Cryptographic controls audit", 40, "Approved", "Technical assessment", "2025-08-15", "2025-10-15", [6, 14, 40], [14, 26], [6, 49], [5, 40, 49], [25, 26]],
@@ -81,7 +81,7 @@ const raw: AssessmentRow[] = [
   ["Annual executive risk report 2025", 7, "Approved", "Executive review", "2025-12-01", "2025-12-31", [1, 2, 7, 43], [1, 2, 12, 26, 33], [1, 2, 5, 13], [1, 3, 8, 35], [1, 2, 3, 21, 41, 46]],
 ];
 
-export const cyberRiskAssessments: MockCyberRiskAssessment[] = raw.map(
+export const riskAssessments: MockCyberRiskAssessment[] = raw.map(
   ([name, ownerIdx, status, assessmentType, startDate, dueDate, astIdxs, crIdxs, thrIdxs, vulnIdxs, scIdxs], i) => ({
     id: padId("CRA", i + 1),
     name,
@@ -100,10 +100,8 @@ export const cyberRiskAssessments: MockCyberRiskAssessment[] = raw.map(
   }),
 );
 
-const assessmentById = new Map(cyberRiskAssessments.map((a) => [a.id, a]));
+const assessmentById = new Map(riskAssessments.map((a) => [a.id, a]));
 
-export function getCyberRiskAssessmentById(
-  id: string,
-): MockCyberRiskAssessment | undefined {
+export function getRiskAssessmentById(id: string): MockCyberRiskAssessment | undefined {
   return assessmentById.get(id);
 }

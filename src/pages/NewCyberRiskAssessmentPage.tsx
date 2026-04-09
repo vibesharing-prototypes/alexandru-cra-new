@@ -6,15 +6,12 @@ import {
   FormControl,
   IconButton,
   InputAdornment,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   TextField,
   Typography,
   useTheme,
 } from "@mui/material";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 
 import CalendarIcon from "@diligentcorp/atlas-react-bundle/icons/Calendar";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
@@ -26,10 +23,12 @@ import NewCyberRiskAssessmentScopeTab, {
   type ScopeSubView,
 } from "./NewCyberRiskAssessmentScopeTab.js";
 import {
+  assessmentStatusToPhase,
   loadCraNewAssessmentDraft,
   saveCraNewAssessmentDraft,
   type AssessmentPhase,
 } from "./craNewAssessmentDraftStorage.js";
+import { getRiskAssessmentById } from "../data/riskAssessments.js";
 import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
 
@@ -69,7 +68,6 @@ const SCOPE_DETAIL_PAGE: Record<
 
 const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
-const RESULTS_TAB_INDEX = 3;
 
 function TabPanel({
   children,
@@ -111,6 +109,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 export default function NewCyberRiskAssessmentPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { assessmentId: routeAssessmentId } = useParams();
   const { presets } = useTheme();
   const { AutocompletePresets } = presets;
 
@@ -119,23 +118,62 @@ export default function NewCyberRiskAssessmentPage() {
   const [initialDraft] = useState(() =>
     isReturningFromScenario ? loadCraNewAssessmentDraft() : null,
   );
-  const [activeTab, setActiveTab] = useState(initialDraft?.activeTab ?? 0);
+  const mockFromRoute =
+    routeAssessmentId != null && routeAssessmentId !== ""
+      ? getRiskAssessmentById(routeAssessmentId)
+      : undefined;
+
+  const [activeTab, setActiveTab] = useState(() => {
+    if (initialDraft) return initialDraft.activeTab;
+    if (mockFromRoute) return 0;
+    return loadCraNewAssessmentDraft()?.activeTab ?? 0;
+  });
   /** Draft → Scoping → In progress → Approved assessment → Done (navigate to list). */
-  const [assessmentPhase, setAssessmentPhase] = useState<AssessmentPhase>(
-    initialDraft?.assessmentPhase ?? "draft",
-  );
-  const [name, setName] = useState(initialDraft?.name ?? "");
-  const [assessmentId, setAssessmentId] = useState(initialDraft?.assessmentId ?? "");
-  const [assessmentType, setAssessmentType] = useState(initialDraft?.assessmentType ?? "");
-  const [startDate, setStartDate] = useState(initialDraft?.startDate ?? "");
-  const [dueDate, setDueDate] = useState(initialDraft?.dueDate ?? "");
-  const [ownerIds, setOwnerIds] = useState<string[]>(initialDraft?.ownerIds ?? []);
+  const [assessmentPhase, setAssessmentPhase] = useState<AssessmentPhase>(() => {
+    if (initialDraft) return initialDraft.assessmentPhase;
+    if (mockFromRoute) return assessmentStatusToPhase(mockFromRoute.status);
+    return loadCraNewAssessmentDraft()?.assessmentPhase ?? "draft";
+  });
+  const [name, setName] = useState(() => {
+    if (initialDraft) return initialDraft.name;
+    if (mockFromRoute) return mockFromRoute.name;
+    return loadCraNewAssessmentDraft()?.name ?? "";
+  });
+  const [assessmentId, setAssessmentId] = useState(() => {
+    if (initialDraft) return initialDraft.assessmentId;
+    if (mockFromRoute) return mockFromRoute.id;
+    return loadCraNewAssessmentDraft()?.assessmentId ?? "";
+  });
+  const [assessmentType, setAssessmentType] = useState(() => {
+    if (initialDraft) return initialDraft.assessmentType;
+    if (mockFromRoute) return mockFromRoute.assessmentType;
+    return loadCraNewAssessmentDraft()?.assessmentType ?? "";
+  });
+  const [startDate, setStartDate] = useState(() => {
+    if (initialDraft) return initialDraft.startDate;
+    if (mockFromRoute) return mockFromRoute.startDate;
+    return loadCraNewAssessmentDraft()?.startDate ?? "";
+  });
+  const [dueDate, setDueDate] = useState(() => {
+    if (initialDraft) return initialDraft.dueDate;
+    if (mockFromRoute) return mockFromRoute.dueDate;
+    return loadCraNewAssessmentDraft()?.dueDate ?? "";
+  });
+  const [ownerIds, setOwnerIds] = useState<string[]>(() => {
+    if (initialDraft) return initialDraft.ownerIds;
+    if (mockFromRoute) return [mockFromRoute.ownerId];
+    return loadCraNewAssessmentDraft()?.ownerIds ?? [];
+  });
   /** Scope tab: card overview vs assets data grid (drives PageHeader). */
-  const [scopeSubView, setScopeSubView] = useState<ScopeSubView>(
-    initialDraft?.scopeSubView ?? "overview",
-  );
+  const [scopeSubView, setScopeSubView] = useState<ScopeSubView>(() => {
+    if (initialDraft) return initialDraft.scopeSubView;
+    if (mockFromRoute) return "overview";
+    return loadCraNewAssessmentDraft()?.scopeSubView ?? "overview";
+  });
 
   const [includedScopeAssetIds, setIncludedScopeAssetIds] = useState<Set<string>>(() => {
+    if (initialDraft) return new Set(initialDraft.includedScopeAssetIds ?? []);
+    if (mockFromRoute) return new Set(mockFromRoute.assetIds);
     const d = loadCraNewAssessmentDraft();
     return new Set(d?.includedScopeAssetIds ?? []);
   });
@@ -177,7 +215,8 @@ export default function NewCyberRiskAssessmentPage() {
 
   const createdByDisplay = useMemo(() => joinUserFullNames(ownerIds, "—"), [ownerIds]);
 
-  useEffect(() => {
+  const handleSaveDraft = useCallback(() => {
+    if (routeAssessmentId) return;
     saveCraNewAssessmentDraft({
       activeTab,
       assessmentPhase,
@@ -191,6 +230,7 @@ export default function NewCyberRiskAssessmentPage() {
       includedScopeAssetIds: [...includedScopeAssetIds],
     });
   }, [
+    routeAssessmentId,
     activeTab,
     assessmentPhase,
     name,
@@ -202,6 +242,18 @@ export default function NewCyberRiskAssessmentPage() {
     scopeSubView,
     includedScopeAssetIds,
   ]);
+
+  useEffect(() => {
+    handleSaveDraft();
+  }, [handleSaveDraft]);
+
+  useEffect(() => {
+    if (!routeAssessmentId) return;
+    const a = getRiskAssessmentById(routeAssessmentId);
+    if (!a) {
+      navigate("/cyber-risk/cyber-risk-assessments", { replace: true });
+    }
+  }, [routeAssessmentId, navigate]);
 
   useEffect(() => {
     const st = location.state as { craReturnToScoring?: boolean } | null;
@@ -243,6 +295,7 @@ export default function NewCyberRiskAssessmentPage() {
           scopeDetail={scopeDetail}
           onScopeSubViewBack={() => setScopeSubView("overview")}
           onScopeDetailDone={() => setScopeSubView("overview")}
+          onSave={handleSaveDraft}
         />
 
         <TabPanel value={activeTab} index={0}>
@@ -309,37 +362,15 @@ export default function NewCyberRiskAssessmentPage() {
                 </Stack>
               </Box>
               <Box sx={{ flex: { md: "3 1 0" }, minWidth: { xs: "100%", md: 200 } }}>
-                <FormControl fullWidth>
-                  <InputLabel id="assessment-type-label" size="medium">
-                    Assessment type
-                  </InputLabel>
-                  <Select
-                    labelId="assessment-type-label"
-                    label="Assessment type"
-                    size="medium"
-                    displayEmpty
-                    value={assessmentType}
-                    onChange={(e) => setAssessmentType(e.target.value)}
-                    renderValue={(selected) =>
-                      selected ? (
-                        selected
-                      ) : (
-                        <Typography
-                          component="span"
-                          variant="body1"
-                          sx={({ tokens: t }) => ({
-                            color: t.semantic.color.type.muted.value,
-                          })}
-                        >
-                          Select assessment type
-                        </Typography>
-                      )
-                    }
-                  >
-                    <MenuItem value="Cyber risk assessment">Cyber risk assessment</MenuItem>
-                    <MenuItem value="Other">Other</MenuItem>
-                  </Select>
-                </FormControl>
+                <TextField
+                  fullWidth
+                  label="Assessment type"
+                  size="medium"
+                  value={assessmentType}
+                  onChange={(e) => setAssessmentType(e.target.value)}
+                  placeholder="e.g. Full assessment"
+                  aria-label="Assessment type"
+                />
               </Box>
             </Stack>
 

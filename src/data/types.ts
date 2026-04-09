@@ -24,7 +24,12 @@ export type CyberRiskStatus =
   | "Mitigation"
   | "Monitoring";
 
-export type AssessmentStatus = "Draft" | "In progress" | "Approved";
+export type AssessmentStatus =
+  | "Draft"
+  | "Scoping"
+  | "In progress"
+  | "Approved"
+  | "Overdue";
 
 export type ControlStatus = "Draft" | "Active" | "Archived";
 

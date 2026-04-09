@@ -1,4 +1,11 @@
-export type AssessmentPhase = "draft" | "scoping" | "inProgress" | "assessmentApproved";
+import type { AssessmentStatus } from "../data/types.js";
+
+export type AssessmentPhase =
+  | "draft"
+  | "scoping"
+  | "inProgress"
+  | "overdue"
+  | "assessmentApproved";
 
 type ScopeSubView =
   | "overview"
@@ -29,7 +36,13 @@ export type CraNewAssessmentPersistedDraft = {
 };
 
 function isAssessmentPhase(v: unknown): v is AssessmentPhase {
-  return v === "draft" || v === "scoping" || v === "inProgress" || v === "assessmentApproved";
+  return (
+    v === "draft" ||
+    v === "scoping" ||
+    v === "inProgress" ||
+    v === "overdue" ||
+    v === "assessmentApproved"
+  );
 }
 
 function isScopeSubView(v: unknown): v is ScopeSubView {
@@ -49,7 +62,10 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
       : 0;
   const assessmentPhase = isAssessmentPhase(raw.assessmentPhase) ? raw.assessmentPhase : "draft";
   const scopingStarted = assessmentPhase !== "draft";
-  const assessmentStarted = assessmentPhase === "inProgress" || assessmentPhase === "assessmentApproved";
+  const assessmentStarted =
+    assessmentPhase === "inProgress" ||
+    assessmentPhase === "overdue" ||
+    assessmentPhase === "assessmentApproved";
   if (!scopingStarted && activeTab === SCOPE_TAB_INDEX) {
     activeTab = 0;
   }
@@ -106,5 +122,23 @@ export function saveCraNewAssessmentDraft(draft: CraNewAssessmentPersistedDraft)
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeDraft(draft)));
   } catch {
     // ignore quota / private mode
+  }
+}
+
+/** Maps list/grid `AssessmentStatus` to header workflow phase (e.g. when opening an existing mock assessment). */
+export function assessmentStatusToPhase(status: AssessmentStatus): AssessmentPhase {
+  switch (status) {
+    case "Draft":
+      return "draft";
+    case "Scoping":
+      return "scoping";
+    case "In progress":
+      return "inProgress";
+    case "Approved":
+      return "assessmentApproved";
+    case "Overdue":
+      return "overdue";
+    default:
+      return "draft";
   }
 }

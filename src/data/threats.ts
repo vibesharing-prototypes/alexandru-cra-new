@@ -408,7 +408,7 @@ function buildThreats(): MockThreat[] {
       out.push({
         id: padId("THR", seq),
         displayId: `T-${String(seq).padStart(4, "0")}`,
-        name: `${template.title} (${asset.name})`,
+        name: template.title,
         ownerIds: [asset.ownerId],
         domain: template.domain,
         description: buildThreatDescription(template.title, asset.name, template.domain, sources),

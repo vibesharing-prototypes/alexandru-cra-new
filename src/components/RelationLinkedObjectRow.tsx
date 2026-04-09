@@ -160,15 +160,17 @@ export function RelationLinkedObjectRow({
               </Typography>
               <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16 }}>
                 <Box
-                  sx={[
-                    ({ tokens: t }) => ({
-                      width: 16,
-                      height: 16,
-                      borderRadius: t.semantic.radius.sm.value,
-                      flexShrink: 0,
-                    }),
-                    trailing.ragSwatchSx,
-                  ]}
+                  sx={
+                    [
+                      ({ tokens: t }) => ({
+                        width: 16,
+                        height: 16,
+                        borderRadius: t.semantic.radius.sm.value,
+                        flexShrink: 0,
+                      }),
+                      trailing.ragSwatchSx,
+                    ] as SxProps<Theme>
+                  }
                 />
                 <Typography
                   component="span"

@@ -32,20 +32,12 @@ import {
   buildThreatAssessmentGridRows,
   type ThreatAssessmentGridRow,
 } from "../utils/threatAssessmentsTableRows.js";
+import AssessmentStatusBadge from "./AssessmentStatus.js";
 
 const ASSESSMENTS_LIST_PATH = "/cyber-risk/cyber-risk-assessments";
 
 function StatusCell({ status }: { status: AssessmentStatus }) {
-  const { presets } = useTheme();
-  const StatusIndicator = presets.StatusIndicatorPresets?.components.StatusIndicator;
-
-  const colorMap: Record<AssessmentStatus, "generic" | "information" | "success"> = {
-    Draft: "generic",
-    "In progress": "information",
-    Approved: "success",
-  };
-
-  return <StatusIndicator color={colorMap[status]} label={status} />;
+  return <AssessmentStatusBadge status={status} />;
 }
 
 function UserStackCell({ name, initials }: { name: string; initials: string }) {

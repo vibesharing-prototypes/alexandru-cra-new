@@ -5,6 +5,7 @@ import "./styles.css";
 import Navigation from "./Navigation.js";
 import IndexPage from "./pages/IndexPage.js";
 import SettingsPage from "./pages/SettingsPage.js";
+import ActivityPage from "./pages/ActivityPage.js";
 import GenericPage from "./pages/GenericPage.js";
 import FileImportPage from "./pages/FileImportPage.js";
 import UploadFilesPage from "./pages/UploadFilesPage.js";
@@ -128,6 +129,10 @@ export default function App() {
           element={<NewCyberRiskAssessmentPage />}
         />
         <Route
+          path="cyber-risk/cyber-risk-assessments/:assessmentId"
+          element={<NewCyberRiskAssessmentPage />}
+        />
+        <Route
           path="cyber-risk/cyber-risk-assessments/new/scenario/:scenarioId"
           element={<NewCyberRiskAssessmentScenarioDetailPage />}
         />
@@ -148,10 +153,7 @@ export default function App() {
           element={<CyberRiskDetailsPage />}
         />
 
-        <Route
-          path="activity"
-          element={<GenericPage title="Activity" />}
-        />
+        <Route path="activity" element={<ActivityPage />} />
 
         <Route path="settings" element={<SettingsPage />} />
         <Route

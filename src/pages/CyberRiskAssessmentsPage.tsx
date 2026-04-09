@@ -41,13 +41,18 @@ import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
 import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
 
+import AssessmentStatus from "../components/AssessmentStatus.js";
+import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
+import { riskAssessments } from "../data/riskAssessments.js";
+import { getUserById } from "../data/users.js";
+
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface AssessmentRow {
-  id: number;
+  id: string;
   assessmentId: string;
   name: string;
-  status: "Draft" | "In progress" | "Approved";
+  status: AssessmentStatusValue;
   cyberRisks: number;
   assets: number;
   threats: number;
@@ -57,149 +62,37 @@ interface AssessmentRow {
   ownerInitials: string;
 }
 
-const assessmentRows: AssessmentRow[] = [
-  {
-    id: 1,
-    assessmentId: "CRA-001",
-    name: "Cyber risk assessment Q1 - 2026",
-    status: "In progress",
-    cyberRisks: 4,
-    assets: 18,
-    threats: 3,
-    vulnerabilities: 5,
-    scenarios: 2,
-    owner: "Alexandru Hasmatuchi",
-    ownerInitials: "AH",
-  },
-  {
-    id: 2,
-    assessmentId: "CRA-002",
-    name: "Annual infrastructure review 2025",
-    status: "Approved",
-    cyberRisks: 5,
-    assets: 27,
-    threats: 4,
-    vulnerabilities: 3,
-    scenarios: 5,
-    owner: "Maria Ionescu",
-    ownerInitials: "MI",
-  },
-  {
-    id: 3,
-    assessmentId: "CRA-003",
-    name: "Cloud migration risk assessment",
-    status: "Approved",
-    cyberRisks: 3,
-    assets: 12,
-    threats: 2,
-    vulnerabilities: 4,
-    scenarios: 3,
-    owner: "James Patterson",
-    ownerInitials: "JP",
-  },
-  {
-    id: 4,
-    assessmentId: "CRA-004",
-    name: "Third-party vendor risk evaluation",
-    status: "In progress",
-    cyberRisks: 2,
-    assets: 8,
-    threats: 5,
-    vulnerabilities: 2,
-    scenarios: 1,
-    owner: "Elena Vasquez",
-    ownerInitials: "EV",
-  },
-  {
-    id: 5,
-    assessmentId: "CRA-005",
-    name: "SOC 2 compliance gap analysis",
-    status: "Draft",
-    cyberRisks: 1,
-    assets: 22,
-    threats: 3,
-    vulnerabilities: 1,
-    scenarios: 4,
-    owner: "David Chen",
-    ownerInitials: "DC",
-  },
-  {
-    id: 6,
-    assessmentId: "CRA-006",
-    name: "Ransomware resilience assessment",
-    status: "Approved",
-    cyberRisks: 5,
-    assets: 30,
-    threats: 5,
-    vulnerabilities: 4,
-    scenarios: 5,
-    owner: "Sarah Thompson",
-    ownerInitials: "ST",
-  },
-  {
-    id: 7,
-    assessmentId: "CRA-007",
-    name: "Supply chain cybersecurity review",
-    status: "In progress",
-    cyberRisks: 3,
-    assets: 15,
-    threats: 4,
-    vulnerabilities: 3,
-    scenarios: 2,
-    owner: "Alexandru Hasmatuchi",
-    ownerInitials: "AH",
-  },
-  {
-    id: 8,
-    assessmentId: "CRA-008",
-    name: "Remote workforce security assessment",
-    status: "Draft",
-    cyberRisks: 2,
-    assets: 10,
-    threats: 2,
-    vulnerabilities: 2,
-    scenarios: 1,
-    owner: "Olivia Martinez",
-    ownerInitials: "OM",
-  },
-  {
-    id: 9,
-    assessmentId: "CRA-009",
-    name: "Data privacy impact assessment Q4",
-    status: "Approved",
-    cyberRisks: 4,
-    assets: 19,
-    threats: 3,
-    vulnerabilities: 5,
-    scenarios: 4,
-    owner: "James Patterson",
-    ownerInitials: "JP",
-  },
-  {
-    id: 10,
-    assessmentId: "CRA-010",
-    name: "OT/ICS network segmentation review",
-    status: "Draft",
-    cyberRisks: 1,
-    assets: 6,
-    threats: 1,
-    vulnerabilities: 3,
-    scenarios: 1,
-    owner: "Maria Ionescu",
-    ownerInitials: "MI",
-  },
-];
+const assessmentRows: AssessmentRow[] = riskAssessments.map((a) => {
+  const u = getUserById(a.ownerId);
+  return {
+    id: a.id,
+    assessmentId: a.id,
+    name: a.name,
+    status: a.status,
+    cyberRisks: a.cyberRiskIds.length,
+    assets: a.assetIds.length,
+    threats: a.threatIds.length,
+    vulnerabilities: a.vulnerabilityIds.length,
+    scenarios: a.scenarioIds.length,
+    owner: u?.fullName ?? "—",
+    ownerInitials: u?.initials ?? "—",
+  };
+});
 
 const STATUS_COLORS = {
   draft: "#a0a2a5",
+  scoping: "#c8f08a",
   inProgress: "#0086fa",
   approved: "#26c926",
+  overdue: "#d32f2f",
 };
 
 const statusData = {
   draft: assessmentRows.filter((r) => r.status === "Draft").length,
+  scoping: assessmentRows.filter((r) => r.status === "Scoping").length,
   inProgress: assessmentRows.filter((r) => r.status === "In progress").length,
   approved: assessmentRows.filter((r) => r.status === "Approved").length,
+  overdue: assessmentRows.filter((r) => r.status === "Overdue").length,
 };
 
 /** Figma: Assessments by business unit — moss scale + orange for zero-coverage BU */
@@ -215,17 +108,30 @@ const businessUnitData = [
 const BUSINESS_UNIT_COUNT = businessUnitData.length;
 
 function AssessmentsByStatusCard() {
-  const total = statusData.draft + statusData.inProgress + statusData.approved;
+  const total =
+    statusData.draft +
+    statusData.scoping +
+    statusData.inProgress +
+    statusData.approved +
+    statusData.overdue;
 
   const chartData = {
-    labels: ["Draft", "In progress", "Approved"],
+    labels: ["Draft", "Scoping", "In progress", "Approved", "Overdue"],
     datasets: [
       {
-        data: [statusData.draft, statusData.inProgress, statusData.approved],
+        data: [
+          statusData.draft,
+          statusData.scoping,
+          statusData.inProgress,
+          statusData.approved,
+          statusData.overdue,
+        ],
         backgroundColor: [
           STATUS_COLORS.draft,
+          STATUS_COLORS.scoping,
           STATUS_COLORS.inProgress,
           STATUS_COLORS.approved,
+          STATUS_COLORS.overdue,
         ],
         borderWidth: 0,
         cutout: "72%",
@@ -235,8 +141,10 @@ function AssessmentsByStatusCard() {
 
   const legendItems = [
     { label: "Draft", value: statusData.draft, color: STATUS_COLORS.draft },
+    { label: "Scoping", value: statusData.scoping, color: STATUS_COLORS.scoping },
     { label: "In progress", value: statusData.inProgress, color: STATUS_COLORS.inProgress },
     { label: "Approved", value: statusData.approved, color: STATUS_COLORS.approved },
+    { label: "Overdue", value: statusData.overdue, color: STATUS_COLORS.overdue },
   ];
 
   return (
@@ -531,16 +439,7 @@ function AssessmentCoverageCard() {
 }
 
 function StatusCell({ status }: { status: AssessmentRow["status"] }) {
-  const { presets } = useTheme();
-  const StatusIndicator = presets.StatusIndicatorPresets?.components.StatusIndicator;
-
-  const colorMap: Record<AssessmentRow["status"], "generic" | "information" | "success"> = {
-    Draft: "generic",
-    "In progress": "information",
-    Approved: "success",
-  };
-
-  return <StatusIndicator color={colorMap[status]} label={status} />;
+  return <AssessmentStatus status={status} />;
 }
 
 function OwnerCell({ name, initials }: { name: string; initials: string }) {
@@ -614,9 +513,22 @@ function AssessmentsDataGrid() {
       flex: 1,
       minWidth: 280,
       renderCell: (params: GridRenderCellParams<AssessmentRow>) => (
-        <Link href="#" underline="hover" sx={{ cursor: "pointer" }}>
+        <Typography
+          component={NavLink}
+          to={`/cyber-risk/cyber-risk-assessments/${params.row.assessmentId}`}
+          variant="textMd"
+          sx={({ tokens: t }) => ({
+            color: t.semantic.color.accent.blue.content.value,
+            fontWeight: 600,
+            textDecoration: "underline",
+            textUnderlineOffset: "2px",
+            "&:hover": {
+              color: t.semantic.color.type.default.value,
+            },
+          })}
+        >
           {params.value}
-        </Link>
+        </Typography>
       ),
     },
     {

@@ -71,8 +71,5 @@ export {
 export { controls, getControlById } from "./controls.js";
 export { cyberRisks, getCyberRiskById } from "./cyberRisks.js";
 export { scenarios, getScenarioById } from "./scenarios.js";
-export {
-  cyberRiskAssessments,
-  getCyberRiskAssessmentById,
-} from "./cyberRiskAssessments.js";
+export { riskAssessments, getRiskAssessmentById } from "./riskAssessments.js";
 export { mitigationPlans, getMitigationPlanById } from "./mitigationPlans.js";
