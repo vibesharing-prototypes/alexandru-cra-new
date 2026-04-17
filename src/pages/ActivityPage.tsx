@@ -1,8 +1,14 @@
 import { useState } from "react";
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
-import { Box, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
+import { Box, Stack, Tab, Tabs, useTheme } from "@mui/material";
 import { NavLink, useLocation } from "react-router";
 
+import AiContentCard, {
+  AiContentCardAssessmentPreset,
+} from "../components/AiContentCard.js";
+import DoubleScoreCell from "../components/DoubleScoreCell.js";
+import ScoringRationaleDropdowns from "../components/ScoringRationaleDropdowns.js";
+import LabelScoreLegend from "../components/LabelScoreLegend.js";
 import PageLayout from "../components/PageLayout.js";
 import {
   atlasPageHeaderNavigationTabsSx,
@@ -27,26 +33,6 @@ function TabPanel({
     >
       {value === index && children}
     </div>
-  );
-}
-
-function PlaceholderContent({ label }: { label: string }) {
-  return (
-    <Box
-      sx={{
-        py: 6,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Typography
-        variant="body1"
-        sx={({ tokens }) => ({ color: tokens.semantic.color.type.muted.value })}
-      >
-        {label} content
-      </Typography>
-    </Box>
   );
 }
 
@@ -110,13 +96,36 @@ export default function ActivityPage() {
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
-          <PlaceholderContent label="Tab 1" />
+          <Box sx={{ py: 2, width: "100%" }}>
+            <Stack
+              sx={({ tokens: t }) => ({
+                width: "100%",
+                alignItems: "stretch",
+                gap: t.core.spacing["3"].value,
+              })}
+            >
+              <AiContentCard>
+                <AiContentCardAssessmentPreset />
+              </AiContentCard>
+              <ScoringRationaleDropdowns />
+            </Stack>
+          </Box>
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
-          <PlaceholderContent label="Tab 2" />
+          <Box sx={{ py: 2, width: "100%" }}>
+            <DoubleScoreCell
+              inherent={{ numeric: "4", label: "High", rag: "neg03" }}
+              residual={{ numeric: "2", label: "Low", rag: "pos04" }}
+            />
+          </Box>
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
-          <PlaceholderContent label="Tab 3" />
+          <Box sx={{ py: 2 }}>
+            <LabelScoreLegend
+              label="Risk level"
+              value={{ numeric: "4", label: "High", rag: "neg03" }}
+            />
+          </Box>
         </TabPanel>
       </Stack>
     </PageLayout>

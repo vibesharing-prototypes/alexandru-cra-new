@@ -32,6 +32,7 @@ import {
   saveCraNewAssessmentDraft,
   type AiScoringPhase,
   type AssessmentPhase,
+  type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
 import { scopedScenarios } from "./scopeAssessmentRollup.js";
 import { getRiskAssessmentById } from "../data/riskAssessments.js";
@@ -200,6 +201,11 @@ export default function AssessmentDetailsTab() {
     return "idle";
   });
 
+  const [scoringType, setScoringType] = useState<CraScoringTypeChoice>(() => {
+    if (initialDraft) return initialDraft.scoringType;
+    return "residual";
+  });
+
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const needsInitialDraftClear =
@@ -281,6 +287,7 @@ export default function AssessmentDetailsTab() {
       scopeSubView,
       includedScopeAssetIds: [...includedScopeAssetIds],
       aiScoringPhase,
+      scoringType,
     });
   }, [
     routeAssessmentId,
@@ -294,6 +301,7 @@ export default function AssessmentDetailsTab() {
     scopeSubView,
     includedScopeAssetIds,
     aiScoringPhase,
+    scoringType,
   ]);
 
   const handleAiScoringClick = useCallback(() => {
@@ -419,27 +427,16 @@ export default function AssessmentDetailsTab() {
               </Box>
               <Box sx={{ flex: { md: "2 1 0" }, minWidth: { xs: "100%", md: 120 } }}>
                 <Stack gap={1}>
-                  <Stack direction="row" alignItems="center" gap={0.5}>
-                    <Typography
-                      variant="caption"
-                      fontWeight={600}
-                      sx={({ tokens: t }) => ({
-                        color: t.semantic.color.type.default.value,
-                        letterSpacing: "0.3px",
-                      })}
-                    >
-                      Custom ID
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={({ tokens: t }) => ({
-                        color: t.semantic.color.type.muted.value,
-                        letterSpacing: "0.3px",
-                      })}
-                    >
-                      (Required)
-                    </Typography>
-                  </Stack>
+                  <Typography
+                    variant="caption"
+                    fontWeight={600}
+                    sx={({ tokens: t }) => ({
+                      color: t.semantic.color.type.default.value,
+                      letterSpacing: "0.3px",
+                    })}
+                  >
+                    Custom ID
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
@@ -570,6 +567,8 @@ export default function AssessmentDetailsTab() {
             assessmentName={name}
             includedAssetIds={includedScopeAssetIds}
             aiScoringPhase={aiScoringPhase}
+            scoringType={scoringType}
+            onScoringTypeChange={setScoringType}
             showAiScoringAction={showAiScoringAction}
             onAiScoringClick={handleAiScoringClick}
             onGoToScope={() => setActiveTab(SCOPE_TAB_INDEX)}

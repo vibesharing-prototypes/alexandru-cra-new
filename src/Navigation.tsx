@@ -18,7 +18,7 @@ export default function Navigation() {
 
   return (
     <>
-      <RoutedNavLink to="/" label="Dashboard">
+      <RoutedNavLink to="/dashboard" label="Dashboard">
         <HomeIcon slot="icon" />
       </RoutedNavLink>
 

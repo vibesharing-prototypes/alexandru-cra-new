@@ -7,7 +7,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
   Container,
   Link,
   Stack,
@@ -19,23 +18,13 @@ import {
   type GridRenderCellParams,
 } from "@mui/x-data-grid-pro";
 import { NavLink } from "react-router";
-import { Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
 
-import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import ArrowUpIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowUp";
 import ArrowDownIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowDown";
 import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 
 import { type RiskHeatmapLevel, ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import ResidualRisksMatrix from "../components/ResidualRisksMatrix.js";
-
-ChartJS.register(ArcElement, Tooltip, Legend);
 
 // ---------------------------------------------------------------------------
 // KPI data
@@ -99,26 +88,6 @@ const heatmapLegend: { label: string; level: RiskHeatmapLevel; count: number }[]
   { label: "26\u201350 Low", level: "low", count: 66 },
   { label: "1\u201325 Very low", level: "veryLow", count: 42 },
 ];
-
-// ---------------------------------------------------------------------------
-// Risk treatment status donut data
-// ---------------------------------------------------------------------------
-
-const TREATMENT_COLORS = {
-  open: "#c6c6c9",
-  inProgress: "#0086fa",
-  completed: "#7cb342",
-  overdue: "#ef5350",
-};
-
-const treatmentData = [
-  { label: "Open", value: 10, color: TREATMENT_COLORS.open },
-  { label: "In progress", value: 45, color: TREATMENT_COLORS.inProgress },
-  { label: "Completed", value: 20, color: TREATMENT_COLORS.completed },
-  { label: "Overdue", value: 8, color: TREATMENT_COLORS.overdue },
-];
-
-const treatmentTotal = treatmentData.reduce((sum, d) => sum + d.value, 0);
 
 // ---------------------------------------------------------------------------
 // Most exposed assets data
@@ -305,148 +274,6 @@ function KpiCard({ item }: { item: KpiItem }) {
   );
 }
 
-function RiskTreatmentStatusCard() {
-  const chartData = {
-    labels: treatmentData.map((d) => d.label),
-    datasets: [
-      {
-        data: treatmentData.map((d) => d.value),
-        backgroundColor: treatmentData.map((d) => d.color),
-        borderWidth: 0,
-        cutout: "72%",
-      },
-    ],
-  };
-
-  return (
-    <Card sx={{ flex: 2, minWidth: 0 }}>
-      <CardHeader
-        title={
-          <Typography variant="h4" component="h2" fontWeight={600}>
-            Risk treatment status
-          </Typography>
-        }
-        action={
-          <Button
-            variant="text"
-            size="small"
-            aria-label="More options for risk treatment status"
-          >
-            <MoreIcon aria-hidden />
-          </Button>
-        }
-        sx={{ display: "flex" }}
-      />
-      <CardContent
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: ({ spacing }) => spacing(3.75),
-          height: "100%",
-          pt: 0,
-        }}
-      >
-        <Box
-          sx={{
-            position: "relative",
-            width: 220,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "flex-start",
-          }}
-        >
-          <Doughnut
-            data={chartData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: true,
-              plugins: {
-                legend: { display: false },
-                tooltip: { enabled: true },
-              },
-            }}
-          />
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 0.5,
-            }}
-          >
-            <Typography
-              component="span"
-              sx={({ tokens: t }) => ({
-                color: t.semantic.color.type.default.value,
-                fontWeight: 400,
-                fontSize: 26,
-                lineHeight: "34px",
-              })}
-            >
-              {treatmentTotal}
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={({ tokens: t }) => ({
-                color: t.semantic.color.type.muted.value,
-                lineHeight: "24px",
-                letterSpacing: "0.2px",
-              })}
-            >
-              Mitigation plans
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            columnGap: 2,
-            rowGap: 2,
-            width: "100%",
-          }}
-        >
-          {treatmentData.map((item) => (
-            <Stack key={item.label} gap={0}>
-              <Stack direction="row" alignItems="center" gap={1}>
-                <Box
-                  sx={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: 0.5,
-                    backgroundColor: item.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <Typography
-                  variant="textSm"
-                  sx={({ tokens: t }) => ({
-                    color: t.semantic.color.type.default.value,
-                  })}
-                >
-                  {item.label}
-                </Typography>
-              </Stack>
-              <Typography variant="textMd" sx={{ pl: 3, fontWeight: 600 }}>
-                {item.value}
-              </Typography>
-            </Stack>
-          ))}
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
-
 function ScoreChipCell({ value }: { value: ScoreChip }) {
   return (
     <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16 }}>
@@ -602,15 +429,20 @@ export default function OverviewPage() {
           ))}
         </Stack>
 
-        {/* Heat map + donut row */}
+        {/* Inherent + residual risk matrices */}
         <Stack direction="row" gap={3} sx={{ alignItems: "stretch" }}>
+          <ResidualRisksMatrix
+            title="Inherent risks"
+            grid={heatmapGrid}
+            legend={heatmapLegend}
+            sx={{ flex: "1 1 50%", minWidth: 0 }}
+          />
           <ResidualRisksMatrix
             title="Residual risks"
             grid={heatmapGrid}
             legend={heatmapLegend}
-            sx={{ flex: 3, minWidth: 0 }}
+            sx={{ flex: "1 1 50%", minWidth: 0 }}
           />
-          <RiskTreatmentStatusCard />
         </Stack>
 
         {/* Most exposed assets */}

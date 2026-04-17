@@ -5,13 +5,18 @@ import {
   getCyberRiskScoreLabel,
 } from "./types.js";
 import type { MockCyberRisk, CyberRiskStatus, FivePointScaleValue } from "./types.js";
+import { keywordSimilarity, mulberry32 } from "./relationshipHeuristics.js";
 import { threats } from "./threats.js";
 import { vulnerabilities } from "./vulnerabilities.js";
 import { assets } from "./assets.js";
 
 const OWNER_ROTATION = [7, 9, 14, 15, 20, 33, 39, 49, 1, 5] as const;
 
-/** Exactly 20 library cyber risks. Threats THR-001..020 each anchor one risk; THR-021..025 pair with THR-001..005 respectively. */
+/**
+ * Exactly 20 library cyber risks. Threat links use keyword overlap (risk name vs threat title/domain) plus
+ * seeded jitter for variable breadth; any threat not picked in the first pass is attached once to its
+ * best-matching risk so the library stays fully covered.
+ */
 const RISK_SEEDS: { name: string; status: CyberRiskStatus }[] = [
   { name: "Ransomware and extortion disrupting critical operations and data availability", status: "Mitigation" },
   { name: "Phishing and impersonation compromising workforce and customer credentials", status: "Monitoring" },
@@ -41,6 +46,27 @@ function dedupePush(arr: string[], id: string): void {
   if (!arr.includes(id)) arr.push(id);
 }
 
+/** Pick a variable number of threats by similarity to the risk name (reproducible per index). */
+function selectThreatIdsForCyberRisk(riskName: string, riskIndex: number): string[] {
+  const rng = mulberry32(201_100 + riskIndex * 997);
+  const targetCount = 2 + Math.floor(rng() * 14);
+
+  const scored = threats.map((t) => ({
+    id: t.id,
+    s: keywordSimilarity(riskName, `${t.name} ${t.domain}`) + rng() * 0.22,
+  }));
+  scored.sort((a, b) => b.s - a.s);
+
+  return scored.slice(0, Math.min(targetCount, threats.length)).map((x) => x.id);
+}
+
+function refreshCyberRiskDerivedFields(risk: MockCyberRisk): void {
+  risk.assetIds = unionAssetIdsForThreats(risk.threatIds);
+  risk.vulnerabilityIds = vulnerabilityIdsForAssets(risk.assetIds);
+  risk.relationships.assetIds = [...risk.assetIds];
+  risk.relationships.vulnerabilityIds = [...risk.vulnerabilityIds];
+}
+
 function linkCyberRiskToEntities(risk: MockCyberRisk): void {
   const vulnById = new Map(vulnerabilities.map((v) => [v.id, v]));
   const tById = new Map(threats.map((t) => [t.id, t]));
@@ -66,15 +92,6 @@ function linkCyberRiskToEntities(risk: MockCyberRisk): void {
     const a = assetById.get(aid);
     if (a) dedupePush(a.relationships.cyberRiskIds, risk.id);
   }
-}
-
-/** Primary threat THR-(i+1); first five risks also include THR-(21..25) for full threat coverage. */
-function threatIdsForRiskIndex(i: number): string[] {
-  const primary = padId("THR", i + 1);
-  if (i < 5) {
-    return [primary, padId("THR", 21 + i)];
-  }
-  return [primary];
 }
 
 function unionAssetIdsForThreats(threatIds: string[]): string[] {
@@ -123,7 +140,7 @@ function buildCyberRisks(): MockCyberRisk[] {
 
   for (let i = 0; i < 20; i++) {
     const seed = RISK_SEEDS[i]!;
-    const threatIds = threatIdsForRiskIndex(i);
+    const threatIds = selectThreatIdsForCyberRisk(seed.name, i);
     const assetIds = unionAssetIdsForThreats(threatIds);
     const vulnerabilityIds = vulnerabilityIdsForAssets(assetIds);
     const scenarioIds: string[] = [];
@@ -168,6 +185,29 @@ function buildCyberRisks(): MockCyberRisk[] {
 
     linkCyberRiskToEntities(risk);
     out.push(risk);
+  }
+
+  const usedThreatIds = new Set<string>();
+  for (const r of out) {
+    for (const tid of r.threatIds) usedThreatIds.add(tid);
+  }
+
+  for (const t of threats) {
+    if (usedThreatIds.has(t.id)) continue;
+    let bestIdx = 0;
+    let bestScore = -1;
+    for (let i = 0; i < out.length; i++) {
+      const sc = keywordSimilarity(out[i]!.name, `${t.name} ${t.domain}`);
+      if (sc > bestScore) {
+        bestScore = sc;
+        bestIdx = i;
+      }
+    }
+    const risk = out[bestIdx]!;
+    dedupePush(risk.threatIds, t.id);
+    refreshCyberRiskDerivedFields(risk);
+    linkCyberRiskToEntities(risk);
+    usedThreatIds.add(t.id);
   }
 
   return out;

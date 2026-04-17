@@ -36,7 +36,8 @@ export default function App() {
           </AppLayout>
         }
       >
-        <Route index element={<IndexPage />} />
+        <Route index element={<OverviewPage />} />
+        <Route path="dashboard" element={<IndexPage />} />
 
         <Route
           path="all-assets"

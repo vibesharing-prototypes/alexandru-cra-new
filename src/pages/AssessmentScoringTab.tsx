@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
+  Alert,
+  AlertTitle,
   Box,
-  Button,
-  CardContent,
-  CircularProgress,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -19,21 +18,22 @@ import {
   TableHead,
   TableRow,
   Typography,
-  useTheme,
 } from "@mui/material";
+import { visuallyHidden } from "@mui/utils";
 import { useNavigate } from "react-router";
 
-import { Card } from "@diligentcorp/atlas-react-bundle";
 import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
+import AiContentCard, { AiContentCardAssessmentPreset } from "../components/AiContentCard.js";
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
+import DoubleScoreCell from "../components/DoubleScoreCell.js";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
 import type { FivePointScaleLabel } from "../data/types.js";
-import type { AiScoringPhase } from "./craNewAssessmentDraftStorage.js";
+import type { AiScoringPhase, CraScoringTypeChoice } from "./craNewAssessmentDraftStorage.js";
 import { scopedCyberRisks, scopedScenarios } from "./scopeAssessmentRollup.js";
 
 type ScoreValue = {
@@ -59,6 +59,88 @@ type ScoringRow = {
 type AggregationMethod = "highest" | "average";
 
 const SCENARIO_DETAIL_PATH = "/cyber-risk/cyber-risk-assessments/new/scenario";
+
+const SCORING_TYPE_OPTIONS = [
+  { value: "inherent", label: "Inherent" },
+  { value: "residual", label: "Residual" },
+  { value: "inherent_residual", label: "Inherent + Residual" },
+] as const;
+
+/** Name column is fixed width (sticky first column). */
+const SCORING_NAME_COL_WIDTH_PX = 400;
+
+/** Actions column is fixed width (sticky last column). */
+const SCORING_ACTIONS_COL_WIDTH_PX = 48;
+
+const SCORING_THREAT_MIN_PX = 132;
+const SCORING_VULNERABILITY_MIN_PX = 164;
+const SCORING_LIKELIHOOD_MIN_PX = 110;
+const SCORING_CYBER_RISK_SCORE_MIN_PX = 134;
+
+/**
+ * Metric columns use intrinsic width from cell content (single vs double legend).
+ * `width: 0.01%` is a common auto-table hint so extra horizontal space is not assigned here first.
+ */
+const scoringMetricThSx = {
+  px: 2,
+  width: "0.01%",
+  maxWidth: "max-content",
+  boxSizing: "border-box" as const,
+  overflow: "visible",
+  whiteSpace: "normal" as const,
+  wordBreak: "break-word" as const,
+  overflowWrap: "break-word" as const,
+};
+
+const scoringMetricTdSx = {
+  px: 2,
+  py: 0,
+  width: "0.01%",
+  maxWidth: "max-content",
+  verticalAlign: "middle" as const,
+  boxSizing: "border-box" as const,
+  overflow: "visible",
+  whiteSpace: "nowrap" as const,
+};
+
+const scoringThreatMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_THREAT_MIN_PX };
+const scoringThreatMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_THREAT_MIN_PX };
+const scoringVulnerabilityMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_VULNERABILITY_MIN_PX };
+const scoringVulnerabilityMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_VULNERABILITY_MIN_PX };
+const scoringLikelihoodMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_LIKELIHOOD_MIN_PX };
+const scoringLikelihoodMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_LIKELIHOOD_MIN_PX };
+const scoringCyberRiskScoreMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_CYBER_RISK_SCORE_MIN_PX };
+const scoringCyberRiskScoreMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_CYBER_RISK_SCORE_MIN_PX };
+
+const scoringNameHeadCellSx = ({ tokens: t }) => ({
+  position: "sticky" as const,
+  left: 0,
+  zIndex: 3,
+  width: SCORING_NAME_COL_WIDTH_PX,
+  minWidth: SCORING_NAME_COL_WIDTH_PX,
+  maxWidth: SCORING_NAME_COL_WIDTH_PX,
+  boxSizing: "border-box" as const,
+  bgcolor: t.semantic.color.background.container.value,
+  whiteSpace: "normal" as const,
+  wordBreak: "break-word" as const,
+  overflowWrap: "break-word" as const,
+  overflow: "visible" as const,
+});
+
+const scoringNameBodyCellSx = ({ tokens: t }) => ({
+  position: "sticky" as const,
+  left: 0,
+  zIndex: 2,
+  bgcolor: t.semantic.color.background.base.value,
+  width: SCORING_NAME_COL_WIDTH_PX,
+  minWidth: SCORING_NAME_COL_WIDTH_PX,
+  maxWidth: SCORING_NAME_COL_WIDTH_PX,
+  boxSizing: "border-box" as const,
+  whiteSpace: "normal" as const,
+  wordBreak: "break-word" as const,
+  overflowWrap: "break-word" as const,
+  overflow: "visible" as const,
+});
 
 function RiskLegendCell({ value }: { value: ScoreValue }) {
   return (
@@ -105,6 +187,31 @@ function RiskLegendCell({ value }: { value: ScoreValue }) {
       )}
     </Box>
   );
+}
+
+const scoreTableCellContentSx = {
+  display: "flex",
+  alignItems: "center",
+  width: "max-content",
+  maxWidth: "100%",
+  minWidth: 0,
+  overflow: "visible",
+  boxSizing: "border-box" as const,
+};
+
+function ThreatVulnLikelihoodCrsCell({
+  showDouble,
+  value,
+}: {
+  showDouble: boolean;
+  value: ScoreValue;
+}) {
+  const content = showDouble ? (
+    <DoubleScoreCell inherent={value} residual={value} />
+  ) : (
+    <RiskLegendCell value={value} />
+  );
+  return <Box sx={scoreTableCellContentSx}>{content}</Box>;
 }
 
 function toFivePointScore(value: number, label: FivePointScaleLabel): ScoreValue {
@@ -359,6 +466,8 @@ type AssessmentScoringTabProps = {
   assessmentName?: string;
   includedAssetIds: Set<string>;
   aiScoringPhase: AiScoringPhase;
+  scoringType: CraScoringTypeChoice;
+  onScoringTypeChange: (value: CraScoringTypeChoice) => void;
   /** Scoring or overdue phase: show AI scoring CTA above the table. */
   showAiScoringAction: boolean;
   onAiScoringClick: () => void;
@@ -370,14 +479,13 @@ export default function AssessmentScoringTab({
   assessmentName = "",
   includedAssetIds,
   aiScoringPhase,
+  scoringType,
+  onScoringTypeChange,
   showAiScoringAction,
   onAiScoringClick,
   onGoToScope,
 }: AssessmentScoringTabProps) {
   const navigate = useNavigate();
-  const {
-    presets: { CircularProgressPresets },
-  } = useTheme();
   const aggregationLabelId = useId();
   const [aggregationMethod, setAggregationMethod] = useState<AggregationMethod | null>(null);
   const scoringRows = useMemo(
@@ -385,6 +493,7 @@ export default function AssessmentScoringTab({
     [includedAssetIds],
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const showDoubleScoreColumns = scoringType === "inherent_residual";
 
   useEffect(() => {
     const riskIds = scoringRows.filter((r) => r.kind === "cyberRisk").map((r) => r.id);
@@ -394,10 +503,14 @@ export default function AssessmentScoringTab({
   const goToScenario = useCallback(
     (scenarioId: string) => {
       navigate(`${SCENARIO_DETAIL_PATH}/${encodeURIComponent(scenarioId)}`, {
-        state: { assessmentName: assessmentName.trim() || undefined },
+        state: {
+          assessmentName: assessmentName.trim() || undefined,
+          scoringType,
+          aiScoringPhase,
+        },
       });
     },
-    [navigate, assessmentName],
+    [navigate, assessmentName, scoringType, aiScoringPhase],
   );
 
   const toggleGroup = useCallback((groupId: string) => {
@@ -463,70 +576,62 @@ export default function AssessmentScoringTab({
 
   if (includedAssetIds.size === 0) {
     return (
-      <Stack gap={6} sx={{ pt: 6, pb: 4 }}>
+      <Stack
+        sx={({ tokens: t }) => ({
+          gap: t.core.spacing["3"].value,
+          pt: t.core.spacing["3"].value,
+          pb: t.core.spacing["4"].value,
+        })}
+      >
         <AssessmentScopeEmptyState variant="scoring" onPrimaryAction={onGoToScope} />
       </Stack>
     );
   }
 
   return (
-    <Stack gap={6} sx={{ pt: 6, pb: 4 }}>
+    <Stack
+      sx={({ tokens: t }) => ({
+        gap: t.core.spacing["3"].value,
+        pt: t.core.spacing["3"].value,
+        pb: t.core.spacing["4"].value,
+      })}
+    >
       {showAiScoringAction ? (
-        <Card
-          variant="outlined"
-          sx={({ tokens: t }) => ({
-            width: "100%",
-            minWidth: 0,
-            borderRadius: t.semantic.radius.lg.value,
-            border: "none",
-            borderImage: "none",
-            bgcolor: "var(--lens-component-avatar-purple-background-color)",
-            boxShadow: "none",
-          })}
-        >
-          <CardContent sx={{ pt: 0, pb: 3, px: 0 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2}>
-              <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography variant="h4" component="h3" fontWeight={600} sx={{ mb: 1 }}>
-                  AI scoring
-                </Typography>
-                <Typography
-                  variant="body1"
-                  sx={({ tokens: t }) => ({
-                    m: 0,
-                    color: t.semantic.color.type.default.value,
-                  })}
-                >
-                  Assessments will be scored using{" "}
-                  <Box component="span" sx={{ fontWeight: 600 }}>
-                    (Impact x Likelihood)
-                  </Box>
-                  . Impact is determined by Asset criticality and Likelihood is determined by{" "}
-                  <Box component="span" sx={{ fontWeight: 600 }}>
-                    (Vulnerability severity x Threat severity)
-                  </Box>
-                  . Review and adjust values in the table below before approving the assessment.
-                </Typography>
-              </Box>
-              <Button
-                variant="outlined"
-                color="ai"
-                size="medium"
-                sx={{ flexShrink: 0 }}
-                startIcon={aiScoringPhase === "processing" ? undefined : <AiSparkleIcon aria-hidden />}
-                loading={aiScoringPhase === "processing"}
-                loadingPosition="start"
-                loadingIndicator={
-                  <CircularProgress color="inherit" {...CircularProgressPresets.size.sm} />
-                }
-                onClick={onAiScoringClick}
-                aria-busy={aiScoringPhase === "processing"}
-              >
-                Start AI scoring
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
+        aiScoringPhase === "complete" ? (
+          <Alert
+            severity="info"
+            icon={<AiSparkleIcon />}
+            aria-live="off"
+            role={undefined}
+            sx={({ tokens: t }) => ({
+              width: "100%",
+              maxWidth: 1280,
+              alignSelf: "stretch",
+              backgroundColor: "var(--lens-component-avatar-purple-background-color)",
+              color: "var(--lens-component-accordion-active-color)",
+              py: t.core.spacing["2"].value,
+            })}
+          >
+            <Box sx={visuallyHidden}>AI</Box>
+            <AlertTitle>AI scoring is completed.</AlertTitle>
+            You can review and edit each individual scenario scoring and rationale.
+          </Alert>
+        ) : (
+          <AiContentCard
+            actionLabel="Start AI Scoring."
+            onAction={onAiScoringClick}
+            footerLoading={aiScoringPhase === "processing"}
+          >
+            <AiContentCardAssessmentPreset
+              title="AI scoring"
+              description="Assessments will be scored using (Impact x Likelihood). Impact is determined by Asset criticality and Likelihood is determined by (Vulnerability severity x Threat severity). Review and adjust values in the table below before approving the assessment."
+              assessmentTypeLabel="Scoring type"
+              assessmentOptions={[...SCORING_TYPE_OPTIONS]}
+            assessmentValue={scoringType}
+            onAssessmentChange={(v) => onScoringTypeChange(v as CraScoringTypeChoice)}
+            />
+          </AiContentCard>
+        )
       ) : null}
       {scoringRows.length === 0 ? (
         <Typography
@@ -537,7 +642,7 @@ export default function AssessmentScoringTab({
         </Typography>
       ) : null}
       {aiScoringPhase === "complete" ? (
-        <Stack gap={1} sx={{ width: "100%" }}>
+        <Stack gap={0} sx={{ width: "100%" }}>
           <Typography
             id={aggregationLabelId}
             component="p"
@@ -553,7 +658,7 @@ export default function AssessmentScoringTab({
           >
             Aggregation method
           </Typography>
-          <FormControl variant="standard" fullWidth>
+          <FormControl variant="standard" fullWidth sx={{ mt: 0 }}>
             <RadioGroup
               row
               aria-labelledby={aggregationLabelId}
@@ -602,7 +707,7 @@ export default function AssessmentScoringTab({
           borderRadius: t.semantic.radius.md.value,
           background: "none",
           backgroundColor: "unset",
-          overflow: "hidden",
+          overflow: "visible",
           width: "100%",
           p: 0,
         })}
@@ -611,6 +716,8 @@ export default function AssessmentScoringTab({
           aria-busy={aiScoringPhase === "processing"}
           sx={{
             overflowX: "auto",
+            overflowY: "visible",
+            maxWidth: "100%",
             borderRadius: ({ tokens: t }) => t.semantic.radius.sm.value,
             bgcolor: ({ tokens: t }) => t.semantic.color.background.base.value,
           }}
@@ -619,28 +726,19 @@ export default function AssessmentScoringTab({
             stickyHeader
             size="small"
             sx={{
-              tableLayout: "fixed",
+              tableLayout: "auto",
               width: "100%",
-              minWidth: 1100,
               borderCollapse: "separate",
               borderSpacing: 0,
               "& .MuiTableCell-root": {
                 borderBottom: ({ tokens: t }) => `1px solid ${t.semantic.color.ui.divider.default.value}`,
+                overflow: "visible",
               },
               "& .MuiTableBody-root .MuiTableCell-root": {
                 verticalAlign: "middle",
               },
             }}
           >
-            <colgroup>
-              <col style={{ width: 420 }} />
-              <col />
-              <col />
-              <col />
-              <col />
-              <col />
-              <col style={{ width: 48 }} />
-            </colgroup>
             <TableHead>
               <TableRow
                 sx={({ tokens: t }) => ({
@@ -653,39 +751,28 @@ export default function AssessmentScoringTab({
                     color: t.semantic.color.type.default.value,
                     py: 0.5,
                     px: 2,
-                    maxHeight: 56,
                     verticalAlign: "middle",
+                    overflow: "visible",
                   },
                 })}
               >
-                <TableCell
-                  sx={{
-                    position: "sticky",
-                    left: 0,
-                    zIndex: 3,
-                    width: 420,
-                    minWidth: 320,
-                    maxWidth: 420,
-                    whiteSpace: "normal",
-                    wordBreak: "break-word",
-                    overflowWrap: "break-word",
-                  }}
-                >
-                  Name
-                </TableCell>
-                <TableCell>Impact</TableCell>
-                <TableCell sx={{ whiteSpace: "nowrap" }}>Threat severity</TableCell>
-                <TableCell sx={{ whiteSpace: "nowrap" }}>Vulnerability severity</TableCell>
-                <TableCell>Likelihood</TableCell>
-                <TableCell sx={{ whiteSpace: "nowrap" }}>Cyber risk score</TableCell>
+                <TableCell sx={scoringNameHeadCellSx}>Name</TableCell>
+                <TableCell sx={scoringMetricThSx}>Impact</TableCell>
+                <TableCell sx={scoringThreatMetricThSx}>Threat severity</TableCell>
+                <TableCell sx={scoringVulnerabilityMetricThSx}>Vulnerability severity</TableCell>
+                <TableCell sx={scoringLikelihoodMetricThSx}>Likelihood</TableCell>
+                <TableCell sx={scoringCyberRiskScoreMetricThSx}>Cyber risk score</TableCell>
                 <TableCell
                   align="right"
-                  sx={{
-                    width: 48,
+                  sx={({ tokens: t }) => ({
+                    width: SCORING_ACTIONS_COL_WIDTH_PX,
+                    minWidth: SCORING_ACTIONS_COL_WIDTH_PX,
+                    maxWidth: SCORING_ACTIONS_COL_WIDTH_PX,
                     position: "sticky",
                     right: 0,
                     zIndex: 3,
-                  }}
+                    bgcolor: t.semantic.color.background.container.value,
+                  })}
                 />
               </TableRow>
             </TableHead>
@@ -693,39 +780,26 @@ export default function AssessmentScoringTab({
               {aiScoringPhase === "processing"
                 ? visibleRows.map((row) => (
                     <TableRow key={row.id} hover={false}>
-                      <TableCell
-                        sx={({ tokens: t }) => ({
-                          position: "sticky",
-                          left: 0,
-                          zIndex: 2,
-                          bgcolor: t.semantic.color.background.base.value,
-                          width: 420,
-                          minWidth: 320,
-                          maxWidth: 420,
-                          whiteSpace: "normal",
-                          wordBreak: "break-word",
-                          overflowWrap: "break-word",
-                        })}
-                      >
+                      <TableCell sx={scoringNameBodyCellSx}>
                         <NameCell
                           row={row}
                           expanded={expanded[row.groupId] !== false}
                           onToggle={() => toggleGroup(row.groupId)}
                         />
                       </TableCell>
-                      <TableCell sx={{ px: 2, py: 0 }}>
+                      <TableCell sx={scoringMetricTdSx}>
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={{ px: 2, py: 0 }}>
+                      <TableCell sx={scoringThreatMetricTdSx}>
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={{ px: 2, py: 0 }}>
+                      <TableCell sx={scoringVulnerabilityMetricTdSx}>
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={{ px: 2, py: 0 }}>
+                      <TableCell sx={scoringLikelihoodMetricTdSx}>
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={{ px: 2, py: 0 }}>
+                      <TableCell sx={scoringCyberRiskScoreMetricTdSx}>
                         <MetricScoreSkeleton />
                       </TableCell>
                       <TableCell
@@ -734,6 +808,9 @@ export default function AssessmentScoringTab({
                           position: "sticky",
                           right: 0,
                           zIndex: 2,
+                          width: SCORING_ACTIONS_COL_WIDTH_PX,
+                          minWidth: SCORING_ACTIONS_COL_WIDTH_PX,
+                          maxWidth: SCORING_ACTIONS_COL_WIDTH_PX,
                           bgcolor: t.semantic.color.background.base.value,
                           verticalAlign: "middle",
                         })}
@@ -794,31 +871,21 @@ export default function AssessmentScoringTab({
                             : undefined
                         }
                       >
-                        <TableCell
-                          sx={({ tokens: t }) => ({
-                            position: "sticky",
-                            left: 0,
-                            zIndex: 2,
-                            bgcolor: t.semantic.color.background.base.value,
-                            width: 420,
-                            minWidth: 320,
-                            maxWidth: 420,
-                            whiteSpace: "normal",
-                            wordBreak: "break-word",
-                            overflowWrap: "break-word",
-                          })}
-                        >
+                        <TableCell sx={scoringNameBodyCellSx}>
                           <NameCell
                             row={row}
                             expanded={expanded[row.groupId] !== false}
                             onToggle={() => toggleGroup(row.groupId)}
                           />
                         </TableCell>
-                        <TableCell sx={{ px: 2, py: 0 }}>
-                          <RiskLegendCell value={impactValue} />
+                        <TableCell sx={scoringMetricTdSx}>
+                          <Box sx={scoreTableCellContentSx}>
+                            <RiskLegendCell value={impactValue} />
+                          </Box>
                         </TableCell>
-                        <TableCell sx={{ px: 2, py: 0 }}>
-                          <RiskLegendCell
+                        <TableCell sx={scoringThreatMetricTdSx}>
+                          <ThreatVulnLikelihoodCrsCell
+                            showDouble={showDoubleScoreColumns}
                             value={
                               idleMode
                                 ? null
@@ -830,8 +897,9 @@ export default function AssessmentScoringTab({
                             }
                           />
                         </TableCell>
-                        <TableCell sx={{ px: 2, py: 0 }}>
-                          <RiskLegendCell
+                        <TableCell sx={scoringVulnerabilityMetricTdSx}>
+                          <ThreatVulnLikelihoodCrsCell
+                            showDouble={showDoubleScoreColumns}
                             value={
                               idleMode
                                 ? null
@@ -843,8 +911,9 @@ export default function AssessmentScoringTab({
                             }
                           />
                         </TableCell>
-                        <TableCell sx={{ px: 2, py: 0 }}>
-                          <RiskLegendCell
+                        <TableCell sx={scoringLikelihoodMetricTdSx}>
+                          <ThreatVulnLikelihoodCrsCell
+                            showDouble={showDoubleScoreColumns}
                             value={
                               idleMode
                                 ? null
@@ -856,8 +925,9 @@ export default function AssessmentScoringTab({
                             }
                           />
                         </TableCell>
-                        <TableCell sx={{ px: 2, py: 0 }}>
-                          <RiskLegendCell
+                        <TableCell sx={scoringCyberRiskScoreMetricTdSx}>
+                          <ThreatVulnLikelihoodCrsCell
+                            showDouble={showDoubleScoreColumns}
                             value={
                               idleMode
                                 ? null
@@ -875,6 +945,9 @@ export default function AssessmentScoringTab({
                             position: "sticky",
                             right: 0,
                             zIndex: 2,
+                            width: SCORING_ACTIONS_COL_WIDTH_PX,
+                            minWidth: SCORING_ACTIONS_COL_WIDTH_PX,
+                            maxWidth: SCORING_ACTIONS_COL_WIDTH_PX,
                             bgcolor: t.semantic.color.background.base.value,
                             verticalAlign: "middle",
                           })}

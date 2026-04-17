@@ -11,6 +11,16 @@ export type AssessmentPhase =
 /** AI scoring flow on the Scoring tab (Scoring phase / Overdue). */
 export type AiScoringPhase = "idle" | "processing" | "complete";
 
+/** Scoring type chosen on the Scoring tab AI card (drives scenario detail layout). */
+export type CraScoringTypeChoice = "inherent" | "residual" | "inherent_residual";
+
+/** `navigate` state when opening a scenario from the new CRA scoring table. */
+export type CraScenarioDetailLocationState = {
+  assessmentName?: string;
+  scoringType?: CraScoringTypeChoice;
+  aiScoringPhase?: AiScoringPhase;
+};
+
 type ScopeSubView =
   | "overview"
   | "assets"
@@ -39,6 +49,8 @@ export type CraNewAssessmentPersistedDraft = {
   includedScopeAssetIds: string[];
   /** AI scoring CTA/table state; `processing` is not restored after reload. */
   aiScoringPhase: AiScoringPhase;
+  /** AI card scoring type (Inherent / Residual / Inherent + Residual). */
+  scoringType: CraScoringTypeChoice;
 };
 
 function isAssessmentPhase(v: unknown): v is AssessmentPhase {
@@ -55,6 +67,10 @@ function isAiScoringPhase(v: unknown): v is AiScoringPhase {
   return v === "idle" || v === "processing" || v === "complete";
 }
 
+function isCraScoringTypeChoice(v: unknown): v is CraScoringTypeChoice {
+  return v === "inherent" || v === "residual" || v === "inherent_residual";
+}
+
 function isScopeSubView(v: unknown): v is ScopeSubView {
   return (
     v === "overview" ||
@@ -65,7 +81,7 @@ function isScopeSubView(v: unknown): v is ScopeSubView {
   );
 }
 
-function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPersistedDraft {
+function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAssessmentPersistedDraft {
   let activeTab =
     typeof raw.activeTab === "number" && raw.activeTab >= 0 && raw.activeTab <= 3
       ? raw.activeTab
@@ -95,6 +111,9 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
   if (aiScoringPhase === "processing") {
     aiScoringPhase = "idle";
   }
+  const scoringType: CraScoringTypeChoice = isCraScoringTypeChoice(raw.scoringType)
+    ? raw.scoringType
+    : "residual";
   return {
     activeTab,
     assessmentPhase,
@@ -107,6 +126,7 @@ function sanitizeDraft(raw: CraNewAssessmentPersistedDraft): CraNewAssessmentPer
     scopeSubView,
     includedScopeAssetIds,
     aiScoringPhase,
+    scoringType,
   };
 }
 
@@ -129,6 +149,7 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       scopeSubView: o.scopeSubView as ScopeSubView,
       includedScopeAssetIds: o.includedScopeAssetIds as string[],
       aiScoringPhase: o.aiScoringPhase as AiScoringPhase,
+      scoringType: o.scoringType as CraScoringTypeChoice | undefined,
     });
   } catch {
     return null;
