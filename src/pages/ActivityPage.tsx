@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
+import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
 import { Box, Stack, Tab, Tabs, useTheme } from "@mui/material";
 import { NavLink, useLocation } from "react-router";
 
 import AiContentCard, {
   AiContentCardAssessmentPreset,
 } from "../components/AiContentCard.js";
-import DoubleScoreCell from "../components/DoubleScoreCell.js";
 import ScoringRationaleDropdowns from "../components/ScoringRationaleDropdowns.js";
 import LabelScoreLegend from "../components/LabelScoreLegend.js";
 import PageLayout from "../components/PageLayout.js";
+import { ScopeCard } from "../components/ScopeCard.js";
+import { assets } from "../data/assets.js";
 import {
   atlasPageHeaderNavigationTabsSx,
   atlasPageHeaderTabsSlotProps,
@@ -43,6 +45,12 @@ export default function ActivityPage() {
   const [activeTab, setActiveTab] = useState(0);
   const { presets } = useTheme();
   const { TabsPresets } = presets;
+  const CardHeaderIcon = presets.CardComponentsPresets?.components?.CardHeaderIcon;
+  const scopeCardIcon = CardHeaderIcon ? (
+    <CardHeaderIcon icon={<FolderIcon size="lg" aria-hidden />} />
+  ) : (
+    <FolderIcon size="lg" aria-hidden />
+  );
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
@@ -113,10 +121,30 @@ export default function ActivityPage() {
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
           <Box sx={{ py: 2, width: "100%" }}>
-            <DoubleScoreCell
-              inherent={{ numeric: "4", label: "High", rag: "neg03" }}
-              residual={{ numeric: "2", label: "Low", rag: "pos04" }}
-            />
+            <Stack
+              sx={({ tokens: t }) => ({
+                width: "100%",
+                alignItems: "stretch",
+                gap: t.core.spacing["3"].value,
+              })}
+            >
+              <ScopeCard
+                title="Assets"
+                icon={scopeCardIcon}
+                includedCount={0}
+                totalCount={assets.length}
+                countNoun="Assets"
+                cardActionAriaLabel="Empty variant: no assets included (activity preview)"
+              />
+              <ScopeCard
+                title="Assets"
+                icon={scopeCardIcon}
+                includedCount={12}
+                totalCount={assets.length}
+                countNoun="Assets"
+                cardActionAriaLabel="Filled variant: assets included (activity preview)"
+              />
+            </Stack>
           </Box>
         </TabPanel>
         <TabPanel value={activeTab} index={2}>

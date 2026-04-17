@@ -74,15 +74,25 @@ export function ScopeCard({
                 : t.semantic.color.accent.green.content.value,
               flexShrink: 0,
               /**
-               * Parent may pass Atlas `CardHeaderIcon`, which paints its own gray well inside this box.
-               * That stacks on top of our background (green looks like a “border” around gray).
-               * Paint the well only here; normalize nested radius to match this square in both variants.
+               * `CardHeaderIcon` adds nested boxes with their own surface background.
+               * Empty: one transparent direct child is enough.
+               * Filled: strip backgrounds on all descendants so only this green well shows (no gray cap).
                */
-              "& > *": {
-                bgcolor: "transparent",
-                borderRadius: iconWellRadius,
-                boxShadow: "none",
-              },
+              ...(isEmpty
+                ? {
+                    "& > *": {
+                      bgcolor: "transparent",
+                      borderRadius: iconWellRadius,
+                      boxShadow: "none",
+                    },
+                  }
+                : {
+                    "& *": {
+                      backgroundColor: "transparent !important",
+                      background: "none !important",
+                      boxShadow: "none !important",
+                    },
+                  }),
             };
           }}
         >
