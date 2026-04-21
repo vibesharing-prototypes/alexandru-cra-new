@@ -226,6 +226,19 @@ export const assets: MockAsset[] = raw.map(
 
 const assetById = new Map(assets.map((a) => [a.id, a]));
 
+function rebuildAssetIndex(): void {
+  assetById.clear();
+  for (const a of assets) {
+    assetById.set(a.id, a);
+  }
+}
+
+export function replaceAssetsFromPersistence(next: MockAsset[]): void {
+  assets.length = 0;
+  assets.push(...next);
+  rebuildAssetIndex();
+}
+
 export function getAssetById(id: string): MockAsset | undefined {
   return assetById.get(id);
 }

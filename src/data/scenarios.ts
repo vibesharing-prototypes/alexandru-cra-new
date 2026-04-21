@@ -7,6 +7,7 @@ import {
 import type { MockScenario, FivePointScaleValue, FivePointScaleLabel } from "./types.js";
 import { cyberRisks } from "./cyberRisks.js";
 import { assets } from "./assets.js";
+import { markCatalogDirty } from "./persistence/catalogStore.js";
 import { threats as allThreats } from "./threats.js";
 import { vulnerabilities as allVulnerabilities } from "./vulnerabilities.js";
 
@@ -15,19 +16,17 @@ import { vulnerabilities as allVulnerabilities } from "./vulnerabilities.js";
  * Name: "{threat} on {asset}"; vulnerabilityIds = that threat’s vulns on the asset.
  */
 
-const vulnsByAssetId = new Map<string, typeof allVulnerabilities>();
-for (const v of allVulnerabilities) {
-  for (const aid of v.assetIds) {
-    const list = vulnsByAssetId.get(aid);
-    if (list) list.push(v);
-    else vulnsByAssetId.set(aid, [v]);
+function buildVulnsByAssetId(): Map<string, typeof allVulnerabilities> {
+  const vulnsByAssetId = new Map<string, typeof allVulnerabilities>();
+  for (const v of allVulnerabilities) {
+    for (const aid of v.assetIds) {
+      const list = vulnsByAssetId.get(aid);
+      if (list) list.push(v);
+      else vulnsByAssetId.set(aid, [v]);
+    }
   }
+  return vulnsByAssetId;
 }
-
-const threatById = new Map(allThreats.map((t) => [t.id, t]));
-const vulnById = new Map(allVulnerabilities.map((v) => [v.id, v]));
-const assetById = new Map(assets.map((a) => [a.id, a]));
-const riskById = new Map(cyberRisks.map((r) => [r.id, r]));
 
 const IMPACT_CONSEQUENCE: Record<FivePointScaleLabel, string> = {
   "Very high": "severe and far-reaching",
@@ -67,18 +66,23 @@ function buildScoringRationale(
   scenarioThreatIds: string[],
   scenarioVulnIds: string[],
   assetId: string,
+  maps: {
+    threatById: Map<string, (typeof allThreats)[number]>;
+    vulnById: Map<string, (typeof allVulnerabilities)[number]>;
+    vulnsByAssetId: Map<string, typeof allVulnerabilities>;
+  },
 ): string {
   const threatNamesList = scenarioThreatIds
-    .map((id) => threatById.get(id)?.name)
+    .map((id) => maps.threatById.get(id)?.name)
     .filter(Boolean) as string[];
 
   const vulnDetails = scenarioVulnIds
-    .map((id) => vulnById.get(id))
+    .map((id) => maps.vulnById.get(id))
     .filter((v): v is NonNullable<typeof v> => v != null);
 
   const vulnNamesSentence = vulnDetails.map((v) => v.name).join("; ") || "N/A";
 
-  const assetVulns = vulnsByAssetId.get(assetId) ?? [];
+  const assetVulns = maps.vulnsByAssetId.get(assetId) ?? [];
   const vulnBullets = assetVulns
     .map(
       (v) =>
@@ -123,6 +127,12 @@ function scenarioSeverityValues(seq: number): {
 }
 
 function buildScenarios(): MockScenario[] {
+  const threatById = new Map(allThreats.map((t) => [t.id, t]));
+  const vulnById = new Map(allVulnerabilities.map((v) => [v.id, v]));
+  const assetById = new Map(assets.map((a) => [a.id, a]));
+  const vulnsByAssetId = buildVulnsByAssetId();
+  const maps = { threatById, vulnById, vulnsByAssetId };
+
   const list: MockScenario[] = [];
   let seq = 0;
 
@@ -140,7 +150,7 @@ function buildScenarios(): MockScenario[] {
         seq += 1;
         const scenarioThreatIds = [tid];
         const scenarioVulnIds = threat.vulnerabilityIds.filter((vid) => {
-          const v = vulnById.get(vid);
+          const v = maps.vulnById.get(vid);
           return v?.relationships.assetId === assetId;
         });
 
@@ -155,7 +165,7 @@ function buildScenarios(): MockScenario[] {
         const cyberRiskScoreLabel = getCyberRiskScoreLabel(cyberRiskScore);
 
         const threatNamesForTitle = scenarioThreatIds
-          .map((id) => threatById.get(id)?.name)
+          .map((id) => maps.threatById.get(id)?.name)
           .filter(Boolean) as string[];
         const scenarioThreatPhrase = formatThreatPhrase(threatNamesForTitle);
 
@@ -190,6 +200,7 @@ function buildScenarios(): MockScenario[] {
             scenarioThreatIds,
             scenarioVulnIds,
             assetId,
+            maps,
           ),
           relationships: {
             cyberRiskId: risk.id,
@@ -213,6 +224,11 @@ function dedupePush(arr: string[], id: string): void {
 
 /** Wire scenario ids into cyber risks, threats, vulnerabilities, and assets (relationship mirrors). */
 function applyScenarioEntityLinks(scenarioList: MockScenario[]): void {
+  const riskById = new Map(cyberRisks.map((r) => [r.id, r]));
+  const threatById = new Map(allThreats.map((t) => [t.id, t]));
+  const vulnById = new Map(allVulnerabilities.map((v) => [v.id, v]));
+  const assetById = new Map(assets.map((a) => [a.id, a]));
+
   for (const r of cyberRisks) {
     r.scenarioIds.length = 0;
   }
@@ -246,7 +262,61 @@ function applyScenarioEntityLinks(scenarioList: MockScenario[]): void {
 export const scenarios: MockScenario[] = buildScenarios();
 applyScenarioEntityLinks(scenarios);
 
-const scenarioById = new Map(scenarios.map((s) => [s.id, s]));
+const scenarioById = new Map<string, MockScenario>();
+
+function rebuildScenarioIndex(): void {
+  scenarioById.clear();
+  for (const s of scenarios) {
+    scenarioById.set(s.id, s);
+  }
+}
+
+rebuildScenarioIndex();
+
+/** User edits / persisted partials layered on regenerated baseline rows. */
+let scenarioOverrides: Record<string, Partial<MockScenario>> = {};
+
+function mergeScenarioPatchInPlace(target: MockScenario, patch: Partial<MockScenario>): void {
+  const { relationships, ...rest } = patch;
+  Object.assign(target, rest);
+  if (relationships) {
+    Object.assign(target.relationships, relationships);
+  }
+}
+
+function applyScenarioOverridesToRows(): void {
+  for (const s of scenarios) {
+    const o = scenarioOverrides[s.id];
+    if (o) mergeScenarioPatchInPlace(s, o);
+  }
+}
+
+export function getScenarioOverridesForPersistence(): Record<string, Partial<MockScenario>> {
+  return { ...scenarioOverrides };
+}
+
+export function setScenarioOverridesFromPersistence(
+  next: Record<string, Partial<MockScenario>> | undefined,
+): void {
+  scenarioOverrides = next && typeof next === "object" ? { ...next } : {};
+}
+
+/** Rebuild scenario rows from current cyber risks / threats / assets, then re-apply persisted overrides. */
+export function rebuildScenariosFromGraph(): void {
+  const next = buildScenarios();
+  scenarios.length = 0;
+  scenarios.push(...next);
+  applyScenarioEntityLinks(scenarios);
+  rebuildScenarioIndex();
+  applyScenarioOverridesToRows();
+}
+
+export function patchScenario(id: string, patch: Partial<MockScenario>): void {
+  scenarioOverrides[id] = { ...scenarioOverrides[id], ...patch };
+  const row = scenarioById.get(id);
+  if (row) mergeScenarioPatchInPlace(row, patch);
+  markCatalogDirty();
+}
 
 export function getScenarioById(id: string): MockScenario | undefined {
   return scenarioById.get(id);

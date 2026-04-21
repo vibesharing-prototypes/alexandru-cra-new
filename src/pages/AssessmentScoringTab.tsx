@@ -27,14 +27,26 @@ import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
-import AiContentCard, { AiContentCardAssessmentPreset } from "../components/AiContentCard.js";
+import AiContentCard, {
+  AiContentCardAssessmentPreset,
+  AiContentCardScoringDescription,
+} from "../components/AiContentCard.js";
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
 
+import { getAssetById } from "../data/assets.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { getScenarioById } from "../data/scenarios.js";
 import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
 import type { FivePointScaleLabel } from "../data/types.js";
-import type { AiScoringPhase, CraScoringTypeChoice } from "./craNewAssessmentDraftStorage.js";
-import { scopedCyberRisks, scopedScenarios } from "./scopeAssessmentRollup.js";
+import type {
+  AiScoringPhase,
+  AssessmentPhase,
+  CraScoringTypeChoice,
+} from "./craNewAssessmentDraftStorage.js";
+import {
+  assessmentScopedCyberRisks,
+  assessmentScopedScenarios,
+} from "../data/assessmentScopeRollup.js";
 
 type ScoreValue = {
   numeric: string;
@@ -136,6 +148,16 @@ const scoringNameBodyCellSx = ({ tokens: t }: Theme) => ({
   overflow: "visible" as const,
 });
 
+/** Cyber risk (parent) rows — subtle surface band */
+const scoringCyberRiskRowBodyCellBgSx = ({ tokens: t }: Theme) => ({
+  bgcolor: t.semantic.color.surface.variant.value,
+});
+
+/** Scenario rows — lighter band under parent */
+const scoringScenarioRowBodyCellBgSx = ({ tokens: t }: Theme) => ({
+  bgcolor: t.semantic.color.background.base.value,
+});
+
 function RiskLegendCell({ value }: { value: ScoreValue }) {
   return (
     <Box sx={{ minHeight: 56, display: "flex", alignItems: "center", py: 1 }}>
@@ -205,6 +227,26 @@ function toFivePointScore(value: number, label: FivePointScaleLabel): ScoreValue
   return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
 }
 
+/** Impact from catalog asset criticality (scenario’s asset), not persisted scenario scores. */
+function impactScoreFromAssetForScenarioId(scenarioId: string): ScoreValue | null {
+  const scenario = getScenarioById(scenarioId);
+  if (!scenario) return null;
+  const asset = getAssetById(scenario.assetId);
+  if (!asset) return null;
+  return toFivePointScore(asset.criticality, asset.criticalityLabel);
+}
+
+/** Highest asset-based impact among scenarios in a cyber-risk group (draft/scoping table). */
+function impactPreviewByGroupFromAssets(scenarioRows: ScoringRow[]): ScoreValue | null {
+  const synthetic: ScoringRow[] = scenarioRows
+    .filter((r) => r.kind === "scenario")
+    .map((r) => ({
+      ...r,
+      impact: impactScoreFromAssetForScenarioId(r.id),
+    }));
+  return aggregateMetricForGroup(synthetic, "impact", "highest");
+}
+
 function toLikelihoodScore(value: number): ScoreValue {
   const label = getLikelihoodLabel(value);
   return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
@@ -215,10 +257,13 @@ function toCyberRiskScoreValue(value: number): ScoreValue {
   return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
 }
 
-function buildScoringRowsForScope(includedAssetIds: Set<string>): ScoringRow[] {
+function buildScoringRowsForScope(
+  includedAssetIds: Set<string>,
+  excludedScopeCyberRiskIds: Set<string>,
+): ScoringRow[] {
   if (includedAssetIds.size === 0) return [];
-  const risks = scopedCyberRisks(includedAssetIds);
-  const scenarioList = scopedScenarios(includedAssetIds);
+  const risks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
+  const scenarioList = assessmentScopedScenarios(includedAssetIds, excludedScopeCyberRiskIds);
   const byRisk = new Map<string, (typeof scenarioList)[number][]>();
   for (const s of scenarioList) {
     const list = byRisk.get(s.cyberRiskId) ?? [];
@@ -369,13 +414,13 @@ function NameCell({
   return (
     <Stack
       direction="row"
-      alignItems="flex-start"
+      alignItems={isGroup ? "center" : "flex-start"}
       gap={1}
-      sx={{
+      sx={(theme) => ({
         py: 1,
         minHeight: 56,
-        pl: isGroup ? 0 : 4,
-      }}
+        pl: isGroup ? 0 : `calc(${theme.spacing(4)} + 10px)`,
+      })}
     >
       {isGroup ? (
         <IconButton
@@ -386,7 +431,7 @@ function NameCell({
           }}
           aria-expanded={expanded}
           aria-label={expanded ? "Collapse cyber risk" : "Expand cyber risk"}
-          sx={{ mt: 0.25, p: 0.5 }}
+          sx={{ p: 0.5 }}
         >
           <Box
             component="span"
@@ -454,6 +499,9 @@ type AssessmentScoringTabProps = {
   /** Current CRA assessment URL; used when returning from scenario scoring rationale. */
   returnToAssessmentPath: string;
   includedAssetIds: Set<string>;
+  excludedScopeCyberRiskIds: Set<string>;
+  /** Draft/Scoping: scoring table must not show catalog scenario scores yet. */
+  assessmentPhase: AssessmentPhase;
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
   /** Scoring or overdue phase: show AI scoring CTA above the table. */
@@ -467,6 +515,8 @@ export default function AssessmentScoringTab({
   assessmentName = "",
   returnToAssessmentPath,
   includedAssetIds,
+  excludedScopeCyberRiskIds,
+  assessmentPhase,
   aiScoringPhase,
   scoringType,
   showAiScoringAction,
@@ -474,11 +524,13 @@ export default function AssessmentScoringTab({
   onGoToScope,
 }: AssessmentScoringTabProps) {
   const navigate = useNavigate();
+  const scoresNotStartedYet =
+    assessmentPhase === "draft" || assessmentPhase === "scoping";
   const aggregationLabelId = useId();
   const [aggregationMethod, setAggregationMethod] = useState<AggregationMethod | null>(null);
   const scoringRows = useMemo(
-    () => buildScoringRowsForScope(includedAssetIds),
-    [includedAssetIds],
+    () => buildScoringRowsForScope(includedAssetIds, excludedScopeCyberRiskIds),
+    [includedAssetIds, excludedScopeCyberRiskIds],
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -605,15 +657,14 @@ export default function AssessmentScoringTab({
             You can review and edit each individual scenario scoring and rationale.
           </Alert>
         ) : (
-          <AiContentCard
-            actionLabel="Start AI Scoring."
-            onAction={onAiScoringClick}
-            footerLoading={aiScoringPhase === "processing"}
-          >
+          <AiContentCard>
             <AiContentCardAssessmentPreset
               omitAssessmentType
               title="AI scoring"
-              description="Assessments will be scored using (Impact x Likelihood). Impact is determined by Asset criticality and Likelihood is determined by (Vulnerability severity x Threat severity). Set scoring type on the Details tab. Review and adjust values in the table below before approving the assessment."
+              description={<AiContentCardScoringDescription />}
+              actionLabel="Start AI Scoring."
+              onAction={onAiScoringClick}
+              actionLoading={aiScoringPhase === "processing"}
             />
           </AiContentCard>
         )
@@ -765,40 +816,80 @@ export default function AssessmentScoringTab({
               {aiScoringPhase === "processing"
                 ? visibleRows.map((row) => (
                     <TableRow key={row.id} hover={false}>
-                      <TableCell sx={scoringNameBodyCellSx}>
+                      <TableCell
+                        sx={[
+                          scoringNameBodyCellSx,
+                          row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                          row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                        ]}
+                      >
                         <NameCell
                           row={row}
                           expanded={expanded[row.groupId] !== false}
                           onToggle={() => toggleGroup(row.groupId)}
                         />
                       </TableCell>
-                      <TableCell sx={scoringMetricTdSx}>
+                      <TableCell
+                        sx={[
+                          scoringMetricTdSx,
+                          row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                          row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                        ]}
+                      >
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={scoringThreatMetricTdSx}>
+                      <TableCell
+                        sx={[
+                          scoringThreatMetricTdSx,
+                          row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                          row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                        ]}
+                      >
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={scoringVulnerabilityMetricTdSx}>
+                      <TableCell
+                        sx={[
+                          scoringVulnerabilityMetricTdSx,
+                          row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                          row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                        ]}
+                      >
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={scoringLikelihoodMetricTdSx}>
+                      <TableCell
+                        sx={[
+                          scoringLikelihoodMetricTdSx,
+                          row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                          row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                        ]}
+                      >
                         <MetricScoreSkeleton />
                       </TableCell>
-                      <TableCell sx={scoringCyberRiskScoreMetricTdSx}>
+                      <TableCell
+                        sx={[
+                          scoringCyberRiskScoreMetricTdSx,
+                          row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                          row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                        ]}
+                      >
                         <MetricScoreSkeleton />
                       </TableCell>
                       <TableCell
                         align="right"
-                        sx={({ tokens: t }) => ({
-                          position: "sticky",
-                          right: 0,
-                          zIndex: 2,
-                          width: SCORING_ACTIONS_COL_WIDTH_PX,
-                          minWidth: SCORING_ACTIONS_COL_WIDTH_PX,
-                          maxWidth: SCORING_ACTIONS_COL_WIDTH_PX,
-                          bgcolor: t.semantic.color.background.base.value,
-                          verticalAlign: "middle",
-                        })}
+                        sx={[
+                          ({ tokens: t }) => ({
+                            position: "sticky",
+                            right: 0,
+                            zIndex: 2,
+                            width: SCORING_ACTIONS_COL_WIDTH_PX,
+                            minWidth: SCORING_ACTIONS_COL_WIDTH_PX,
+                            maxWidth: SCORING_ACTIONS_COL_WIDTH_PX,
+                            bgcolor: t.semantic.color.background.base.value,
+                            verticalAlign: "middle",
+                          }),
+                          row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                          row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                        ]}
                       >
                         <IconButton size="small" aria-label="Row actions" disabled>
                           <MoreIcon aria-hidden />
@@ -808,8 +899,9 @@ export default function AssessmentScoringTab({
                   ))
                 : visibleRows.map((row) => {
                     const isScenario = row.kind === "scenario";
+                    /** When AI scoring is not "complete", parent cyber-risk rows stay empty until aggregation; scenario rows show catalog metrics unless draft/scoping. */
                     const idleMode = aiScoringPhase === "idle";
-                    const impactValue = idleMode
+                    let impactValue: ScoreValue = idleMode
                       ? row.kind === "cyberRisk"
                         ? previewImpactByGroupId.get(row.groupId) ?? null
                         : row.impact
@@ -818,6 +910,50 @@ export default function AssessmentScoringTab({
                           ? aggregatedByGroupId.get(row.groupId)?.impact ?? null
                           : null
                         : row.impact;
+                    let threatValue: ScoreValue =
+                      row.kind === "scenario"
+                        ? row.threat
+                        : idleMode
+                          ? null
+                          : row.kind === "cyberRisk" && aggregationMethod
+                            ? aggregatedByGroupId.get(row.groupId)?.threat ?? null
+                            : null;
+                    let vulnerabilityValue: ScoreValue =
+                      row.kind === "scenario"
+                        ? row.vulnerability
+                        : idleMode
+                          ? null
+                          : row.kind === "cyberRisk" && aggregationMethod
+                            ? aggregatedByGroupId.get(row.groupId)?.vulnerability ?? null
+                            : null;
+                    let likelihoodValue: ScoreValue =
+                      row.kind === "scenario"
+                        ? row.likelihood
+                        : idleMode
+                          ? null
+                          : row.kind === "cyberRisk" && aggregationMethod
+                            ? aggregatedByGroupId.get(row.groupId)?.likelihood ?? null
+                            : null;
+                    let cyberRiskScoreValue: ScoreValue =
+                      row.kind === "scenario"
+                        ? row.cyberRiskScore
+                        : idleMode
+                          ? null
+                          : row.kind === "cyberRisk" && aggregationMethod
+                            ? aggregatedByGroupId.get(row.groupId)?.cyberRiskScore ?? null
+                            : null;
+                    if (scoresNotStartedYet) {
+                      impactValue =
+                        row.kind === "scenario"
+                          ? impactScoreFromAssetForScenarioId(row.id)
+                          : impactPreviewByGroupFromAssets(
+                              scenariosByGroupId.get(row.groupId) ?? [],
+                            );
+                      threatValue = null;
+                      vulnerabilityValue = null;
+                      likelihoodValue = null;
+                      cyberRiskScoreValue = null;
+                    }
                     return (
                       <TableRow
                         key={row.id}
@@ -856,82 +992,82 @@ export default function AssessmentScoringTab({
                             : undefined
                         }
                       >
-                        <TableCell sx={scoringNameBodyCellSx}>
+                        <TableCell
+                          sx={[
+                            scoringNameBodyCellSx,
+                            row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                            row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                          ]}
+                        >
                           <NameCell
                             row={row}
                             expanded={expanded[row.groupId] !== false}
                             onToggle={() => toggleGroup(row.groupId)}
                           />
                         </TableCell>
-                        <TableCell sx={scoringMetricTdSx}>
+                        <TableCell
+                          sx={[
+                            scoringMetricTdSx,
+                            row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                            row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                          ]}
+                        >
                           <Box sx={scoreTableCellContentSx}>
                             <RiskLegendCell value={impactValue} />
                           </Box>
                         </TableCell>
-                        <TableCell sx={scoringThreatMetricTdSx}>
-                          <MetricLegendCell
-                            value={
-                              idleMode
-                                ? null
-                                : row.kind === "cyberRisk"
-                                  ? aggregationMethod
-                                    ? aggregatedByGroupId.get(row.groupId)?.threat ?? null
-                                    : null
-                                  : row.threat
-                            }
-                          />
+                        <TableCell
+                          sx={[
+                            scoringThreatMetricTdSx,
+                            row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                            row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                          ]}
+                        >
+                          <MetricLegendCell value={threatValue} />
                         </TableCell>
-                        <TableCell sx={scoringVulnerabilityMetricTdSx}>
-                          <MetricLegendCell
-                            value={
-                              idleMode
-                                ? null
-                                : row.kind === "cyberRisk"
-                                  ? aggregationMethod
-                                    ? aggregatedByGroupId.get(row.groupId)?.vulnerability ?? null
-                                    : null
-                                  : row.vulnerability
-                            }
-                          />
+                        <TableCell
+                          sx={[
+                            scoringVulnerabilityMetricTdSx,
+                            row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                            row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                          ]}
+                        >
+                          <MetricLegendCell value={vulnerabilityValue} />
                         </TableCell>
-                        <TableCell sx={scoringLikelihoodMetricTdSx}>
-                          <MetricLegendCell
-                            value={
-                              idleMode
-                                ? null
-                                : row.kind === "cyberRisk"
-                                  ? aggregationMethod
-                                    ? aggregatedByGroupId.get(row.groupId)?.likelihood ?? null
-                                    : null
-                                  : row.likelihood
-                            }
-                          />
+                        <TableCell
+                          sx={[
+                            scoringLikelihoodMetricTdSx,
+                            row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                            row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                          ]}
+                        >
+                          <MetricLegendCell value={likelihoodValue} />
                         </TableCell>
-                        <TableCell sx={scoringCyberRiskScoreMetricTdSx}>
-                          <MetricLegendCell
-                            value={
-                              idleMode
-                                ? null
-                                : row.kind === "cyberRisk"
-                                  ? aggregationMethod
-                                    ? aggregatedByGroupId.get(row.groupId)?.cyberRiskScore ?? null
-                                    : null
-                                  : row.cyberRiskScore
-                            }
-                          />
+                        <TableCell
+                          sx={[
+                            scoringCyberRiskScoreMetricTdSx,
+                            row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                            row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                          ]}
+                        >
+                          <MetricLegendCell value={cyberRiskScoreValue} />
                         </TableCell>
                         <TableCell
                           align="right"
-                          sx={({ tokens: t }) => ({
-                            position: "sticky",
-                            right: 0,
-                            zIndex: 2,
-                            width: SCORING_ACTIONS_COL_WIDTH_PX,
-                            minWidth: SCORING_ACTIONS_COL_WIDTH_PX,
-                            maxWidth: SCORING_ACTIONS_COL_WIDTH_PX,
-                            bgcolor: t.semantic.color.background.base.value,
-                            verticalAlign: "middle",
-                          })}
+                          sx={[
+                            ({ tokens: t }) => ({
+                              position: "sticky",
+                              right: 0,
+                              zIndex: 2,
+                              width: SCORING_ACTIONS_COL_WIDTH_PX,
+                              minWidth: SCORING_ACTIONS_COL_WIDTH_PX,
+                              maxWidth: SCORING_ACTIONS_COL_WIDTH_PX,
+                              bgcolor: t.semantic.color.background.base.value,
+                              verticalAlign: "middle",
+                            }),
+                            row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
+                            row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
+                          ]}
                         >
                           <IconButton
                             size="small"

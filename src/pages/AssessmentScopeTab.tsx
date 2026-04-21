@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   Box,
   Button,
+  IconButton,
   InputAdornment,
   Link,
   Stack,
@@ -32,6 +33,8 @@ import DocumentIcon from "@diligentcorp/atlas-react-bundle/icons/Document";
 import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
 import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
 import HistoryIcon from "@diligentcorp/atlas-react-bundle/icons/History";
+import RemoveCircleIcon from "@diligentcorp/atlas-react-bundle/icons/RemoveCircle";
+import RiskControlsIcon from "@diligentcorp/atlas-react-bundle/icons/RiskControls";
 import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
@@ -45,24 +48,28 @@ import {
 import { getUserById, joinUserFullNames } from "../data/users.js";
 import type {
   FivePointScaleValue,
+  MockControl,
   MockCyberRisk,
   MockThreat,
   MockVulnerability,
 } from "../data/types.js";
 import {
-  scopedCyberRisks,
-  scopedThreats,
+  assessmentScopedControls,
+  assessmentScopedCyberRisks,
+  assessmentScopedThreats,
   scopedVulnerabilities,
   SCOPE_CATALOG_TOTALS,
 } from "./scopeAssessmentRollup.js";
 import { ScopeCard } from "../components/ScopeCard.js";
+import ScopedRiskSS from "../components/ScopedRiskSS.js";
 
 export type ScopeSubView =
   | "overview"
   | "assets"
   | "scopedCyberRisks"
   | "scopedThreats"
-  | "scopedVulnerabilities";
+  | "scopedVulnerabilities"
+  | "scopedControls";
 
 type ScopeViewFilter = "all" | "included" | "excluded";
 
@@ -281,13 +288,26 @@ function CriticalityCell({ level }: { level: FivePointScaleValue }) {
   );
 }
 
-function NumericLink({ value, ariaLabel }: { value: number; ariaLabel: string }) {
+function NumericLink({
+  value,
+  ariaLabel,
+  onPress,
+}: {
+  value: number;
+  ariaLabel: string;
+  /** When set, called after preventing default (e.g. open side sheet). */
+  onPress?: () => void;
+}) {
   return (
     <Link
       component="button"
       type="button"
       underline="always"
-      onClick={(e: React.MouseEvent) => e.preventDefault()}
+      onClick={(e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onPress?.();
+      }}
       sx={({ tokens: t }) => ({
         cursor: "pointer",
         fontWeight: 400,
@@ -426,20 +446,24 @@ function ScopeOverviewCards({
   includedCyberRisks,
   includedThreats,
   includedVulnerabilities,
+  includedControls,
   onEditAssetsScope,
   onOpenCyberRisks,
   onOpenThreats,
   onOpenVulnerabilities,
+  onOpenControls,
 }: {
   totalAssets: number;
   includedAssets: number;
   includedCyberRisks: number;
   includedThreats: number;
   includedVulnerabilities: number;
+  includedControls: number;
   onEditAssetsScope: () => void;
   onOpenCyberRisks: () => void;
   onOpenThreats: () => void;
   onOpenVulnerabilities: () => void;
+  onOpenControls: () => void;
 }) {
   const { presets } = useTheme();
   const CardHeaderIcon = presets.CardComponentsPresets?.components?.CardHeaderIcon;
@@ -510,6 +534,15 @@ function ScopeOverviewCards({
           onCardClick={onOpenVulnerabilities}
           cardActionAriaLabel="View vulnerabilities included in this assessment"
         />
+        <ScopeCard
+          title="Controls"
+          icon={wrapHeaderIcon(<RiskControlsIcon size="lg" aria-hidden />)}
+          includedCount={includedControls}
+          totalCount={SCOPE_CATALOG_TOTALS.controls}
+          countNoun="Controls"
+          onCardClick={onOpenControls}
+          cardActionAriaLabel="View controls included in this assessment"
+        />
       </Box>
     </Stack>
   );
@@ -526,6 +559,13 @@ function ScopeAssetsDataGrid({
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+  const [cyberRiskSheetOpen, setCyberRiskSheetOpen] = useState(false);
+  const [cyberRisksForSheet, setCyberRisksForSheet] = useState<MockCyberRisk[]>([]);
+
+  const handleOpenCyberRisksForAsset = useCallback((assetId: string) => {
+    setCyberRisksForSheet(cyberRisks.filter((cr) => cr.assetIds.includes(assetId)));
+    setCyberRiskSheetOpen(true);
+  }, []);
 
   const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
 
@@ -654,7 +694,8 @@ function ScopeAssetsDataGrid({
         renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => (
           <NumericLink
             value={params.value as number}
-            ariaLabel={`Cyber risks for ${params.row.assetName}: ${params.value}`}
+            ariaLabel={`Cyber risks for ${params.row.assetName}: ${params.value}. Click to view details.`}
+            onPress={() => handleOpenCyberRisksForAsset(params.row.assetId)}
           />
         ),
       },
@@ -721,12 +762,13 @@ function ScopeAssetsDataGrid({
         ),
       },
     ],
-    [rows, onBulkRowIdsIncluded, setIncluded],
+    [rows, onBulkRowIdsIncluded, setIncluded, handleOpenCyberRisksForAsset],
   );
 
   return (
-    <Box sx={{ width: "100%", pt: 2, pb: 3, minHeight: 520 }}>
-      <DataGridPro
+    <>
+      <Box sx={{ width: "100%", pt: 2, pb: 3, minHeight: 520 }}>
+        <DataGridPro
         rows={filteredRows}
         columns={columns}
         pagination
@@ -786,17 +828,26 @@ function ScopeAssetsDataGrid({
         })}
         showColumnVerticalBorder
         showCellVerticalBorder
+        />
+      </Box>
+      <ScopedRiskSS
+        open={cyberRiskSheetOpen}
+        onClose={() => setCyberRiskSheetOpen(false)}
+        title="Cyber risks"
+        cyberRisks={cyberRisksForSheet}
       />
-    </Box>
+    </>
   );
 }
 
 function ScopeScopedCyberRisksGrid({
   rows,
   hasIncludedAssets,
+  onRemoveCyberRisk,
 }: {
   rows: MockCyberRisk[];
   hasIncludedAssets: boolean;
+  onRemoveCyberRisk: (cyberRiskId: string) => void;
 }) {
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
 
@@ -827,8 +878,42 @@ function ScopeScopedCyberRisksGrid({
         width: 200,
         valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
       },
+      {
+        field: "removeFromScope",
+        headerName: "",
+        width: 56,
+        minWidth: 56,
+        maxWidth: 56,
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        align: "center",
+        headerAlign: "center",
+        renderCell: (params: GridRenderCellParams<MockCyberRisk>) => (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+            }}
+          >
+            <IconButton
+              size="small"
+              aria-label={`Remove ${params.row.name} from assessment scope`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveCyberRisk(params.row.id);
+              }}
+            >
+              <RemoveCircleIcon aria-hidden />
+            </IconButton>
+          </Box>
+        ),
+      },
     ],
-    [],
+    [onRemoveCyberRisk],
   );
 
   return (
@@ -1109,10 +1194,113 @@ function ScopeScopedVulnerabilitiesGrid({
   );
 }
 
+function ScopeScopedControlsGrid({
+  rows,
+  hasIncludedAssets,
+}: {
+  rows: MockControl[];
+  hasIncludedAssets: boolean;
+}) {
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+
+  const columns: GridColDef<MockControl>[] = useMemo(
+    () => [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 240,
+        renderCell: (params: GridRenderCellParams<MockControl>) => (
+          <Link href="#" underline="hover" onClick={(e: React.MouseEvent) => e.preventDefault()}>
+            {params.value as string}
+          </Link>
+        ),
+      },
+      { field: "id", headerName: "ID", width: 110 },
+      { field: "status", headerName: "Status", width: 120 },
+      { field: "controlType", headerName: "Type", width: 140 },
+      { field: "controlFrequency", headerName: "Frequency", width: 140 },
+      {
+        field: "keyControl",
+        headerName: "Key control",
+        width: 120,
+        valueGetter: (_v, row) => (row.keyControl ? "Yes" : "No"),
+      },
+      {
+        field: "ownerId",
+        headerName: "Owner",
+        width: 200,
+        valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
+      },
+    ],
+    [],
+  );
+
+  return (
+    <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
+      {rows.length === 0 ? (
+        <Typography
+          variant="body1"
+          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
+        >
+          {hasIncludedAssets
+            ? "No controls are linked to the assets in scope."
+            : "Include assets in this assessment to see related controls."}
+        </Typography>
+      ) : null}
+      <Box sx={{ width: "100%", minHeight: 400 }}>
+        <DataGridPro
+          rows={rows}
+          columns={columns}
+          getRowId={(r) => r.id}
+          pagination
+          autoHeight
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          pageSizeOptions={[10, 25, 50]}
+          showToolbar
+          slots={{
+            toolbar: () => <ScopeEntitySlimToolbar ariaLabel="Scoped controls toolbar" />,
+          }}
+          disableRowSelectionOnClick
+          slotProps={{
+            main: { "aria-label": "Controls linked to assets in assessment scope." },
+            basePagination: { material: { labelRowsPerPage: "Rows" } },
+          }}
+          initialState={{
+            sorting: { sortModel: [{ field: "name", sort: "asc" }] },
+          }}
+          sx={({ tokens: t }) => ({
+            border: "none",
+            borderRadius: t.semantic.radius.md.value,
+            "& .MuiDataGrid-scrollShadow": { display: "none" },
+            "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: t.semantic.color.surface.variant.value,
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: 600,
+              fontSize: 12,
+              letterSpacing: "0.3px",
+            },
+            "& .MuiDataGrid-withBorderColor": {
+              borderColor: t.semantic.color.outline.default.value,
+            },
+          })}
+          showColumnVerticalBorder
+          showCellVerticalBorder
+        />
+      </Box>
+    </Stack>
+  );
+}
+
 type AssessmentScopeTabProps = {
   scopeSubView: ScopeSubView;
   onScopeSubViewChange: (view: ScopeSubView) => void;
   includedAssetIds: Set<string>;
+  excludedScopeCyberRiskIds: Set<string>;
+  onRemoveCyberRiskFromAssessment: (cyberRiskId: string) => void;
   onToggleAssetIncluded: (assetId: string, included: boolean) => void;
   onBulkAssetIdsIncluded: (assetIds: string[], included: boolean) => void;
 };
@@ -1121,6 +1309,8 @@ export default function AssessmentScopeTab({
   scopeSubView,
   onScopeSubViewChange,
   includedAssetIds,
+  excludedScopeCyberRiskIds,
+  onRemoveCyberRiskFromAssessment,
   onToggleAssetIncluded,
   onBulkAssetIdsIncluded,
 }: AssessmentScopeTabProps) {
@@ -1146,13 +1336,20 @@ export default function AssessmentScopeTab({
   );
 
   const scopedCrRows = useMemo(
-    () => scopedCyberRisks(includedAssetIds),
-    [includedAssetIds],
+    () => assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds),
+    [includedAssetIds, excludedScopeCyberRiskIds],
   );
-  const scopedThreatRows = useMemo(() => scopedThreats(includedAssetIds), [includedAssetIds]);
+  const scopedThreatRows = useMemo(
+    () => assessmentScopedThreats(includedAssetIds, excludedScopeCyberRiskIds),
+    [includedAssetIds, excludedScopeCyberRiskIds],
+  );
   const scopedVulnRows = useMemo(
     () => scopedVulnerabilities(includedAssetIds),
     [includedAssetIds],
+  );
+  const scopedControlRows = useMemo(
+    () => assessmentScopedControls(includedAssetIds, excludedScopeCyberRiskIds),
+    [includedAssetIds, excludedScopeCyberRiskIds],
   );
 
   if (scopeSubView === "assets") {
@@ -1167,7 +1364,11 @@ export default function AssessmentScopeTab({
 
   if (scopeSubView === "scopedCyberRisks") {
     return (
-      <ScopeScopedCyberRisksGrid rows={scopedCrRows} hasIncludedAssets={includedCount > 0} />
+      <ScopeScopedCyberRisksGrid
+        rows={scopedCrRows}
+        hasIncludedAssets={includedCount > 0}
+        onRemoveCyberRisk={onRemoveCyberRiskFromAssessment}
+      />
     );
   }
 
@@ -1186,6 +1387,15 @@ export default function AssessmentScopeTab({
     );
   }
 
+  if (scopeSubView === "scopedControls") {
+    return (
+      <ScopeScopedControlsGrid
+        rows={scopedControlRows}
+        hasIncludedAssets={includedCount > 0}
+      />
+    );
+  }
+
   return (
     <ScopeOverviewCards
       totalAssets={rows.length}
@@ -1193,10 +1403,12 @@ export default function AssessmentScopeTab({
       includedCyberRisks={scopedCrRows.length}
       includedThreats={scopedThreatRows.length}
       includedVulnerabilities={scopedVulnRows.length}
+      includedControls={scopedControlRows.length}
       onEditAssetsScope={() => onScopeSubViewChange("assets")}
       onOpenCyberRisks={() => onScopeSubViewChange("scopedCyberRisks")}
       onOpenThreats={() => onScopeSubViewChange("scopedThreats")}
       onOpenVulnerabilities={() => onScopeSubViewChange("scopedVulnerabilities")}
+      onOpenControls={() => onScopeSubViewChange("scopedControls")}
     />
   );
 }

@@ -430,6 +430,19 @@ export const vulnerabilities: MockVulnerability[] = buildVulnerabilities();
 
 const vulnById = new Map(vulnerabilities.map((v) => [v.id, v]));
 
+function rebuildVulnIndex(): void {
+  vulnById.clear();
+  for (const v of vulnerabilities) {
+    vulnById.set(v.id, v);
+  }
+}
+
+export function replaceVulnerabilitiesFromPersistence(next: MockVulnerability[]): void {
+  vulnerabilities.length = 0;
+  vulnerabilities.push(...next);
+  rebuildVulnIndex();
+}
+
 export function getVulnerabilityById(id: string): MockVulnerability | undefined {
   return vulnById.get(id);
 }

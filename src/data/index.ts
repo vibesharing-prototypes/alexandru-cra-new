@@ -66,6 +66,8 @@ export {
   getThreatById,
   remapThreatIdFromLegacySequential,
   addThreat,
+  updateThreat,
+  replaceThreatsFromPersistence,
   subscribeThreats,
   getThreatsSnapshotVersion,
 } from "./threats.js";
@@ -76,13 +78,33 @@ export {
 } from "./vulnerabilities.js";
 export { controls, getControlById } from "./controls.js";
 export { cyberRisks, getCyberRiskById } from "./cyberRisks.js";
-export { scenarios, getScenarioById } from "./scenarios.js";
+export {
+  scenarios,
+  getScenarioById,
+  patchScenario,
+  rebuildScenariosFromGraph,
+  getScenarioOverridesForPersistence,
+} from "./scenarios.js";
 export {
   riskAssessments,
   getRiskAssessmentById,
   getRiskAssessmentsForThreatId,
   addRiskAssessment,
+  updateRiskAssessment,
+  computeAssessmentRollupForAssetIds,
+  replaceRiskAssessmentsFromPersistence,
   subscribeRiskAssessments,
   getRiskAssessmentsSnapshotVersion,
 } from "./riskAssessments.js";
 export { mitigationPlans, getMitigationPlanById } from "./mitigationPlans.js";
+
+export type { CraNewAssessmentPersistedDraft } from "./craAssessmentDraftTypes.js";
+
+export {
+  markCatalogDirty,
+  subscribeCatalog,
+  getCatalogSnapshotVersion,
+  resetPrototypeCatalog,
+} from "./persistence/catalogStore.js";
+export { applyPersistedCatalog, applyCatalogFromStorage } from "./persistence/applyCatalogSnapshot.js";
+export { buildPersistedCatalogSnapshot } from "./persistence/catalogSnapshotBuilder.js";

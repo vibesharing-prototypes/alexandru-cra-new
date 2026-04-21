@@ -26,6 +26,7 @@ import AssessmentScopeTab, {
   type ScopeSubView,
 } from "./AssessmentScopeTab.js";
 import {
+  assessmentPhaseToAssessmentStatus,
   assessmentStatusToPhase,
   clearCraNewAssessmentDraft,
   loadCraNewAssessmentDraft,
@@ -34,8 +35,15 @@ import {
   type AssessmentPhase,
   type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
-import { scopedScenarios } from "./scopeAssessmentRollup.js";
-import { getRiskAssessmentById } from "../data/riskAssessments.js";
+import {
+  assessmentScopedScenarios,
+  candidateScopedCyberRisks,
+} from "../data/assessmentScopeRollup.js";
+import {
+  computeAssessmentRollupForAssetIds,
+  getRiskAssessmentById,
+  updateRiskAssessment,
+} from "../data/riskAssessments.js";
 import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
 
@@ -82,6 +90,11 @@ const SCOPE_DETAIL_PAGE: Record<
     title: "Vulnerabilities",
     subtitle: "Vulnerabilities linked to assets included in this assessment.",
     crumb: "Vulnerabilities",
+  },
+  scopedControls: {
+    title: "Controls",
+    subtitle: "Controls linked to assets included in this assessment.",
+    crumb: "Controls",
   },
 };
 
@@ -200,6 +213,12 @@ export default function AssessmentDetailsTab() {
     return new Set();
   });
 
+  const [excludedScopeCyberRiskIds, setExcludedScopeCyberRiskIds] = useState<Set<string>>(() => {
+    if (initialDraft) return new Set(initialDraft.excludedScopeCyberRiskIds ?? []);
+    if (mockFromRoute) return new Set(mockFromRoute.excludedScopeCyberRiskIds ?? []);
+    return new Set();
+  });
+
   const [aiScoringPhase, setAiScoringPhase] = useState<AiScoringPhase>(() => {
     if (mockFromRoute) return "idle";
     if (initialDraft) return initialDraft.aiScoringPhase;
@@ -245,6 +264,34 @@ export default function AssessmentDetailsTab() {
     });
   }, []);
 
+  /** Drop exclusions that no longer apply when asset scope changes. */
+  useEffect(() => {
+    setExcludedScopeCyberRiskIds((prev) => {
+      const candidateIds = new Set(
+        candidateScopedCyberRisks(includedScopeAssetIds).map((cr) => cr.id),
+      );
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (candidateIds.has(id)) next.add(id);
+      }
+      if (next.size === prev.size) {
+        for (const id of prev) {
+          if (!next.has(id)) return next;
+        }
+        return prev;
+      }
+      return next;
+    });
+  }, [includedScopeAssetIds]);
+
+  const removeCyberRiskFromAssessment = useCallback((cyberRiskId: string) => {
+    setExcludedScopeCyberRiskIds((prev) => {
+      const next = new Set(prev);
+      next.add(cyberRiskId);
+      return next;
+    });
+  }, []);
+
   const assessmentOwnerLookupOptions = useMemo((): AssessmentOwnerLookupOption[] => {
     return users.map((u) => ({
       id: u.id,
@@ -262,40 +309,69 @@ export default function AssessmentDetailsTab() {
 
   const createdByDisplay = useMemo(() => joinUserFullNames(ownerIds, "—"), [ownerIds]);
 
+  /** Adding scope assets moves the workflow from Draft → Scoping (including on `/…/:assessmentId`). */
   useEffect(() => {
-    if (routeAssessmentId) return;
-    if (mockFromRoute != null) return;
     if (assessmentPhase !== "draft") return;
     if (includedScopeAssetIds.size === 0) return;
     setAssessmentPhase("scoping");
-  }, [routeAssessmentId, mockFromRoute, assessmentPhase, includedScopeAssetIds]);
+  }, [assessmentPhase, includedScopeAssetIds]);
 
   const showAiScoringAction = useMemo(() => {
     if (assessmentPhase === "inProgress" || assessmentPhase === "overdue") return true;
     if (assessmentPhase === "scoping") {
       return (
-        includedScopeAssetIds.size >= 1 && scopedScenarios(includedScopeAssetIds).length >= 1
+        includedScopeAssetIds.size >= 1 &&
+        assessmentScopedScenarios(includedScopeAssetIds, excludedScopeCyberRiskIds).length >= 1
       );
     }
     return false;
-  }, [assessmentPhase, includedScopeAssetIds]);
+  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds]);
 
   const handleSaveDraft = useCallback(() => {
-    if (routeAssessmentId) return;
-    saveCraNewAssessmentDraft({
-      activeTab,
-      assessmentPhase,
-      name,
-      assessmentId,
-      assessmentType,
-      startDate: "",
-      dueDate,
-      ownerIds,
-      scopeSubView,
-      includedScopeAssetIds: [...includedScopeAssetIds],
-      aiScoringPhase,
-      scoringType,
-    });
+    const catalogAssessmentId =
+      routeAssessmentId != null && routeAssessmentId !== ""
+        ? routeAssessmentId
+        : /^CRA-\d+$/.test(assessmentId)
+          ? assessmentId
+          : undefined;
+
+    if (catalogAssessmentId) {
+      const row = getRiskAssessmentById(catalogAssessmentId);
+      if (row) {
+        const trimmedName = name.trim();
+        const rollup = computeAssessmentRollupForAssetIds(
+          [...includedScopeAssetIds],
+          [...excludedScopeCyberRiskIds],
+        );
+        updateRiskAssessment(catalogAssessmentId, {
+          name: trimmedName || row.name,
+          ownerId: ownerIds[0] ?? row.ownerId,
+          status: assessmentPhaseToAssessmentStatus(assessmentPhase),
+          assessmentType,
+          dueDate,
+          startDate: row.startDate,
+          ...rollup,
+        });
+      }
+    }
+
+    if (!routeAssessmentId) {
+      saveCraNewAssessmentDraft({
+        activeTab,
+        assessmentPhase,
+        name,
+        assessmentId,
+        assessmentType,
+        startDate: "",
+        dueDate,
+        ownerIds,
+        scopeSubView,
+        includedScopeAssetIds: [...includedScopeAssetIds],
+        excludedScopeCyberRiskIds: [...excludedScopeCyberRiskIds],
+        aiScoringPhase,
+        scoringType,
+      });
+    }
   }, [
     routeAssessmentId,
     activeTab,
@@ -307,6 +383,7 @@ export default function AssessmentDetailsTab() {
     ownerIds,
     scopeSubView,
     includedScopeAssetIds,
+    excludedScopeCyberRiskIds,
     aiScoringPhase,
     scoringType,
   ]);
@@ -315,7 +392,7 @@ export default function AssessmentDetailsTab() {
     if (assessmentPhase === "scoping") {
       if (
         includedScopeAssetIds.size < 1 ||
-        scopedScenarios(includedScopeAssetIds).length < 1
+        assessmentScopedScenarios(includedScopeAssetIds, excludedScopeCyberRiskIds).length < 1
       ) {
         return;
       }
@@ -332,7 +409,7 @@ export default function AssessmentDetailsTab() {
       }, 3000);
       return "processing";
     });
-  }, [assessmentPhase, includedScopeAssetIds]);
+  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds]);
 
   useEffect(() => {
     return () => {
@@ -560,6 +637,8 @@ export default function AssessmentDetailsTab() {
             scopeSubView={scopeSubView}
             onScopeSubViewChange={setScopeSubView}
             includedAssetIds={includedScopeAssetIds}
+            excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
+            onRemoveCyberRiskFromAssessment={removeCyberRiskFromAssessment}
             onToggleAssetIncluded={toggleAssetIncluded}
             onBulkAssetIdsIncluded={bulkSetAssetsIncluded}
           />
@@ -577,6 +656,8 @@ export default function AssessmentDetailsTab() {
             assessmentName={name}
             returnToAssessmentPath={location.pathname}
             includedAssetIds={includedScopeAssetIds}
+            excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
+            assessmentPhase={assessmentPhase}
             aiScoringPhase={aiScoringPhase}
             scoringType={scoringType}
             showAiScoringAction={showAiScoringAction}
@@ -587,6 +668,7 @@ export default function AssessmentDetailsTab() {
         <TabPanel value={activeTab} index={3}>
           <AssessmentResultsTab
             includedAssetIds={includedScopeAssetIds}
+            excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
             onGoToScoring={() => setActiveTab(SCORING_TAB_INDEX)}
           />
         </TabPanel>

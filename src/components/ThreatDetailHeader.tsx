@@ -39,6 +39,8 @@ export type ThreatDetailHeaderProps = {
   onStatusChange: (status: ThreatStatus) => void;
   tab: number;
   onTabChange: (tab: number) => void;
+  /** Persists threat details to the prototype catalog. */
+  onSave?: () => void;
 };
 
 export default function ThreatDetailHeader({
@@ -51,6 +53,7 @@ export default function ThreatDetailHeader({
   onStatusChange,
   tab,
   onTabChange,
+  onSave,
 }: ThreatDetailHeaderProps) {
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
@@ -120,7 +123,7 @@ export default function ThreatDetailHeader({
         moreButton={
           <>
             <Stack direction="row" alignItems="center" gap={1}>
-              <Button variant="contained" size="medium" type="button">
+              <Button variant="contained" size="medium" type="button" onClick={onSave}>
                 Save
               </Button>
               <IconButton

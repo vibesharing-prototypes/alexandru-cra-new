@@ -54,6 +54,19 @@ export const mitigationPlans: MockMitigationPlan[] = raw.map(
 
 const planById = new Map(mitigationPlans.map((p) => [p.id, p]));
 
+function rebuildPlanIndex(): void {
+  planById.clear();
+  for (const p of mitigationPlans) {
+    planById.set(p.id, p);
+  }
+}
+
+export function replaceMitigationPlansFromPersistence(next: MockMitigationPlan[]): void {
+  mitigationPlans.length = 0;
+  mitigationPlans.push(...next);
+  rebuildPlanIndex();
+}
+
 export function getMitigationPlanById(id: string): MockMitigationPlan | undefined {
   return planById.get(id);
 }

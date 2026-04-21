@@ -1,10 +1,14 @@
+import { useCallback, useRef } from "react";
 import {
   Box,
   Divider,
   IconButton,
   TextField,
   Typography,
+  useTheme,
 } from "@mui/material";
+
+import ScoringRationaleFormattedBody from "./ScoringRationaleFormattedBody.js";
 
 import AttachIcon from "@diligentcorp/atlas-react-bundle/icons/Attach";
 import AudioIcon from "@diligentcorp/atlas-react-bundle/icons/Audio";
@@ -95,6 +99,11 @@ export type AssessmentWysiwygEditorProps = {
   minRows?: number;
   /** When true, the field is display-only (toolbar remains for visual parity with design). */
   readOnly?: boolean;
+  /**
+   * When true, text before the first ": " in each paragraph is shown semibold (underlay +
+   * transparent textarea) so the field matches history accordion formatting while staying editable.
+   */
+  semiboldLabelPrefixes?: boolean;
   "aria-label": string;
 };
 
@@ -110,9 +119,65 @@ export default function AssessmentWysiwygEditor({
   onChange,
   minRows = 10,
   readOnly = false,
+  semiboldLabelPrefixes = false,
   "aria-label": ariaLabel,
 }: AssessmentWysiwygEditorProps) {
   const labelId = `${fieldId}-label`;
+  const theme = useTheme();
+  const overlayScrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const syncOverlayScroll = useCallback(() => {
+    const ta = textareaRef.current;
+    const el = overlayScrollRef.current;
+    if (ta && el) {
+      el.scrollTop = ta.scrollTop;
+    }
+  }, []);
+
+  const textField = (
+    <TextField
+      id={fieldId}
+      multiline
+      fullWidth
+      minRows={minRows}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      variant="standard"
+      InputProps={{ disableUnderline: true, readOnly }}
+      slotProps={{
+        htmlInput: {
+          ref: (el: HTMLTextAreaElement | null) => {
+            textareaRef.current = el;
+          },
+          onScroll: semiboldLabelPrefixes ? syncOverlayScroll : undefined,
+        },
+        input: {
+          "aria-labelledby": labelId,
+        },
+      }}
+      sx={[
+        { px: 1.5, py: 1.5 },
+        semiboldLabelPrefixes
+          ? {
+              position: "relative",
+              zIndex: 1,
+              "& .MuiInputBase-root": {
+                backgroundColor: "transparent",
+              },
+              "& textarea": {
+                color: "transparent",
+                WebkitTextFillColor: "transparent",
+                caretColor: theme.tokens.semantic.color.type.default.value,
+              },
+            }
+          : {},
+      ]}
+      aria-label={ariaLabel}
+    />
+  );
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
       <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 0.5 }}>
@@ -151,24 +216,28 @@ export default function AssessmentWysiwygEditor({
         <Box sx={readOnly ? { pointerEvents: "none", opacity: 0.85 } : undefined}>
           <WysiwygToolbar />
         </Box>
-        <TextField
-          id={fieldId}
-          multiline
-          fullWidth
-          minRows={minRows}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          variant="standard"
-          InputProps={{ disableUnderline: true, readOnly }}
-          sx={{ px: 1.5, py: 1.5 }}
-          aria-label={ariaLabel}
-          slotProps={{
-            input: {
-              "aria-labelledby": labelId,
-            },
-          }}
-        />
+        {semiboldLabelPrefixes ? (
+          <Box sx={{ position: "relative", width: "100%" }}>
+            <Box
+              ref={overlayScrollRef}
+              aria-hidden
+              sx={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 0,
+                px: 1.5,
+                py: 1.5,
+                overflow: "auto",
+                pointerEvents: "none",
+              }}
+            >
+              <ScoringRationaleFormattedBody text={value} />
+            </Box>
+            <Box sx={{ position: "relative", zIndex: 1 }}>{textField}</Box>
+          </Box>
+        ) : (
+          textField
+        )}
       </Box>
     </Box>
   );

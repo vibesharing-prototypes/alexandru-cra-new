@@ -220,6 +220,20 @@ export const cyberRisks: MockCyberRisk[] = buildCyberRisks();
 
 const riskById = new Map(cyberRisks.map((r) => [r.id, r]));
 
+function rebuildCyberRiskIndex(): void {
+  riskById.clear();
+  for (const r of cyberRisks) {
+    riskById.set(r.id, r);
+  }
+}
+
+export function replaceCyberRisksFromPersistence(next: MockCyberRisk[]): void {
+  cyberRisks.length = 0;
+  cyberRisks.push(...next);
+  rebuildCyberRiskIndex();
+  syncIndirectLinksFromCyberRisks();
+}
+
 /** Propagate control and mitigation plan ids from linked cyber risks onto threats and vulnerabilities. */
 function syncIndirectLinksFromCyberRisks(): void {
   for (const t of threats) {

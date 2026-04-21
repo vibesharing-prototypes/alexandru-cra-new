@@ -1,18 +1,26 @@
 import type { AssessmentStatus } from "../data/types.js";
-import { scopedScenarios } from "./scopeAssessmentRollup.js";
+import type {
+  AiScoringPhase,
+  AssessmentPhase,
+  CraNewAssessmentPersistedDraft,
+  CraScoringTypeChoice,
+  ScopeSubView,
+} from "../data/craAssessmentDraftTypes.js";
+import {
+  getPersistedCraDraft,
+  hydratePersistedCraDraft,
+  markCatalogDirty,
+  setPersistedCraDraft,
+} from "../data/persistence/catalogStore.js";
+import { assessmentScopedScenarios } from "../data/assessmentScopeRollup.js";
 
-export type AssessmentPhase =
-  | "draft"
-  | "scoping"
-  | "inProgress"
-  | "overdue"
-  | "assessmentApproved";
-
-/** AI scoring flow on the Scoring tab (Scoring phase / Overdue). */
-export type AiScoringPhase = "idle" | "processing" | "complete";
-
-/** Scoring type chosen on the Details tab (drives navigation context to scenario detail). */
-export type CraScoringTypeChoice = "inherent" | "residual";
+export type {
+  AiScoringPhase,
+  AssessmentPhase,
+  CraNewAssessmentPersistedDraft,
+  CraScoringTypeChoice,
+  ScopeSubView,
+} from "../data/craAssessmentDraftTypes.js";
 
 /** `navigate` state when opening a scenario from the new CRA scoring table. */
 export type CraScenarioDetailLocationState = {
@@ -23,37 +31,11 @@ export type CraScenarioDetailLocationState = {
   returnToAssessmentPath?: string;
 };
 
-type ScopeSubView =
-  | "overview"
-  | "assets"
-  | "scopedCyberRisks"
-  | "scopedThreats"
-  | "scopedVulnerabilities";
-
 const STORAGE_KEY = "cra_new_assessment_draft_v1";
 
 const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
 const RESULTS_TAB_INDEX = 3;
-
-export type CraNewAssessmentPersistedDraft = {
-  activeTab: number;
-  assessmentPhase: AssessmentPhase;
-  name: string;
-  assessmentId: string;
-  assessmentType: string;
-  startDate: string;
-  dueDate: string;
-  /** Mock user ids from `users` (owner lookup). */
-  ownerIds: string[];
-  scopeSubView: ScopeSubView;
-  /** Asset ids included in assessment scope (AST-###). */
-  includedScopeAssetIds: string[];
-  /** AI scoring CTA/table state; `processing` is not restored after reload. */
-  aiScoringPhase: AiScoringPhase;
-  /** Scoring type (Inherent vs Residual). */
-  scoringType: CraScoringTypeChoice;
-};
 
 function isAssessmentPhase(v: unknown): v is AssessmentPhase {
   return (
@@ -85,7 +67,8 @@ function isScopeSubView(v: unknown): v is ScopeSubView {
     v === "assets" ||
     v === "scopedCyberRisks" ||
     v === "scopedThreats" ||
-    v === "scopedVulnerabilities"
+    v === "scopedVulnerabilities" ||
+    v === "scopedControls"
   );
 }
 
@@ -113,6 +96,9 @@ function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAsse
   const includedScopeAssetIds = Array.isArray(raw.includedScopeAssetIds)
     ? (raw.includedScopeAssetIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
+  const excludedScopeCyberRiskIds = Array.isArray(raw.excludedScopeCyberRiskIds)
+    ? (raw.excludedScopeCyberRiskIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
   let aiScoringPhase: AiScoringPhase = isAiScoringPhase(raw.aiScoringPhase)
     ? raw.aiScoringPhase
     : "idle";
@@ -131,19 +117,22 @@ function sanitizeDraft(raw: Partial<CraNewAssessmentPersistedDraft>): CraNewAsse
     ownerIds,
     scopeSubView,
     includedScopeAssetIds,
+    excludedScopeCyberRiskIds,
     aiScoringPhase,
     scoringType,
   };
 }
 
 export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | null {
+  const fromCatalog = getPersistedCraDraft();
+  if (fromCatalog) return fromCatalog;
   try {
     const item = sessionStorage.getItem(STORAGE_KEY);
     if (!item) return null;
     const parsed = JSON.parse(item) as unknown;
     if (parsed == null || typeof parsed !== "object") return null;
     const o = parsed as Record<string, unknown>;
-    return sanitizeDraft({
+    const migrated = sanitizeDraft({
       activeTab: o.activeTab as number,
       assessmentPhase: o.assessmentPhase as AssessmentPhase,
       name: o.name as string,
@@ -154,20 +143,24 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       ownerIds: o.ownerIds as string[],
       scopeSubView: o.scopeSubView as ScopeSubView,
       includedScopeAssetIds: o.includedScopeAssetIds as string[],
+      excludedScopeCyberRiskIds: o.excludedScopeCyberRiskIds as string[] | undefined,
       aiScoringPhase: o.aiScoringPhase as AiScoringPhase,
       scoringType: o.scoringType as CraScoringTypeChoice | undefined,
     });
+    setPersistedCraDraft(migrated);
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    return migrated;
   } catch {
     return null;
   }
 }
 
 export function saveCraNewAssessmentDraft(draft: CraNewAssessmentPersistedDraft): void {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeDraft(draft)));
-  } catch {
-    // ignore quota / private mode
-  }
+  setPersistedCraDraft(sanitizeDraft(draft));
 }
 
 /**
@@ -180,7 +173,8 @@ export function advanceCraPhaseToScoringIfEligible(): void {
   if (draft.assessmentPhase !== "scoping") return;
   const assetIds = new Set(draft.includedScopeAssetIds);
   if (assetIds.size === 0) return;
-  if (scopedScenarios(assetIds).length === 0) return;
+  const excluded = new Set(draft.excludedScopeCyberRiskIds);
+  if (assessmentScopedScenarios(assetIds, excluded).length === 0) return;
   saveCraNewAssessmentDraft({
     ...draft,
     assessmentPhase: "inProgress",
@@ -194,6 +188,8 @@ export function clearCraNewAssessmentDraft(): void {
   } catch {
     // ignore
   }
+  hydratePersistedCraDraft(null);
+  markCatalogDirty();
 }
 
 /** Maps list/grid `AssessmentStatus` to header workflow phase (e.g. when opening an existing mock assessment). */

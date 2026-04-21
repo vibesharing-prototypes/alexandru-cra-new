@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
 import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
-import { Box, Stack, Tab, Tabs, useTheme } from "@mui/material";
+import { Box, Button, Stack, Tab, Tabs, useTheme } from "@mui/material";
 import { NavLink, useLocation } from "react-router";
 
-import AiContentCard, {
-  AiContentCardAssessmentPreset,
-} from "../components/AiContentCard.js";
-import ScoringRationaleDropdowns from "../components/ScoringRationaleDropdowns.js";
+import MitigationPlanSideSheet from "../components/MitigationPlanSideSheet.js";
+import { TableTree } from "../components/TableTree.js";
+import ScopedRiskSS from "../components/ScopedRiskSS.js";
 import LabelScoreLegend from "../components/LabelScoreLegend.js";
+import LabelValue from "../components/LabelValue.js";
 import PageLayout from "../components/PageLayout.js";
 import { ScopeCard } from "../components/ScopeCard.js";
 import { assets } from "../data/assets.js";
+import { cyberRisks } from "../data/cyberRisks.js";
 import {
   atlasPageHeaderNavigationTabsSx,
   atlasPageHeaderTabsSlotProps,
@@ -43,6 +44,8 @@ const TAB_LABELS = ["Tab 1", "Tab 2", "Tab 3"] as const;
 export default function ActivityPage() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(0);
+  const [isSideSheetOpen, setIsSideSheetOpen] = useState(false);
+  const [isScopedRiskSSOpen, setIsScopedRiskSSOpen] = useState(false);
   const { presets } = useTheme();
   const { TabsPresets } = presets;
   const CardHeaderIcon = presets.CardComponentsPresets?.components?.CardHeaderIcon;
@@ -63,6 +66,8 @@ export default function ActivityPage() {
       url: location.pathname,
     },
   ];
+
+  const relatedAssetNames = assets.slice(0, 5).map((a) => a.name);
 
   return (
     <PageLayout>
@@ -106,19 +111,45 @@ export default function ActivityPage() {
         <TabPanel value={activeTab} index={0}>
           <Box sx={{ py: 2, width: "100%" }}>
             <Stack
+              direction="row"
+              sx={({ tokens: t }) => ({
+                width: "100%",
+                alignItems: "center",
+                gap: t.core.spacing["3"].value,
+              })}
+            >
+              <Button variant="contained" onClick={() => setIsSideSheetOpen(true)}>
+                + Mitigation plan
+              </Button>
+              <Button variant="outlined" onClick={() => setIsScopedRiskSSOpen(true)}>
+                Scoped risk details
+              </Button>
+            </Stack>
+            <Stack
               sx={({ tokens: t }) => ({
                 width: "100%",
                 alignItems: "stretch",
                 gap: t.core.spacing["3"].value,
+                mt: t.core.spacing["2"].value,
               })}
             >
-              <AiContentCard>
-                <AiContentCardAssessmentPreset />
-              </AiContentCard>
-              <ScoringRationaleDropdowns />
+              <TableTree />
             </Stack>
           </Box>
         </TabPanel>
+
+        <MitigationPlanSideSheet
+          open={isSideSheetOpen}
+          onClose={() => setIsSideSheetOpen(false)}
+          cyberRiskName="Ransomware attack on production databases"
+          relatedAssetNames={relatedAssetNames}
+        />
+
+        <ScopedRiskSS
+          open={isScopedRiskSSOpen}
+          onClose={() => setIsScopedRiskSSOpen(false)}
+          cyberRisks={cyberRisks[0] != null ? [cyberRisks[0]] : []}
+        />
         <TabPanel value={activeTab} index={1}>
           <Box sx={{ py: 2, width: "100%" }}>
             <Stack
@@ -149,10 +180,13 @@ export default function ActivityPage() {
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
           <Box sx={{ py: 2 }}>
-            <LabelScoreLegend
-              label="Risk level"
-              value={{ numeric: "4", label: "High", rag: "neg03" }}
-            />
+            <Stack gap={2}>
+              <LabelScoreLegend
+                label="Risk level"
+                value={{ numeric: "4", label: "High", rag: "neg03" }}
+              />
+              <LabelValue label="Asset ID" value="ASSET-101" />
+            </Stack>
           </Box>
         </TabPanel>
       </Stack>

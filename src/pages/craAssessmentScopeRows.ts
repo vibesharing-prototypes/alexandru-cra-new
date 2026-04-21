@@ -6,7 +6,10 @@ import {
   getCyberRiskScoreLabel,
   getLikelihoodLabel,
 } from "../data/types.js";
-import { scopedCyberRisks, scopedScenarios } from "./scopeAssessmentRollup.js";
+import {
+  assessmentScopedCyberRisks,
+  assessmentScopedScenarios,
+} from "./scopeAssessmentRollup.js";
 
 export type AssessmentCyberResultsRow = {
   id: string;
@@ -100,10 +103,11 @@ function riskRowChips(
 /** Cyber risk + scenario rows for Results, aligned with scoped Scoring data. */
 export function buildCyberResultsRowsForScope(
   includedAssetIds: Set<string>,
+  excludedScopeCyberRiskIds: Set<string>,
 ): AssessmentCyberResultsRow[] {
   if (includedAssetIds.size === 0) return [];
-  const risks = scopedCyberRisks(includedAssetIds);
-  const scenarioList = scopedScenarios(includedAssetIds);
+  const risks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
+  const scenarioList = assessmentScopedScenarios(includedAssetIds, excludedScopeCyberRiskIds);
   const byRisk = new Map<string, MockScenario[]>();
   for (const s of scenarioList) {
     const list = byRisk.get(s.cyberRiskId) ?? [];
@@ -158,9 +162,10 @@ function maxScenarioCyberRiskChip(scens: MockScenario[]): Chip {
 /** Asset rows on Results for assets in scope (scores from scenarios on that asset). */
 export function buildAssetResultRowsForScope(
   includedAssetIds: Set<string>,
+  excludedScopeCyberRiskIds: Set<string>,
 ): AssessmentAssetResultRow[] {
   if (includedAssetIds.size === 0) return [];
-  const scenarioList = scopedScenarios(includedAssetIds);
+  const scenarioList = assessmentScopedScenarios(includedAssetIds, excludedScopeCyberRiskIds);
   const byAsset = new Map<string, MockScenario[]>();
   for (const s of scenarioList) {
     const list = byAsset.get(s.assetId) ?? [];

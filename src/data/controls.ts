@@ -77,7 +77,7 @@ function buildControls(): MockControl[] {
 
   for (let i = 0; i < 100; i++) {
     const crNum = Math.floor(i / 5) + 1;
-    const name = `${prefixes[i % prefixes.length]} — control ${i + 1}`;
+    const name = `${prefixes[i % prefixes.length]} control`;
     out.push({
       id: padId("CTL", i + 1),
       name,
@@ -95,6 +95,19 @@ function buildControls(): MockControl[] {
 export const controls: MockControl[] = buildControls();
 
 const controlById = new Map(controls.map((c) => [c.id, c]));
+
+function rebuildControlIndex(): void {
+  controlById.clear();
+  for (const c of controls) {
+    controlById.set(c.id, c);
+  }
+}
+
+export function replaceControlsFromPersistence(next: MockControl[]): void {
+  controls.length = 0;
+  controls.push(...next);
+  rebuildControlIndex();
+}
 
 export function getControlById(id: string): MockControl | undefined {
   return controlById.get(id);

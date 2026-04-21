@@ -1,7 +1,8 @@
-import { Box, Stack, Typography } from "@mui/material";
+import { Stack, Typography } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
 
-import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
+import { RagSwatch } from "./ScoringMetricField.js";
+import type { RagDataVizKey } from "../data/ragDataVisualization.js";
 
 /** Score payload: numeric band, human label, and RAG visualization key */
 export type LabelScoreLegendValue = {
@@ -11,7 +12,7 @@ export type LabelScoreLegendValue = {
 } | null;
 
 export type LabelScoreLegendProps = {
-  /** Metric label (label/xs emphasis — muted) */
+  /** Metric label (matches History / {@link ReadOnlyScoringLegendsRow} caption emphasis) */
   label: string;
   /** When null, `emptyText` is shown in the score row */
   value: LabelScoreLegendValue;
@@ -22,13 +23,13 @@ export type LabelScoreLegendProps = {
 };
 
 /**
- * Label + read-only score: column (4px gap), label/xs emphasis, then RAG swatch + label/xs value.
- * Layout matches design: min-width 90px, ~36px tall, 8px between swatch and score text.
+ * Label + read-only score aligned with History read-only metrics ({@link ReadOnlyScoringLegendsRow}):
+ * caption label (sm, semibold), then swatch + `numeric - label` on text/md.
  */
 export default function LabelScoreLegend({
   label,
   value,
-  emptyText = "-",
+  emptyText = "Not scored",
   sx,
 }: LabelScoreLegendProps) {
   return (
@@ -39,24 +40,22 @@ export default function LabelScoreLegend({
       sx={[
         {
           flex: "1 1 auto",
-          minWidth: 90,
-          minHeight: 36,
+          minWidth: 0,
           py: 0,
         },
         ...(sx != null ? (Array.isArray(sx) ? sx : [sx]) : []),
       ]}
     >
       <Typography
+        variant="caption"
         component="p"
         sx={({ tokens: t }) => ({
           m: 0,
-          width: "100%",
-          fontSize: t.semantic.font.label.xs.fontSize.value,
-          lineHeight: t.semantic.font.label.xs.lineHeight.value,
-          letterSpacing: t.semantic.font.label.xs.letterSpacing.value,
-          fontFamily: t.semantic.font.label.xs.fontFamily.value,
-          fontWeight: t.semantic.fontWeight.emphasis.value,
-          color: t.semantic.color.type.muted.value,
+          fontWeight: 600,
+          letterSpacing: t.semantic.font.label.sm.letterSpacing.value,
+          fontSize: t.semantic.font.label.sm.fontSize.value,
+          lineHeight: t.semantic.font.label.sm.lineHeight.value,
+          color: t.semantic.color.type.default.value,
         })}
       >
         {label}
@@ -64,49 +63,28 @@ export default function LabelScoreLegend({
 
       {value == null ? (
         <Typography
-          component="p"
+          variant="body1"
           sx={({ tokens: t }) => ({
-            m: 0,
-            fontSize: t.semantic.font.label.xs.fontSize.value,
-            lineHeight: t.semantic.font.label.xs.lineHeight.value,
-            letterSpacing: t.semantic.font.label.xs.letterSpacing.value,
-            fontFamily: t.semantic.font.label.xs.fontFamily.value,
-            fontWeight: t.semantic.font.label.xs.fontWeight.value,
             color: t.semantic.color.type.muted.value,
+            fontSize: t.semantic.font.text.md.fontSize.value,
           })}
         >
           {emptyText}
         </Typography>
       ) : (
-        <Stack
-          direction="row"
-          alignItems="center"
-          gap={1}
-          sx={{ alignSelf: "stretch", minHeight: 16 }}
-        >
-          <Box
-            sx={({ tokens: t }) => ({
-              width: 16,
-              height: 16,
-              borderRadius: t.semantic.radius.sm.value,
-              flexShrink: 0,
-              bgcolor: ragDataVizColor(t, value.rag),
-            })}
-            aria-hidden
-          />
+        <Stack direction="row" alignItems="center" gap={1} sx={{ minWidth: 0, alignSelf: "stretch" }}>
+          <RagSwatch rag={value.rag} />
           <Typography
+            variant="body1"
             component="span"
             sx={({ tokens: t }) => ({
-              fontSize: t.semantic.font.label.xs.fontSize.value,
-              lineHeight: t.semantic.font.label.xs.lineHeight.value,
-              letterSpacing: t.semantic.font.label.xs.letterSpacing.value,
-              fontFamily: t.semantic.font.label.xs.fontFamily.value,
-              fontWeight: t.semantic.font.label.xs.fontWeight.value,
               color: t.semantic.color.type.default.value,
-              whiteSpace: "nowrap",
+              fontSize: t.semantic.font.text.md.fontSize.value,
+              lineHeight: t.semantic.font.text.md.lineHeight.value,
+              fontWeight: 400,
             })}
           >
-            {value.numeric} {value.label}
+            {value.numeric} - {value.label}
           </Typography>
         </Stack>
       )}

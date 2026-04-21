@@ -63,6 +63,20 @@ export const users: MockUser[] = raw.map(([firstName, lastName], i) => ({
 
 const userById = new Map(users.map((u) => [u.id, u]));
 
+function rebuildUserIndex(): void {
+  userById.clear();
+  for (const u of users) {
+    userById.set(u.id, u);
+  }
+}
+
+/** Replace catalog from persistence (prototype). */
+export function replaceUsersFromPersistence(next: MockUser[]): void {
+  users.length = 0;
+  users.push(...next);
+  rebuildUserIndex();
+}
+
 export function getUserById(id: string): MockUser | undefined {
   return userById.get(id);
 }

@@ -1,7 +1,9 @@
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
+import { Button, Stack, Typography } from "@mui/material";
 import { NavLink } from "react-router";
 
 import PageLayout from "../components/PageLayout.js";
+import { resetPrototypeCatalog } from "../data/persistence/catalogStore.js";
 
 export default function SettingsPage() {
   return (
@@ -26,6 +28,23 @@ export default function SettingsPage() {
           </OverflowBreadcrumbs>
         }
       />
+      <Stack sx={{ mt: 3, maxWidth: 560 }} gap={2}>
+        <Typography variant="subtitle1">Prototype data</Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary" }}>
+          Clear locally persisted catalog (threats, assessments, CRA draft, scenario edits) and reload the app
+          with seed data from the codebase.
+        </Typography>
+        <Button
+          type="button"
+          variant="outlined"
+          onClick={() => {
+            resetPrototypeCatalog();
+            globalThis.location.reload();
+          }}
+        >
+          Reset prototype data
+        </Button>
+      </Stack>
     </PageLayout>
   );
 }

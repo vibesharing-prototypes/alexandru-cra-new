@@ -40,7 +40,7 @@ import {
   THREAT_ATTACK_VECTOR_OPTIONS,
   THREAT_SOURCE_OPTION_DETAILS,
 } from "../data/types.js";
-import { getThreatById } from "../data/threats.js";
+import { getThreatById, updateThreat } from "../data/threats.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
 import {
   rowsForThreatAssetIds,
@@ -186,10 +186,12 @@ export default function ThreatDetailPage() {
   }, [threatId]);
 
   const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("Threat category successfully added.");
 
   useEffect(() => {
     const st = location.state as { showCreatedToast?: boolean } | null;
     if (st?.showCreatedToast) {
+      setToastMessage("Threat category successfully added.");
       setToastOpen(true);
       navigate(location.pathname, { replace: true, state: null });
     }
@@ -216,6 +218,36 @@ export default function ThreatDetailPage() {
   const handleToastClose = useCallback(() => {
     setToastOpen(false);
   }, []);
+
+  const handleSaveThreat = useCallback(() => {
+    if (!threat) return;
+    updateThreat(threat.id, {
+      name: name.trim(),
+      displayId: displayId.trim(),
+      ownerIds,
+      sources,
+      threatActors,
+      attackVectors,
+      status,
+      domain,
+      description,
+      attachments,
+    });
+    setToastMessage("Threat saved.");
+    setToastOpen(true);
+  }, [
+    threat,
+    name,
+    displayId,
+    ownerIds,
+    sources,
+    threatActors,
+    attackVectors,
+    status,
+    domain,
+    description,
+    attachments,
+  ]);
 
   const attachmentFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -300,6 +332,7 @@ export default function ThreatDetailPage() {
           onStatusChange={setStatus}
           tab={tab}
           onTabChange={setTab}
+          onSave={handleSaveThreat}
         />
 
         {tab === 0 && (
@@ -642,7 +675,7 @@ export default function ThreatDetailPage() {
           aria-live="polite"
           variant="standard"
         >
-          Threat category successfully added.
+          {toastMessage}
         </Alert>
       </Snackbar>
     </Container>

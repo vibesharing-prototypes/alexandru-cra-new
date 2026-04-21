@@ -9,6 +9,7 @@ import type {
   ThreatDomain,
 } from "./types.js";
 import { assets } from "./assets.js";
+import { markCatalogDirty } from "./persistence/catalogStore.js";
 import { keywordSimilarity, mulberry32 } from "./relationshipHeuristics.js";
 import { vulnerabilities } from "./vulnerabilities.js";
 import { users } from "./users.js";
@@ -385,6 +386,30 @@ export function getThreatsSnapshotVersion(): number {
 
 const DEFAULT_NEW_THREAT_DOMAIN: ThreatDomain = "Identity & Access Management";
 
+export function replaceThreatsFromPersistence(next: MockThreat[]): void {
+  threats.length = 0;
+  threats.push(...next);
+  threatById.clear();
+  for (const t of threats) {
+    threatById.set(t.id, t);
+  }
+  applyCrossEntityLinks(threats);
+  notifyThreatListeners();
+}
+
+export function updateThreat(id: string, patch: Partial<MockThreat>): void {
+  const t = threatById.get(id);
+  if (!t) return;
+  const { relationships, ...rest } = patch;
+  Object.assign(t, rest);
+  if (relationships) {
+    Object.assign(t.relationships, relationships);
+  }
+  applyCrossEntityLinks(threats);
+  notifyThreatListeners();
+  markCatalogDirty();
+}
+
 export function addThreat(): MockThreat {
   const defaultOwnerId = users[0]?.id ?? "USR-001";
   const nextNum = nextThreatNumericId();
@@ -409,6 +434,7 @@ export function addThreat(): MockThreat {
   threatById.set(newThreat.id, newThreat);
   applyCrossEntityLinks(threats);
   notifyThreatListeners();
+  markCatalogDirty();
   return newThreat;
 }
 

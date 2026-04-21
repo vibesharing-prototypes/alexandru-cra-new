@@ -62,6 +62,19 @@ export const businessUnits: MockBusinessUnit[] = raw.map(
 
 const buById = new Map(businessUnits.map((bu) => [bu.id, bu]));
 
+function rebuildBuIndex(): void {
+  buById.clear();
+  for (const bu of businessUnits) {
+    buById.set(bu.id, bu);
+  }
+}
+
+export function replaceBusinessUnitsFromPersistence(next: MockBusinessUnit[]): void {
+  businessUnits.length = 0;
+  businessUnits.push(...next);
+  rebuildBuIndex();
+}
+
 export function getBusinessUnitById(
   id: string,
 ): MockBusinessUnit | undefined {

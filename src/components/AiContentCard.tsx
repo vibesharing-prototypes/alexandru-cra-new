@@ -21,21 +21,13 @@ const AI_TEXT_GRADIENT =
 export type AiContentCardProps = {
   /** Main body: any layout or components */
   children: ReactNode;
-  /** When false, omit divider and footer action row */
-  showFooter?: boolean;
-  /** Footer primary action label (only when `showFooter`) */
-  actionLabel?: string;
-  /** Invoked when the footer action is activated (only when `showFooter`) */
-  onAction?: () => void;
-  /** When true, footer button shows loading state (hides sparkle start icon) */
-  footerLoading?: boolean;
 };
 
 export type AiContentCardAssessmentPresetProps = {
   /** Gradient heading next to the AI sparkle icon */
   title?: string;
-  /** Supporting body copy */
-  description?: string;
+  /** Supporting body copy (plain string or rich layout). */
+  description?: ReactNode;
   /** Label above the radio group */
   assessmentTypeLabel?: string;
   /** When true, only the gradient title and description are shown (no radio group). */
@@ -47,6 +39,12 @@ export type AiContentCardAssessmentPresetProps = {
   /** Controlled selection; use with `onAssessmentChange` */
   assessmentValue?: string;
   onAssessmentChange?: (value: string) => void;
+  /** Primary AI action label (shown to the right of the description when `onAction` is set). */
+  actionLabel?: string;
+  /** Invoked when the primary AI action is activated */
+  onAction?: () => void;
+  /** When true, the action button shows a loading state (hides sparkle start icon). */
+  actionLoading?: boolean;
 };
 
 const DEFAULT_OPTIONS = [
@@ -55,23 +53,38 @@ const DEFAULT_OPTIONS = [
   { value: "full", label: "Full evaluation" },
 ] as const;
 
-/**
- * AI-themed card shell: Atlas `Card` with AI start accent, a padded main slot for
- * arbitrary content, and an optional divider + AI footer button.
- */
-export default function AiContentCard({
-  children,
-  showFooter = true,
-  actionLabel = "Generate with AI",
-  onAction,
-  footerLoading = false,
-}: AiContentCardProps) {
-  const {
-    presets,
-    presets: { CircularProgressPresets },
-  } = useTheme();
-  const { Divider } = presets.DividerPresets.components;
+const emphasis600Sx = { fontWeight: 600 as const };
 
+/** Body copy for the CRA scoring tab AI card (Impact × Likelihood lines + semibold formulas). */
+export function AiContentCardScoringDescription() {
+  return (
+    <Stack spacing={1} sx={{ width: "100%", color: "inherit" }}>
+      <Typography variant="body1" component="p" sx={{ m: 0 }}>
+        Assessments will be scored using{" "}
+        <Box component="span" sx={emphasis600Sx}>
+          Impact x Likelihood
+        </Box>
+        .
+      </Typography>
+      <Typography variant="body1" component="p" sx={{ m: 0 }}>
+        Impact is determined by Asset criticality and Likelihood is determined by{" "}
+        <Box component="span" sx={emphasis600Sx}>
+          Vulnerability severity x Threat severity
+        </Box>
+        .
+      </Typography>
+      <Typography variant="body1" component="p" sx={{ m: 0 }}>
+        Review and adjust values in the table below before approving the assessment.
+      </Typography>
+    </Stack>
+  );
+}
+
+/**
+ * AI-themed card shell: Atlas `Card` with AI start accent and a padded main slot for
+ * arbitrary content.
+ */
+export default function AiContentCard({ children }: AiContentCardProps) {
   return (
     <Card
       color="ai-start"
@@ -101,46 +114,11 @@ export default function AiContentCard({
         <Stack
           sx={{
             pt: 2,
-            pb: 0,
+            pb: ({ tokens: t }) => t.core.spacing["2"].value,
             gap: 3,
           }}
         >
           <Box sx={{ px: 3, width: "100%", boxSizing: "border-box" }}>{children}</Box>
-          {showFooter && (
-            <Stack sx={{ border: "none", background: "unset" }}>
-              <Divider color="default" />
-              <Stack
-                direction="row"
-                justifyContent="flex-end"
-                alignItems="center"
-                sx={{
-                  boxSizing: "content-box",
-                  px: 3,
-                  pt: 2,
-                  pb: ({ tokens: t }) => t.core.spacing["2"].value,
-                  gap: 1.5,
-                  minHeight: 40,
-                }}
-              >
-                <Button
-                  type="button"
-                  variant="outlined"
-                  color="ai"
-                  size="medium"
-                  startIcon={footerLoading ? undefined : <AiSparkleIcon aria-hidden />}
-                  loading={footerLoading}
-                  loadingPosition="start"
-                  loadingIndicator={
-                    <CircularProgress color="inherit" {...CircularProgressPresets.size.sm} />
-                  }
-                  onClick={onAction}
-                  aria-busy={footerLoading}
-                >
-                  {actionLabel}
-                </Button>
-              </Stack>
-            </Stack>
-          )}
         </Stack>
       </Box>
     </Card>
@@ -149,7 +127,7 @@ export default function AiContentCard({
 
 /**
  * Default assessment UI for {@link AiContentCard}: gradient title, description,
- * and assessment type radio group.
+ * optional inline AI action, and assessment type radio group.
  */
 export function AiContentCardAssessmentPreset({
   title = "Choose how AI helps",
@@ -160,7 +138,13 @@ export function AiContentCardAssessmentPreset({
   defaultAssessmentValue = "full",
   assessmentValue: controlledValue,
   onAssessmentChange,
+  actionLabel = "Generate with AI",
+  onAction,
+  actionLoading = false,
 }: AiContentCardAssessmentPresetProps) {
+  const {
+    presets: { CircularProgressPresets },
+  } = useTheme();
   const groupId = useId();
   const sectionTitleId = `${groupId}-heading`;
   const labelId = `${groupId}-label`;
@@ -168,6 +152,44 @@ export function AiContentCardAssessmentPreset({
   const isControlled = controlledValue !== undefined && onAssessmentChange !== undefined;
   const assessment = isControlled ? controlledValue : uncontrolled;
   const setAssessment = isControlled ? onAssessmentChange : setUncontrolled;
+
+  const descriptionBody = (
+    <Box
+      sx={({ tokens: t }) => ({
+        m: 0,
+        color: t.semantic.color.type.default.value,
+        ...(onAction ? { flex: 1, minWidth: 0 } : {}),
+      })}
+    >
+      {typeof description === "string" ? (
+        <Typography variant="body1" component="p" sx={{ m: 0 }}>
+          {description}
+        </Typography>
+      ) : (
+        description
+      )}
+    </Box>
+  );
+
+  const primaryActionButton = onAction ? (
+    <Button
+      type="button"
+      variant="outlined"
+      color="ai"
+      size="medium"
+      startIcon={actionLoading ? undefined : <AiSparkleIcon aria-hidden />}
+      loading={actionLoading}
+      loadingPosition="start"
+      loadingIndicator={
+        <CircularProgress color="inherit" {...CircularProgressPresets.size.sm} />
+      }
+      onClick={onAction}
+      aria-busy={actionLoading}
+      sx={{ flexShrink: 0, alignSelf: "flex-start" }}
+    >
+      {actionLabel}
+    </Button>
+  ) : null;
 
   return (
     <Stack
@@ -212,18 +234,19 @@ export function AiContentCardAssessmentPreset({
           </Typography>
         </Stack>
 
-        <Typography
-          variant="body1"
-          sx={({ tokens: t }) => ({
-            m: 0,
-            fontSize: t.semantic.font.text.md.fontSize.value,
-            lineHeight: t.semantic.font.text.md.lineHeight.value,
-            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-            color: t.semantic.color.type.default.value,
-          })}
-        >
-          {description}
-        </Typography>
+        {onAction ? (
+          <Stack
+            direction="row"
+            alignItems="flex-start"
+            gap={2}
+            sx={{ width: "100%", boxSizing: "border-box" }}
+          >
+            {descriptionBody}
+            {primaryActionButton}
+          </Stack>
+        ) : (
+          descriptionBody
+        )}
       </Stack>
 
       {omitAssessmentType ? null : (
