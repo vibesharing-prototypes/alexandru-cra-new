@@ -10,10 +10,8 @@ import {
   CardContent,
   CardHeader,
   Container,
-  InputAdornment,
   Link,
   Stack,
-  TextField,
   Typography,
   useTheme,
 } from "@mui/material";
@@ -21,13 +19,8 @@ import {
   DataGridPro,
   type GridColDef,
   type GridRenderCellParams,
-  ColumnsPanelTrigger,
-  FilterPanelTrigger,
-  QuickFilter,
-  QuickFilterControl,
-  Toolbar,
 } from "@mui/x-data-grid-pro";
-import { useMemo, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { NavLink, useNavigate } from "react-router";
 
 import {
@@ -57,9 +50,17 @@ import {
 } from "chart.js";
 
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
-import SearchIcon from "@diligentcorp/atlas-react-bundle/icons/Search";
-import FilterIcon from "@diligentcorp/atlas-react-bundle/icons/Filter";
-import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
+
+import FilterThreats from "../components/FilterThreats.js";
+import FilterSideSheet from "../components/FilterSideSheet.js";
+import NewToolbar from "../components/NewToolbar.js";
+import {
+  applyThreatTableFilters,
+  countThreatFilterCriteria,
+  EMPTY_THREAT_TABLE_FILTERS,
+  hasAnyThreatFilterSelected,
+  type ThreatTableFilters,
+} from "../utils/threatTableFilters.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -127,6 +128,8 @@ interface ThreatRow {
   aggregatedAssets: number;
   assetsByCriticality: AssetCriticalityCounts;
   vulnerabilities: number;
+  assetIds: string[];
+  vulnerabilityIds: string[];
   threatDomain: string;
   created: string;
   createdBy: string;
@@ -152,6 +155,8 @@ function buildThreatRows(): ThreatRow[] {
       aggregatedAssets: t.assetIds.length,
       assetsByCriticality,
       vulnerabilities: t.vulnerabilityIds.length,
+      assetIds: t.assetIds,
+      vulnerabilityIds: t.vulnerabilityIds,
       threatDomain: t.domain,
       created: "23 Jan 2025",
       createdBy: joinUserFullNames(t.ownerIds),
@@ -525,52 +530,17 @@ function AvatarCell({ name, initials }: { name: string; initials: string }) {
   );
 }
 
-function CustomToolbar() {
-  return (
-    <Toolbar>
-      <QuickFilter expanded>
-        <QuickFilterControl
-          render={({ ref, value, ...other }) => (
-            <TextField
-              {...other}
-              inputRef={ref}
-              value={value ?? ""}
-              placeholder="Search by"
-              size="small"
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  ...other.slotProps?.input,
-                },
-                ...other.slotProps,
-              }}
-            />
-          )}
-        />
-      </QuickFilter>
-      <FilterPanelTrigger
-        render={(props) => (
-          <Button {...props} startIcon={<FilterIcon />} aria-label="Show filters">
-            Filter
-          </Button>
-        )}
-      />
-      <ColumnsPanelTrigger
-        render={(props) => (
-          <Button {...props} startIcon={<ColumnsIcon />} aria-label="Select columns">
-            Columns
-          </Button>
-        )}
-      />
-    </Toolbar>
-  );
-}
-
-function ThreatsDataGrid({ rows }: { rows: ThreatRow[] }) {
+function ThreatsDataGrid({
+  rows,
+  onOpenFilters,
+  filterCriteriaCount = 0,
+  onClearFilters,
+}: {
+  rows: ThreatRow[];
+  onOpenFilters: () => void;
+  filterCriteriaCount?: number;
+  onClearFilters?: () => void;
+}) {
   const columns: GridColDef<ThreatRow>[] = [
     {
       field: "name",
@@ -684,7 +654,13 @@ function ThreatsDataGrid({ rows }: { rows: ThreatRow[] }) {
         disableRowSelectionOnClick
         showToolbar
         slots={{
-          toolbar: CustomToolbar,
+          toolbar: () => (
+            <NewToolbar
+              onOpenFilters={onOpenFilters}
+              filterCriteriaCount={filterCriteriaCount}
+              onClearFilters={onClearFilters}
+            />
+          ),
         }}
         slotProps={{
           main: {
@@ -705,12 +681,59 @@ function ThreatsDataGrid({ rows }: { rows: ThreatRow[] }) {
 
 export default function ThreatsPage() {
   const navigate = useNavigate();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<ThreatTableFilters>(
+    EMPTY_THREAT_TABLE_FILTERS,
+  );
+  const [draftFilters, setDraftFilters] = useState<ThreatTableFilters>(
+    EMPTY_THREAT_TABLE_FILTERS,
+  );
+
   const catalogVersion = useSyncExternalStore(
     subscribeThreats,
     getThreatsSnapshotVersion,
     () => 0,
   );
   const threatRows = useMemo(() => buildThreatRows(), [catalogVersion]);
+
+  const filteredThreatRows = useMemo(
+    () => applyThreatTableFilters(threatRows, appliedFilters),
+    [threatRows, appliedFilters],
+  );
+
+  const hasCommittedFilters = useMemo(
+    () => hasAnyThreatFilterSelected(appliedFilters),
+    [appliedFilters],
+  );
+  const hasDraftFilterSelection = useMemo(
+    () => hasAnyThreatFilterSelected(draftFilters),
+    [draftFilters],
+  );
+  const hasClearableFilterState = hasCommittedFilters || hasDraftFilterSelection;
+
+  const handleOpenFilters = useCallback(() => {
+    setDraftFilters(appliedFilters);
+    setIsFilterOpen(true);
+  }, [appliedFilters]);
+
+  const handleCloseSheet = useCallback(() => {
+    setDraftFilters(appliedFilters);
+    setIsFilterOpen(false);
+  }, [appliedFilters]);
+
+  const handleDiscard = useCallback(() => {
+    setDraftFilters(appliedFilters);
+  }, [appliedFilters]);
+
+  const handleClearFilters = useCallback(() => {
+    setDraftFilters(EMPTY_THREAT_TABLE_FILTERS);
+    setAppliedFilters(EMPTY_THREAT_TABLE_FILTERS);
+  }, []);
+
+  const handleApplyFilters = useCallback(() => {
+    setAppliedFilters(draftFilters);
+    setIsFilterOpen(false);
+  }, [draftFilters]);
 
   const handleAddThreats = () => {
     const t = addThreat();
@@ -769,8 +792,31 @@ export default function ThreatsPage() {
           </Stack>
         </Box>
 
-        <ThreatsDataGrid rows={threatRows} />
+        <ThreatsDataGrid
+          rows={filteredThreatRows}
+          onOpenFilters={handleOpenFilters}
+          filterCriteriaCount={countThreatFilterCriteria(appliedFilters)}
+          onClearFilters={handleClearFilters}
+        />
       </Stack>
+
+      <FilterSideSheet
+        open={isFilterOpen}
+        onClose={handleCloseSheet}
+        onApply={handleApplyFilters}
+        onClear={handleClearFilters}
+        onDiscard={handleDiscard}
+        hasClearableFilterState={hasClearableFilterState}
+        hasDraftFilterSelection={hasDraftFilterSelection}
+        titleId="threats-filters-title"
+        contentAriaLabel="Threat filters"
+      >
+        <FilterThreats
+          value={draftFilters}
+          onChange={setDraftFilters}
+          rows={threatRows}
+        />
+      </FilterSideSheet>
     </Container>
   );
 }

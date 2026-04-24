@@ -1,7 +1,15 @@
 import type { RiskHeatmapLevel } from "../data/ragDataVisualization.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { getUserById } from "../data/users.js";
-import type { CyberRiskStatus, FivePointScaleLabel } from "../data/types.js";
+import type {
+  CyberRiskStatus,
+  FivePointScaleLabel,
+  FivePointScaleValue,
+} from "../data/types.js";
+import {
+  heatmapRowIndexToLikelihoodLabel,
+  type CyberRiskHeatmapScoreBasis,
+} from "./cyberRiskMatrixAggregates.js";
 
 const SCORE_LABEL_TO_HEATMAP: Record<FivePointScaleLabel, RiskHeatmapLevel> = {
   "Very low": "veryLow",
@@ -16,6 +24,7 @@ export type CyberRiskRow = {
   name: string;
   riskId: string;
   ownerId: string;
+  businessUnitId: string;
   cyberRiskScore: string;
   riskLevel: RiskHeatmapLevel | null;
   ownerName: string;
@@ -23,8 +32,26 @@ export type CyberRiskRow = {
   assets: number;
   workflowStatus: CyberRiskStatus;
   cyberRiskScoreLabel: FivePointScaleLabel;
+  /** Inherent 1–5 impact (matrix column). */
+  impact: FivePointScaleValue;
+  likelihoodLabel: FivePointScaleLabel;
+  residualLikelihoodLabel: FivePointScaleLabel;
+  residualCyberRiskScoreLabel: FivePointScaleLabel;
   assetIds: string[];
 };
+
+export type CyberRiskMatrixTableFilter =
+  | {
+      kind: "cell";
+      basis: CyberRiskHeatmapScoreBasis;
+      rowIdx: number;
+      colIdx: number;
+    }
+  | {
+      kind: "legend";
+      basis: CyberRiskHeatmapScoreBasis;
+      level: RiskHeatmapLevel;
+    };
 
 /** Workflow values shown in filter UI (all statuses used in the app). */
 export const CYBER_RISK_WORKFLOW_FILTER_OPTIONS: readonly CyberRiskStatus[] = [
@@ -53,6 +80,10 @@ export type CyberRiskTableFilters = {
   scoreLabels: FivePointScaleLabel[];
   /** Empty = no restriction; otherwise row must include at least one of these assets. */
   assetIds: string[];
+  /** From heatmap cell/legend; `null` = not filtering by matrix slice. */
+  matrixFilter: CyberRiskMatrixTableFilter | null;
+  /** `null` = all business units. */
+  businessUnitId: string | null;
 };
 
 export const EMPTY_CYBER_RISK_TABLE_FILTERS: CyberRiskTableFilters = {
@@ -60,6 +91,8 @@ export const EMPTY_CYBER_RISK_TABLE_FILTERS: CyberRiskTableFilters = {
   ownerIds: [],
   scoreLabels: [],
   assetIds: [],
+  matrixFilter: null,
+  businessUnitId: null,
 };
 
 export function buildCyberRiskRows(): CyberRiskRow[] {
@@ -70,6 +103,7 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
       name: r.name,
       riskId: r.id,
       ownerId: r.ownerId,
+      businessUnitId: r.businessUnitId,
       cyberRiskScore: `${r.cyberRiskScore} - ${r.cyberRiskScoreLabel}`,
       riskLevel: SCORE_LABEL_TO_HEATMAP[r.cyberRiskScoreLabel],
       ownerName: owner?.fullName ?? "Unassigned",
@@ -77,9 +111,33 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
       assets: r.assetIds.length,
       workflowStatus: r.status,
       cyberRiskScoreLabel: r.cyberRiskScoreLabel,
+      impact: r.impact,
+      likelihoodLabel: r.likelihoodLabel,
+      residualLikelihoodLabel: r.residualLikelihoodLabel,
+      residualCyberRiskScoreLabel: r.residualCyberRiskScoreLabel,
       assetIds: [...r.assetIds],
     };
   });
+}
+
+function rowMatchesMatrixFilter(
+  row: CyberRiskRow,
+  matrix: CyberRiskMatrixTableFilter,
+): boolean {
+  if (matrix.kind === "cell") {
+    const { basis, rowIdx, colIdx } = matrix;
+    if (row.impact !== colIdx + 1) return false;
+    const expectedL = heatmapRowIndexToLikelihoodLabel(rowIdx);
+    if (expectedL == null) return false;
+    const lik =
+      basis === "inherent" ? row.likelihoodLabel : row.residualLikelihoodLabel;
+    return lik === expectedL;
+  }
+  const level =
+    matrix.basis === "inherent"
+      ? SCORE_LABEL_TO_HEATMAP[row.cyberRiskScoreLabel]
+      : SCORE_LABEL_TO_HEATMAP[row.residualCyberRiskScoreLabel];
+  return level === matrix.level;
 }
 
 function matchesCyberRiskTableFilters(
@@ -109,15 +167,37 @@ export function applyCyberRiskFilters(
   rows: CyberRiskRow[],
   filters: CyberRiskTableFilters,
 ): CyberRiskRow[] {
-  return rows.filter((row) =>
-    matchesCyberRiskTableFilters(
-      row.workflowStatus,
-      row.ownerId,
-      row.cyberRiskScoreLabel,
-      row.assetIds,
-      filters,
-    ),
-  );
+  return rows.filter((row) => {
+    if (
+      !matchesCyberRiskTableFilters(
+        row.workflowStatus,
+        row.ownerId,
+        row.cyberRiskScoreLabel,
+        row.assetIds,
+        filters,
+      )
+    ) {
+      return false;
+    }
+    if (filters.businessUnitId != null && row.businessUnitId !== filters.businessUnitId) {
+      return false;
+    }
+    if (filters.matrixFilter != null && !rowMatchesMatrixFilter(row, filters.matrixFilter)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+/** Strips heatmap and BU; catalog scope only uses the four main filter dimensions. */
+export function catalogFilterSliceFrom(
+  filters: CyberRiskTableFilters,
+): CyberRiskTableFilters {
+  return {
+    ...filters,
+    matrixFilter: null,
+    businessUnitId: null,
+  };
 }
 
 /** Same semantics as `applyCyberRiskFilters` for catalog/mock rows using `status` as workflow. */
@@ -129,13 +209,14 @@ export function applyCyberRiskTableFiltersToCatalogRows<
     assetIds: readonly string[];
   },
 >(rows: T[], filters: CyberRiskTableFilters): T[] {
+  const basic = catalogFilterSliceFrom(filters);
   return rows.filter((row) =>
     matchesCyberRiskTableFilters(
       row.status,
       row.ownerId,
       row.cyberRiskScoreLabel,
       row.assetIds,
-      filters,
+      basic,
     ),
   );
 }
@@ -147,5 +228,7 @@ export function countCyberRiskFilterCriteria(filters: CyberRiskTableFilters): nu
   if (filters.ownerIds.length > 0) n++;
   if (filters.scoreLabels.length > 0) n++;
   if (filters.assetIds.length > 0) n++;
+  if (filters.matrixFilter != null) n++;
+  if (filters.businessUnitId != null) n++;
   return n;
 }

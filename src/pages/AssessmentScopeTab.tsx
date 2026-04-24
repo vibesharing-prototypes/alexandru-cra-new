@@ -70,6 +70,7 @@ import {
 import FilterAssets from "../components/FilterAssets.js";
 import FilterRisks from "../components/FilterRisks.js";
 import FilterSideSheet from "../components/FilterSideSheet.js";
+import FilterThreats from "../components/FilterThreats.js";
 import { DEFAULT_SEARCH_FIELD_SX } from "../components/NewToolbar.js";
 import { ScopeCard } from "../components/ScopeCard.js";
 import ScopedRiskSS from "../components/ScopedRiskSS.js";
@@ -89,6 +90,17 @@ import {
   EMPTY_SCOPE_ASSET_TABLE_FILTERS,
   hasAnyScopeAssetFilterSelected,
 } from "../utils/scopeAssetTableFilters.js";
+import {
+  countThreatFilterCriteria,
+  EMPTY_THREAT_TABLE_FILTERS,
+  type ThreatTableFilters,
+} from "../utils/threatTableFilters.js";
+import {
+  filterScopeThreatRowsByThreatTableFilters,
+  scopeThreatRowsToThreatFilterRows,
+  unionScopeThreatLinkedAssetIds,
+  unionScopeThreatLinkedVulnerabilityIds,
+} from "../utils/scopeThreatTableFilters.js";
 
 export type ScopeSubView =
   | "overview"
@@ -1421,14 +1433,68 @@ function ScopeScopedThreatsGrid({
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+  const [isScopeThreatsFilterOpen, setIsScopeThreatsFilterOpen] = useState(false);
+  const [appliedScopeThreatFilters, setAppliedScopeThreatFilters] =
+    useState<ThreatTableFilters>(EMPTY_THREAT_TABLE_FILTERS);
+  const [draftScopeThreatFilters, setDraftScopeThreatFilters] = useState<ThreatTableFilters>(
+    EMPTY_THREAT_TABLE_FILTERS,
+  );
+
+  const hasCommittedScopeThreatFilters = useMemo(
+    () => countThreatFilterCriteria(appliedScopeThreatFilters) > 0,
+    [appliedScopeThreatFilters],
+  );
+  const hasDraftScopeThreatFilterSelection = useMemo(
+    () => countThreatFilterCriteria(draftScopeThreatFilters) > 0,
+    [draftScopeThreatFilters],
+  );
+  const hasClearableScopeThreatFilterState =
+    hasCommittedScopeThreatFilters || hasDraftScopeThreatFilterSelection;
+
+  const appliedThreatFilterCriteriaCount = useMemo(
+    () => countThreatFilterCriteria(appliedScopeThreatFilters),
+    [appliedScopeThreatFilters],
+  );
+
+  const handleOpenScopeThreatFilters = useCallback(() => {
+    setDraftScopeThreatFilters(appliedScopeThreatFilters);
+    setIsScopeThreatsFilterOpen(true);
+  }, [appliedScopeThreatFilters]);
+
+  const handleCloseScopeThreatFilterSheet = useCallback(() => {
+    setDraftScopeThreatFilters(appliedScopeThreatFilters);
+    setIsScopeThreatsFilterOpen(false);
+  }, [appliedScopeThreatFilters]);
+
+  const handleDiscardScopeThreatFilters = useCallback(() => {
+    setDraftScopeThreatFilters(appliedScopeThreatFilters);
+  }, [appliedScopeThreatFilters]);
+
+  const handleClearScopeThreatFilters = useCallback(() => {
+    setDraftScopeThreatFilters(EMPTY_THREAT_TABLE_FILTERS);
+    setAppliedScopeThreatFilters(EMPTY_THREAT_TABLE_FILTERS);
+  }, []);
+
+  const handleApplyScopeThreatFilters = useCallback(() => {
+    setAppliedScopeThreatFilters(draftScopeThreatFilters);
+    setIsScopeThreatsFilterOpen(false);
+  }, [draftScopeThreatFilters]);
+
+  const threatFilterRows = useMemo(() => scopeThreatRowsToThreatFilterRows(rows), [rows]);
+  const boundedThreatAssetIds = useMemo(() => unionScopeThreatLinkedAssetIds(rows), [rows]);
+  const boundedThreatVulnerabilityIds = useMemo(
+    () => unionScopeThreatLinkedVulnerabilityIds(rows),
+    [rows],
+  );
 
   const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
 
   const filteredRows = useMemo(() => {
-    if (view === "included") return rows.filter((r) => r.included);
-    if (view === "excluded") return rows.filter((r) => !r.included);
-    return rows;
-  }, [rows, view]);
+    let next = rows;
+    if (view === "included") next = next.filter((r) => r.included);
+    else if (view === "excluded") next = next.filter((r) => !r.included);
+    return filterScopeThreatRowsByThreatTableFilters(next, appliedScopeThreatFilters);
+  }, [rows, view, appliedScopeThreatFilters]);
 
   const setIncluded = useCallback(
     (threatId: string, included: boolean) => {
@@ -1587,73 +1653,97 @@ function ScopeScopedThreatsGrid({
   );
 
   return (
-    <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
-      {rows.length === 0 ? (
-        <Typography
-          variant="body1"
-          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
-        >
-          {hasIncludedAssets
-            ? "No threats are linked to the assets in scope."
-            : "Include assets in this assessment to see related threats."}
-        </Typography>
-      ) : null}
-      <Box sx={{ width: "100%", minHeight: 400 }}>
-        <DataGridPro
-          rows={filteredRows}
-          columns={columns}
-          getRowId={(r) => r.id}
-          pagination
-          autoHeight
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50]}
-          showToolbar
-          slots={{
-            toolbar: () => (
-              <ScopeDataGridInclusionToolbar
-                view={view}
-                onViewChange={handleViewChange}
-                totalCount={rows.length}
-                includedCount={includedCount}
-                toolbarAriaLabel="Scoped threats toolbar"
-                inclusionFilterAriaLabel="Filter threats by inclusion"
-              />
-            ),
-          }}
-          disableRowSelectionOnClick
-          slotProps={{
-            main: {
-              "aria-label":
-                "Threats linked to assets in assessment scope. Use the first column to include or exclude each threat when linked cyber risks are in scope.",
-            },
-            basePagination: { material: { labelRowsPerPage: "Rows" } },
-          }}
-          initialState={{
-            sorting: { sortModel: [{ field: "name", sort: "asc" }] },
-          }}
-          sx={({ tokens: t }) => ({
-            border: "none",
-            borderRadius: t.semantic.radius.md.value,
-            "& .MuiDataGrid-scrollShadow": { display: "none" },
-            "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: t.semantic.color.surface.variant.value,
-            },
-            "& .MuiDataGrid-columnHeaderTitle": {
-              fontWeight: 600,
-              fontSize: 12,
-              letterSpacing: "0.3px",
-            },
-            "& .MuiDataGrid-withBorderColor": {
-              borderColor: t.semantic.color.outline.default.value,
-            },
-          })}
-          showColumnVerticalBorder
-          showCellVerticalBorder
+    <>
+      <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
+        {rows.length === 0 ? (
+          <Typography
+            variant="body1"
+            sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
+          >
+            {hasIncludedAssets
+              ? "No threats are linked to the assets in scope."
+              : "Include assets in this assessment to see related threats."}
+          </Typography>
+        ) : null}
+        <Box sx={{ width: "100%", minHeight: 400 }}>
+          <DataGridPro
+            rows={filteredRows}
+            columns={columns}
+            getRowId={(r) => r.id}
+            pagination
+            autoHeight
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            pageSizeOptions={[10, 25, 50]}
+            showToolbar
+            slots={{
+              toolbar: () => (
+                <ScopeToolbar
+                  view={view}
+                  onViewChange={handleViewChange}
+                  totalCount={rows.length}
+                  includedCount={includedCount}
+                  onOpenFilters={handleOpenScopeThreatFilters}
+                  filterCriteriaCount={appliedThreatFilterCriteriaCount}
+                  onClearFilters={handleClearScopeThreatFilters}
+                  toolbarAriaLabel="Scoped threats toolbar"
+                  inclusionFilterAriaLabel="Filter threats by inclusion"
+                />
+              ),
+            }}
+            disableRowSelectionOnClick
+            slotProps={{
+              main: {
+                "aria-label":
+                  "Threats linked to assets in assessment scope. Use the first column to include or exclude each threat when linked cyber risks are in scope.",
+              },
+              basePagination: { material: { labelRowsPerPage: "Rows" } },
+            }}
+            initialState={{
+              sorting: { sortModel: [{ field: "name", sort: "asc" }] },
+            }}
+            sx={({ tokens: t }) => ({
+              border: "none",
+              borderRadius: t.semantic.radius.md.value,
+              "& .MuiDataGrid-scrollShadow": { display: "none" },
+              "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
+              "& .MuiDataGrid-columnHeaders": {
+                backgroundColor: t.semantic.color.surface.variant.value,
+              },
+              "& .MuiDataGrid-columnHeaderTitle": {
+                fontWeight: 600,
+                fontSize: 12,
+                letterSpacing: "0.3px",
+              },
+              "& .MuiDataGrid-withBorderColor": {
+                borderColor: t.semantic.color.outline.default.value,
+              },
+            })}
+            showColumnVerticalBorder
+            showCellVerticalBorder
+          />
+        </Box>
+      </Stack>
+      <FilterSideSheet
+        open={isScopeThreatsFilterOpen}
+        onClose={handleCloseScopeThreatFilterSheet}
+        onApply={handleApplyScopeThreatFilters}
+        onClear={handleClearScopeThreatFilters}
+        onDiscard={handleDiscardScopeThreatFilters}
+        hasClearableFilterState={hasClearableScopeThreatFilterState}
+        hasDraftFilterSelection={hasDraftScopeThreatFilterSelection}
+        titleId="scope-threats-filters-title"
+        contentAriaLabel="Threat filters for assessment scope"
+      >
+        <FilterThreats
+          value={draftScopeThreatFilters}
+          onChange={setDraftScopeThreatFilters}
+          rows={threatFilterRows}
+          boundedAssetIds={boundedThreatAssetIds}
+          boundedVulnerabilityIds={boundedThreatVulnerabilityIds}
         />
-      </Box>
-    </Stack>
+      </FilterSideSheet>
+    </>
   );
 }
 

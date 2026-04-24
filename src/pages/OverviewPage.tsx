@@ -28,8 +28,7 @@ import ArrowDownIcon from "@diligentcorp/atlas-react-bundle/icons/ArrowDown";
 import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
-import { cyberRisks } from "../data/cyberRisks.js";
-import RisksMatrix from "../components/RisksMatrix.js";
+import OverviewHero from "../components/OverviewHero.js";
 
 // ---------------------------------------------------------------------------
 // KPI data
@@ -429,8 +428,8 @@ export default function OverviewPage() {
           ))}
         </Stack>
 
-        {/* Cyber risk heat map: Likelihood vs Impact (Inherent / Residual toggle) */}
-        <RisksMatrix risks={cyberRisks} sx={{ width: "100%", maxWidth: "100%" }} />
+        {/* Overview: assets by score donut + likelihood/impact heat map (Inherent / Residual toggle) */}
+        <OverviewHero />
 
         {/* Most exposed assets */}
         <MostExposedAssetsTable />

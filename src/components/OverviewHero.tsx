@@ -26,13 +26,12 @@ function businessUnitOptionsFromRisks(): BusinessUnitOption[] {
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 }
 
-type RisksHeroSectionProps = {
-  /** When set, matrix/legend drill-in updates the cyber risks list (URL) without full navigation. */
+type OverviewHeroProps = {
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
 };
 
-/** Cyber risks overview: assets by cyber risk score donut, likelihood/impact matrix, business unit filter. */
-export default function RisksHeroSection({ onMatrixSelection }: RisksHeroSectionProps) {
+/** Program overview: assets by cyber risk score donut, likelihood/impact matrix, business unit filter. */
+export default function OverviewHero({ onMatrixSelection }: OverviewHeroProps) {
   const buOptions = useMemo(() => businessUnitOptionsFromRisks(), []);
   const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<BusinessUnitOption | null>(
     null,
@@ -128,11 +127,15 @@ export default function RisksHeroSection({ onMatrixSelection }: RisksHeroSection
         }
       />
       <CardContent>
-        <Stack direction="row" gap={3} sx={{ alignItems: "stretch", width: "100%" }}>
+        <Stack
+          direction={{ xs: "column", lg: "row" }}
+          gap={3}
+          sx={{ alignItems: { lg: "stretch" }, width: "100%" }}
+        >
           <AssetsByCyberRiskScoreDonut
             businessUnitId={buId}
             sx={{
-              flex: "1 1 50%",
+              flex: { lg: "1 1 50%" },
               minWidth: 0,
               width: "100%",
               maxWidth: "100%",
@@ -141,7 +144,7 @@ export default function RisksHeroSection({ onMatrixSelection }: RisksHeroSection
           <RisksMatrix
             risks={filteredRisks}
             sx={{
-              flex: "1 1 50%",
+              flex: { lg: "1 1 50%" },
               minWidth: 0,
               width: "100%",
               maxWidth: "100%",

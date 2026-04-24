@@ -24,8 +24,7 @@ export const DEFAULT_SEARCH_FIELD_SX: SxProps<Theme> = {
 
 type NewToolbarBaseProps = {
   /**
-   * MUI `TextField` `label`. Pass `null` to omit the floating label (e.g. Threats / Mitigation plans style).
-   * @default "Search by"
+   * MUI `TextField` `label`. Omitted or `null`: no floating label (placeholder only).
    */
   searchLabel?: string | null;
   /**
@@ -37,6 +36,16 @@ type NewToolbarBaseProps = {
    * [`ThreatDetailAssessmentsTab`](src/components/ThreatDetailAssessmentsTab.tsx) (responsive min width, max 400px).
    */
   searchFieldSx?: SxProps<Theme>;
+  /**
+   * Number of filter **criteria** (categories with any selection), same idea as [`ScopeToolbar`](./ScopeToolbar.tsx).
+   * When &gt; 0, the **Filter** label shows `Filter (n)` and the icon uses the **filled** variant (when Filter is shown).
+   */
+  filterCriteriaCount?: number;
+  /**
+   * Clears applied page filters (e.g. same handler as **Clear filters** in [`FilterSideSheet`](./FilterSideSheet.tsx)).
+   * When set and `filterCriteriaCount` &gt; 0, **Clear filters** is shown after **Columns**.
+   */
+  onClearFilters?: () => void;
 };
 
 /**
@@ -46,9 +55,8 @@ type NewToolbarBaseProps = {
  * - **`showFilterButton` omitted or `true`** — **Filter** is shown; **`onOpenFilters` is required** (parent
  *   should open [`FilterSideSheet`](src/components/FilterSideSheet.tsx) or equivalent).
  *
- * **Search field styling:** pass `searchLabel: null` to match [ThreatsPage](src/pages/ThreatsPage.tsx) /
- * [MitigationPlansPage](src/pages/MitigationPlansPage.tsx) (placeholder-only, no floating label). Default
- * label + placeholder is `"Search by"` (e.g. [ThreatDetailAssessmentsTab](src/components/ThreatDetailAssessmentsTab.tsx)).
+ * **Search field:** no floating label by default; placeholder remains `DEFAULT_SEARCH_PLACEHOLDER`.
+ * Pass `searchLabel` as a string when a label is required.
  */
 export type NewToolbarProps = NewToolbarBaseProps &
   (
@@ -59,7 +67,9 @@ export type NewToolbarProps = NewToolbarBaseProps &
 /**
  * DataGrid Pro **toolbar** slot: quick text search (MUI `QuickFilter`), optional **Filter** button that
  * should open the page’s [`FilterSideSheet`](src/components/FilterSideSheet.tsx) via `onOpenFilters`, and
- * MUI **Columns** panel (`ColumnsPanelTrigger`). Does not use MUI’s `FilterPanelTrigger`.
+ * MUI **Columns** panel (`ColumnsPanelTrigger`). Optional **Clear filters** when `filterCriteriaCount` &gt; 0
+ * and `onClearFilters` is set (same pattern as [`ScopeToolbar`](./ScopeToolbar.tsx)). Does not use MUI’s
+ * `FilterPanelTrigger`.
  *
  * Use as `slots={{ toolbar: NewToolbar }}` and pass the same props the toolbar needs (see `NewToolbarProps`).
  */
@@ -67,27 +77,54 @@ export default function NewToolbar({
   searchLabel,
   searchPlaceholder = DEFAULT_SEARCH_PLACEHOLDER,
   searchFieldSx = DEFAULT_SEARCH_FIELD_SX,
+  filterCriteriaCount = 0,
+  onClearFilters,
   showFilterButton: showFilterButtonProp,
   onOpenFilters,
 }: NewToolbarProps) {
   const showFilterButton = showFilterButtonProp !== false;
 
   const textFieldLabel: string | undefined =
-    searchLabel === null ? undefined : (searchLabel ?? DEFAULT_SEARCH_LABEL);
+    searchLabel != null && searchLabel !== "" ? searchLabel : undefined;
+
+  const hasFilterCriteria = filterCriteriaCount > 0;
+  const filterButtonLabel = hasFilterCriteria ? `Filter (${filterCriteriaCount})` : "Filter";
+  const filterButtonAriaLabel = hasFilterCriteria
+    ? `Show filters, ${filterCriteriaCount} filter criteria applied`
+    : "Show filters";
+
+  const showClearFilters = hasFilterCriteria && Boolean(onClearFilters);
 
   const filterButton = showFilterButton ? (
     <Button
       type="button"
-      startIcon={<FilterIcon />}
-      aria-label="Show filters"
+      startIcon={
+        <FilterIcon variant={hasFilterCriteria ? "filled" : "outlined"} size="lg" aria-hidden />
+      }
+      aria-label={filterButtonAriaLabel}
       onClick={() => onOpenFilters?.()}
+      sx={{
+        display: "inline-flex",
+        flexDirection: "row",
+        alignItems: "center",
+        px: 0.5,
+        columnGap: 0.5,
+      }}
     >
-      Filter
+      {filterButtonLabel}
     </Button>
   ) : null;
 
   return (
-    <Toolbar>
+    <Toolbar
+      style={{
+        minHeight: 40,
+        height: 40,
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
       <QuickFilter expanded>
         <QuickFilterControl
           render={({ ref, value, ...other }) => (
@@ -122,6 +159,17 @@ export default function NewToolbar({
           </Button>
         )}
       />
+      {showClearFilters ? (
+        <Button
+          type="button"
+          variant="text"
+          onClick={onClearFilters}
+          aria-label="Clear filters"
+          sx={{ ml: 0.5, whiteSpace: "nowrap" }}
+        >
+          Clear filters
+        </Button>
+      ) : null}
     </Toolbar>
   );
 }

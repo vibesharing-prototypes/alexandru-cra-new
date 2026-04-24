@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type MouseEvent } from "react";
 import {
   Box,
   Card,
@@ -12,12 +12,15 @@ import {
   type SxProps,
   type Theme,
 } from "@mui/material";
+import { useNavigate } from "react-router";
 
 import type { MockCyberRisk } from "../data/types.js";
+import { buildMatrixQueryStringForRisksPage } from "../utils/cyberRiskMatrixTableQuery.js";
 import {
   buildCyberRiskHeatmapAggregates,
   type CyberRiskHeatmapScoreBasis,
 } from "../utils/cyberRiskMatrixAggregates.js";
+import type { CyberRiskMatrixTableFilter } from "../utils/cyberRiskTableRows.js";
 import {
   ragDataVizColor,
   type RiskHeatmapLevel,
@@ -26,11 +29,26 @@ import {
 
 export type { RiskHeatmapLegendItem } from "../utils/cyberRiskMatrixAggregates.js";
 
+const CYBER_RISKS_PATH = "/cyber-risk/cyber-risks";
+
+export type MatrixSelectionPayload = {
+  kind: "cell" | "legend";
+  basis: CyberRiskHeatmapScoreBasis;
+  rowIdx?: number;
+  colIdx?: number;
+  level?: RiskHeatmapLevel;
+  businessUnitId?: string | null;
+};
+
 export interface RisksMatrixProps {
   risks: readonly MockCyberRisk[];
   yAxisLabel?: string;
   xAxisLabel?: string;
   sx?: SxProps<Theme>;
+  /** In-page list selection (e.g. Cyber risks list); otherwise `navigate` to the risks route with query. */
+  onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
+  /** When a BU is selected in the parent (hero), pass through so the table can match the heatmap count. */
+  businessUnitId?: string | null;
 }
 
 /** Position-based risk level for a 5x5 matrix: green (bottom-left) to red (top-right). */
@@ -48,7 +66,10 @@ export default function RisksMatrix({
   yAxisLabel = "Likelihood",
   xAxisLabel = "Impact",
   sx,
+  onMatrixSelection,
+  businessUnitId: businessUnitIdProp = null,
 }: RisksMatrixProps) {
+  const navigate = useNavigate();
   const [basis, setBasis] = useState<CyberRiskHeatmapScoreBasis>("inherent");
 
   const { grid, legend } = useMemo(
@@ -60,8 +81,51 @@ export default function RisksMatrix({
   const gridCols = grid[0]?.length ?? 0;
   const r = 6;
 
+  const runMatrixAction = useCallback(
+    (matrixFilter: CyberRiskMatrixTableFilter) => {
+      const bu = businessUnitIdProp ?? null;
+      const basePayload: MatrixSelectionPayload =
+        matrixFilter.kind === "cell"
+          ? { kind: "cell", basis: matrixFilter.basis, rowIdx: matrixFilter.rowIdx, colIdx: matrixFilter.colIdx, businessUnitId: bu }
+          : {
+              kind: "legend",
+              basis: matrixFilter.basis,
+              level: matrixFilter.level,
+              businessUnitId: bu,
+            };
+      onMatrixSelection?.(basePayload);
+      if (onMatrixSelection) return;
+      const qs = buildMatrixQueryStringForRisksPage(matrixFilter, bu);
+      void navigate({ pathname: CYBER_RISKS_PATH, search: qs.startsWith("?") ? qs.slice(1) : qs });
+    },
+    [businessUnitIdProp, navigate, onMatrixSelection],
+  );
+
+  const onCellCountClick = useCallback(
+    (e: MouseEvent, rowIdx: number, colIdx: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      runMatrixAction({ kind: "cell", basis, rowIdx, colIdx });
+    },
+    [basis, runMatrixAction],
+  );
+
+  const onLegendCountClick = useCallback(
+    (e: MouseEvent, level: RiskHeatmapLevel) => {
+      e.preventDefault();
+      e.stopPropagation();
+      runMatrixAction({ kind: "legend", basis, level });
+    },
+    [basis, runMatrixAction],
+  );
+
   return (
-    <Card sx={sx}>
+    <Card
+      sx={[
+        { border: "none" },
+        ...(sx === undefined || sx === null ? [] : Array.isArray(sx) ? sx : [sx]),
+      ]}
+    >
       <CardHeader
         sx={{ display: "flex" }}
         title={
@@ -154,9 +218,11 @@ export default function RisksMatrix({
                   >
                     {hasRisks ? (
                       <Link
-                        href="#"
+                        component="button"
+                        type="button"
                         underline="hover"
-                        aria-label={`${count} risks — open details`}
+                        onClick={(e) => onCellCountClick(e, rowIdx, colIdx)}
+                        aria-label={`${count} risks — filter list`}
                         sx={({ tokens: t }) => ({
                           fontFamily: t.semantic.font.text.sm.fontFamily.value,
                           fontSize: t.semantic.font.text.sm.fontSize.value,
@@ -168,6 +234,11 @@ export default function RisksMatrix({
                             : level === "low" || level === "medium" || level === "high"
                               ? t.core.color.gray["1000"].value
                               : "rgba(255, 255, 255, 1)",
+                          background: "none",
+                          border: 0,
+                          padding: 0,
+                          cursor: "pointer",
+                          textAlign: "center",
                         })}
                       >
                         {count}
@@ -229,7 +300,21 @@ export default function RisksMatrix({
                   </Typography>
                 </Stack>
                 <Typography variant="textMd" sx={{ pl: 3, fontWeight: 600 }}>
-                  <Link href="#" underline="hover">
+                  <Link
+                    component="button"
+                    type="button"
+                    underline="hover"
+                    onClick={(e) => onLegendCountClick(e, item.level)}
+                    aria-label={`${item.count} risks in ${item.label} — filter list`}
+                    sx={{
+                      background: "none",
+                      border: 0,
+                      padding: 0,
+                      cursor: "pointer",
+                      font: "inherit",
+                      textAlign: "left",
+                    }}
+                  >
                     {item.count}
                   </Link>
                 </Typography>

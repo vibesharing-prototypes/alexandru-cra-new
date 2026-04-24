@@ -1,4 +1,5 @@
 import { useId, useState, type MouseEvent, type ReactNode } from "react";
+import { Link as RouterLink } from "react-router";
 import {
   Box,
   Button,
@@ -167,40 +168,6 @@ function FormulasRow({ children }: { children: ReactNode }) {
   );
 }
 
-function AggregationRadioUncheckedIcon() {
-  return (
-    <Box
-      sx={{
-        width: 24,
-        height: 24,
-        borderRadius: "50%",
-        border: "1.4px solid #282E37",
-        boxSizing: "border-box",
-      }}
-    />
-  );
-}
-
-function AggregationRadioCheckedIcon() {
-  return (
-    <Box
-      sx={{
-        width: 24,
-        height: 24,
-        borderRadius: "50%",
-        border: "1.4px solid #282E37",
-        bgcolor: "#282E37",
-        boxSizing: "border-box",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#FFFFFF" }} />
-    </Box>
-  );
-}
-
 /** 1×12px divider centered in a 24px-tall column (aggregation row). */
 function AggregationMethodDivider() {
   return (
@@ -216,21 +183,41 @@ function AggregationMethodDivider() {
         boxSizing: "border-box",
       }}
     >
-      <Box sx={{ width: 1, height: 12, flexShrink: 0, bgcolor: "#DADADA" }} />
+      <Box
+        sx={({ tokens: t }) => ({
+          width: 1,
+          height: 12,
+          flexShrink: 0,
+          bgcolor: t.semantic.color.ui.divider.default.value,
+        })}
+      />
     </Box>
   );
 }
 
+/** Material "info" outline (stroke circle + i), not the filled info glyph. */
 function ScoringLogicInfoIcon() {
   return (
-    <SvgIcon viewBox="0 0 24 24" aria-hidden sx={{ width: 24, height: 24, color: "#282E37" }}>
+    <SvgIcon
+      viewBox="0 0 24 24"
+      aria-hidden
+      sx={({ tokens: t }) => ({
+        width: 20,
+        height: 20,
+        color: t.semantic.color.type.muted.value,
+        flexShrink: 0,
+      })}
+    >
       <path
         fill="currentColor"
-        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+        d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
       />
     </SvgIcon>
   );
 }
+
+/** Default route for cyber risk settings (`CyberRiskSettingsPage` in App). */
+const DEFAULT_SCORING_LOGIC_PATH = "/settings/cyber-risk-settings";
 
 export type AICardScoringDescriptionProps = {
   /** Destination for “View scoring logic and aggregation details”. Placeholder `#` is inert (click prevented). */
@@ -238,12 +225,14 @@ export type AICardScoringDescriptionProps = {
 };
 
 export type AICardAggregationMethodRowProps = {
-  /** Destination for “View scoring logic and aggregation details”. Placeholder `#` is inert (click prevented). */
+  /** Destination for “View scoring logic and aggregation details”. Defaults to cyber risk settings. Placeholder `#` is inert (click prevented). */
   scoringLogicHref?: string;
 };
 
 /** Aggregation radios + scoring logic link (sibling to formulas block under the AI scoring section). */
-export function AICardAggregationMethodRow({ scoringLogicHref = "#" }: AICardAggregationMethodRowProps = {}) {
+export function AICardAggregationMethodRow({
+  scoringLogicHref = DEFAULT_SCORING_LOGIC_PATH,
+}: AICardAggregationMethodRowProps = {}) {
   const aggregationBlockId = useId();
   const aggregationLabelId = `${aggregationBlockId}-agg-label`;
   const aggregationGroupName = `${aggregationBlockId}-aggregation`;
@@ -251,47 +240,39 @@ export function AICardAggregationMethodRow({ scoringLogicHref = "#" }: AICardAgg
 
   return (
     <Box
-      sx={{
+      sx={({ tokens: t }) => ({
         display: "flex",
         flexDirection: "row",
         alignItems: "flex-end",
         flexWrap: "wrap",
-        gap: "16px",
+        gap: t.core.spacing["2"].value,
         width: "fit-content",
         minHeight: 52,
         boxSizing: "border-box",
-      }}
+      })}
     >
       <Stack
-        spacing="12px"
-        sx={{
+        sx={({ tokens: t }) => ({
           width: "fit-content",
           flexShrink: 0,
           alignItems: "flex-start",
           boxSizing: "border-box",
-        }}
+          gap: t.core.spacing["1_5"].value,
+        })}
       >
         <Typography
           id={aggregationLabelId}
           component="p"
-          sx={{
+          variant="labelSm"
+          sx={({ tokens: t }) => ({
             m: 0,
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontWeight: 600,
-            fontSize: 12,
-            lineHeight: "16px",
-            letterSpacing: "0.3px",
-            color: "#282E37",
-            display: "flex",
-            alignItems: "center",
-          }}
+            fontWeight: t.semantic.fontWeight.emphasis.value,
+            color: t.semantic.color.type.default.value,
+          })}
         >
           Aggregation method
         </Typography>
-        <FormControl
-          variant="standard"
-          sx={{ width: "100%", m: 0, height: 24, "& .MuiFormGroup-root": { height: 24 } }}
-        >
+        <FormControl sx={{ width: "100%", m: 0, height: 28 }}>
           <RadioGroup
             row
             name={aggregationGroupName}
@@ -301,65 +282,42 @@ export function AICardAggregationMethodRow({ scoringLogicHref = "#" }: AICardAgg
             }}
             aria-labelledby={aggregationLabelId}
             sx={{
-              flexWrap: "nowrap",
-              gap: "24px",
-              alignItems: "center",
-              width: "100%",
-              height: 24,
+              flexWrap: "wrap",
+              gap: 2,
+              columnGap: 2,
+              rowGap: 1,
             }}
           >
             <FormControlLabel
               value="highest"
-              control={
-                <Radio
-                  disableRipple
-                  icon={<AggregationRadioUncheckedIcon />}
-                  checkedIcon={<AggregationRadioCheckedIcon />}
-                  sx={{ p: 0 }}
-                />
-              }
+              control={<Radio />}
               label="Highest"
               sx={{
+                height: 28,
                 mr: 0,
                 ml: 0,
-                gap: 0,
-                height: 24,
-                alignItems: "center",
-                "& .MuiFormControlLabel-label": {
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontWeight: 400,
-                  fontSize: 14,
-                  lineHeight: "20px",
-                  letterSpacing: "0.2px",
-                  color: "#282E37",
-                },
+                "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
+                  fontSize: t.semantic.font.text.md.fontSize.value,
+                  lineHeight: t.semantic.font.text.md.lineHeight.value,
+                  letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                  color: t.semantic.color.type.default.value,
+                }),
               }}
             />
             <FormControlLabel
               value="average"
-              control={
-                <Radio
-                  disableRipple
-                  icon={<AggregationRadioUncheckedIcon />}
-                  checkedIcon={<AggregationRadioCheckedIcon />}
-                  sx={{ p: 0 }}
-                />
-              }
+              control={<Radio />}
               label="Weighted average"
               sx={{
+                height: 28,
                 mr: 0,
                 ml: 0,
-                gap: 0,
-                height: 24,
-                alignItems: "center",
-                "& .MuiFormControlLabel-label": {
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontWeight: 400,
-                  fontSize: 14,
-                  lineHeight: "20px",
-                  letterSpacing: "0.2px",
-                  color: "#282E37",
-                },
+                "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
+                  fontSize: t.semantic.font.text.md.fontSize.value,
+                  lineHeight: t.semantic.font.text.md.lineHeight.value,
+                  letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                  color: t.semantic.color.type.default.value,
+                }),
               }}
             />
           </RadioGroup>
@@ -367,40 +325,54 @@ export function AICardAggregationMethodRow({ scoringLogicHref = "#" }: AICardAgg
       </Stack>
       <AggregationMethodDivider />
       <Box
-        sx={{
+        sx={({ tokens: t }) => ({
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
-          gap: "4px",
+          gap: t.core.spacing["0_5"].value,
           minHeight: 24,
           minWidth: 0,
           flex: "1 1 200px",
-        }}
+        })}
       >
         <ScoringLogicInfoIcon />
-        <Link
-          href={scoringLogicHref}
-          underline="always"
-          onClick={
-            scoringLogicHref === "#"
-              ? (e: MouseEvent<HTMLAnchorElement>) => e.preventDefault()
-              : undefined
-          }
-          sx={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontWeight: 600,
-            fontSize: 12,
-            lineHeight: "16px",
-            letterSpacing: "0.3px",
-            color: "#282E37",
-            textDecorationColor: "#282E37",
-            width: 300,
-            minWidth: 300,
-            height: "fit-content",
-          }}
-        >
-          View scoring logic and aggregation details
-        </Link>
+        {scoringLogicHref === "#" ? (
+          <Link
+            href="#"
+            underline="hover"
+            onClick={(e: MouseEvent<HTMLAnchorElement>) => e.preventDefault()}
+            sx={({ tokens: t }) => ({
+              width: 300,
+              minWidth: 300,
+              height: "fit-content",
+              fontSize: t.semantic.font.text.sm.fontSize.value,
+              lineHeight: t.semantic.font.text.sm.lineHeight.value,
+              letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
+              fontWeight: t.core.fontWeight.semiBold.value,
+              color: t.semantic.color.action.link.default.value,
+            })}
+          >
+            View scoring logic and aggregation details
+          </Link>
+        ) : (
+          <Link
+            component={RouterLink}
+            to={scoringLogicHref}
+            underline="hover"
+            sx={({ tokens: t }) => ({
+              width: 300,
+              minWidth: 300,
+              height: "fit-content",
+              fontSize: t.semantic.font.text.sm.fontSize.value,
+              lineHeight: t.semantic.font.text.sm.lineHeight.value,
+              letterSpacing: t.semantic.font.text.sm.letterSpacing.value,
+              fontWeight: t.core.fontWeight.semiBold.value,
+              color: t.semantic.color.action.link.default.value,
+            })}
+          >
+            View scoring logic and aggregation details
+          </Link>
+        )}
       </Box>
     </Box>
   );

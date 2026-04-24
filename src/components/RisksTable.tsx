@@ -95,9 +95,18 @@ export type RisksTableProps = {
   rows: CyberRiskRow[];
   /** Opens the page filter UI (e.g. [`FilterSideSheet`](./FilterSideSheet.tsx)). */
   onOpenFilters: () => void;
+  /** When &gt; 0, toolbar shows `Filter (n)`, filled filter icon, and **Clear filters** if `onClearFilters` is set. */
+  filterCriteriaCount?: number;
+  /** Clears applied side-sheet filters; paired with `filterCriteriaCount` from [`countCyberRiskFilterCriteria`](../utils/cyberRiskTableRows.js). */
+  onClearFilters?: () => void;
 };
 
-export default function RisksTable({ rows, onOpenFilters }: RisksTableProps) {
+export default function RisksTable({
+  rows,
+  onOpenFilters,
+  filterCriteriaCount = 0,
+  onClearFilters,
+}: RisksTableProps) {
   const columns: GridColDef<CyberRiskRow>[] = [
     {
       field: "name",
@@ -173,7 +182,13 @@ export default function RisksTable({ rows, onOpenFilters }: RisksTableProps) {
         disableRowSelectionOnClick
         showToolbar
         slots={{
-          toolbar: () => <NewToolbar onOpenFilters={onOpenFilters} />,
+          toolbar: () => (
+            <NewToolbar
+              onOpenFilters={onOpenFilters}
+              filterCriteriaCount={filterCriteriaCount}
+              onClearFilters={onClearFilters}
+            />
+          ),
         }}
         slotProps={{
           main: {

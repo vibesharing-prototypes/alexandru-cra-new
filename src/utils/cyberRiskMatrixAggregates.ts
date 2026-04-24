@@ -19,6 +19,22 @@ const LIKELIHOOD_LABEL_TO_ROW: Record<FivePointScaleLabel, number> = {
   "Very low": 4,
 };
 
+const ROW_INDEX_TO_LIKELIHOOD_LABEL: readonly FivePointScaleLabel[] = [
+  "Very high",
+  "High",
+  "Medium",
+  "Low",
+  "Very low",
+];
+
+/** Inverse of the heatmap Y-axis: row 0 = Very high, row 4 = Very low. */
+export function heatmapRowIndexToLikelihoodLabel(
+  rowIdx: number,
+): FivePointScaleLabel | undefined {
+  if (rowIdx < 0 || rowIdx > 4) return undefined;
+  return ROW_INDEX_TO_LIKELIHOOD_LABEL[rowIdx]!;
+}
+
 function scoreLabelToHeatmapLevel(label: FivePointScaleLabel): RiskHeatmapLevel {
   const map: Record<FivePointScaleLabel, RiskHeatmapLevel> = {
     "Very high": "veryHigh",

@@ -21,7 +21,6 @@ import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
 
 import {
   DEFAULT_SEARCH_FIELD_SX,
-  DEFAULT_SEARCH_LABEL,
   DEFAULT_SEARCH_PLACEHOLDER,
 } from "./NewToolbar.js";
 
@@ -46,8 +45,7 @@ type ScopeToolbarBaseProps = {
   toolbarAriaLabel?: string;
   inclusionFilterAriaLabel?: string;
   /**
-   * MUI `TextField` `label`. Pass `null` to omit the floating label.
-   * @default "Search by"
+   * MUI `TextField` `label`. Omitted or `null`: no floating label (placeholder only).
    */
   searchLabel?: string | null;
   /**
@@ -80,7 +78,7 @@ export default function ScopeToolbar({
   searchFieldSx = DEFAULT_SEARCH_FIELD_SX,
 }: ScopeToolbarBaseProps) {
   const textFieldLabel: string | undefined =
-    searchLabel === null ? undefined : (searchLabel ?? DEFAULT_SEARCH_LABEL);
+    searchLabel != null && searchLabel !== "" ? searchLabel : undefined;
 
   const hasFilterCriteria = filterCriteriaCount > 0;
   const filterButtonLabel = hasFilterCriteria
@@ -93,7 +91,16 @@ export default function ScopeToolbar({
   const showClearFilters = hasFilterCriteria && Boolean(onClearFilters);
 
   return (
-    <Toolbar aria-label={toolbarAriaLabel}>
+    <Toolbar
+      aria-label={toolbarAriaLabel}
+      style={{
+        minHeight: 40,
+        height: 40,
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
       <QuickFilter expanded>
         <QuickFilterControl
           render={({ ref, value, ...other }) => (

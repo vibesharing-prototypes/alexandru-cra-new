@@ -9,3 +9,4 @@ pnpm-lock.yaml
 # Local VibeSharing Cursor skill (if copied or linked into this repo)
 .cursor/skills/VibeSharing_Skill/
 VibeSharing_Skill.md
+src/.DS_Store

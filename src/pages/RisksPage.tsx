@@ -1,20 +1,28 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   PageHeader,
   OverflowBreadcrumbs,
 } from "@diligentcorp/atlas-react-bundle";
 import { Container, Stack } from "@mui/material";
-import { NavLink } from "react-router";
+import { NavLink, useSearchParams } from "react-router";
 
 import FilterRisks from "../components/FilterRisks.js";
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import RisksHeroSection from "../components/RisksHeroSection.js";
 import RisksTable from "../components/RisksTable.js";
+import type { MatrixSelectionPayload } from "../components/RisksMatrix.js";
+import {
+  applyMatrixFiltersToSearchParams,
+  parseRiskHeatmapSearchParams,
+  stripMatrixParamsFromSearchParams,
+} from "../utils/cyberRiskMatrixTableQuery.js";
 import {
   applyCyberRiskFilters,
   buildCyberRiskRows,
+  countCyberRiskFilterCriteria,
   CYBER_RISK_WORKFLOW_FILTER_OPTIONS,
   EMPTY_CYBER_RISK_TABLE_FILTERS,
+  type CyberRiskMatrixTableFilter,
   type CyberRiskTableFilters,
 } from "../utils/cyberRiskTableRows.js";
 
@@ -23,18 +31,38 @@ function hasAnyFilterSelected(f: CyberRiskTableFilters): boolean {
     f.workflowStatuses.length > 0 ||
     f.ownerIds.length > 0 ||
     f.scoreLabels.length > 0 ||
-    f.assetIds.length > 0
+    f.assetIds.length > 0 ||
+    f.matrixFilter != null ||
+    f.businessUnitId != null
   );
 }
 
+function readInitialTableFiltersFromLocation(): CyberRiskTableFilters {
+  if (typeof window === "undefined") {
+    return EMPTY_CYBER_RISK_TABLE_FILTERS;
+  }
+  const m = parseRiskHeatmapSearchParams(new URLSearchParams(window.location.search));
+  return { ...EMPTY_CYBER_RISK_TABLE_FILTERS, ...m };
+}
+
 export default function RisksPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<CyberRiskTableFilters>(
-    EMPTY_CYBER_RISK_TABLE_FILTERS,
+    readInitialTableFiltersFromLocation,
   );
   const [draftFilters, setDraftFilters] = useState<CyberRiskTableFilters>(
-    EMPTY_CYBER_RISK_TABLE_FILTERS,
+    readInitialTableFiltersFromLocation,
   );
+
+  useLayoutEffect(() => {
+    const m = parseRiskHeatmapSearchParams(searchParams);
+    setAppliedFilters((prev) => ({ ...prev, ...m }));
+    setDraftFilters((prev) => {
+      if (isFilterOpen) return prev;
+      return { ...prev, ...m };
+    });
+  }, [searchParams, isFilterOpen]);
 
   const allRows = useMemo(() => buildCyberRiskRows(), []);
   const filteredRows = useMemo(
@@ -51,6 +79,29 @@ export default function RisksPage() {
     [draftFilters],
   );
   const hasClearableFilterState = hasCommittedFilters || hasDraftFilterSelection;
+
+  const handleMatrixSelection = useCallback(
+    (payload: MatrixSelectionPayload) => {
+      const matrixFilter: CyberRiskMatrixTableFilter =
+        payload.kind === "cell"
+          ? {
+              kind: "cell",
+              basis: payload.basis,
+              rowIdx: payload.rowIdx!,
+              colIdx: payload.colIdx!,
+            }
+          : { kind: "legend", basis: payload.basis, level: payload.level! };
+      setSearchParams((prev) => {
+        const p = new URLSearchParams(prev);
+        applyMatrixFiltersToSearchParams(p, {
+          matrixFilter,
+          businessUnitId: payload.businessUnitId ?? null,
+        });
+        return p;
+      });
+    },
+    [setSearchParams],
+  );
 
   const handleOpenFilters = useCallback(() => {
     setDraftFilters(appliedFilters);
@@ -69,7 +120,12 @@ export default function RisksPage() {
   const handleClearFilters = useCallback(() => {
     setDraftFilters(EMPTY_CYBER_RISK_TABLE_FILTERS);
     setAppliedFilters(EMPTY_CYBER_RISK_TABLE_FILTERS);
-  }, []);
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      stripMatrixParamsFromSearchParams(p);
+      return p;
+    });
+  }, [setSearchParams]);
 
   const handleApply = useCallback(() => {
     setAppliedFilters(draftFilters);
@@ -104,9 +160,14 @@ export default function RisksPage() {
           }
         />
 
-        <RisksHeroSection />
+        <RisksHeroSection onMatrixSelection={handleMatrixSelection} />
 
-        <RisksTable rows={filteredRows} onOpenFilters={handleOpenFilters} />
+        <RisksTable
+          rows={filteredRows}
+          onOpenFilters={handleOpenFilters}
+          filterCriteriaCount={countCyberRiskFilterCriteria(appliedFilters)}
+          onClearFilters={handleClearFilters}
+        />
       </Stack>
 
       <FilterSideSheet
