@@ -1,5 +1,7 @@
 import { businessUnits } from "../data/businessUnits.js";
 import { cyberRisks } from "../data/cyberRisks.js";
+import { objectives } from "../data/objectives.js";
+import { processes } from "../data/processes.js";
 import { threats } from "../data/threats.js";
 import {
   isVulnerabilityActiveForAssessment,
@@ -17,22 +19,6 @@ export const ASSET_TYPE_FILTER_OPTIONS: readonly AssetType[] = [
   "Endpoint",
   "IoT device",
 ] as const;
-
-/**
- * Display names for scope asset objectives column (1–12); each index maps to that objective value.
- */
-export const SCOPE_OBJECTIVE_NAME_OPTIONS: readonly string[] = Array.from(
-  { length: 12 },
-  (_, i) => `Objective ${i + 1}`,
-);
-
-/**
- * Display names for scope asset processes column (1–20); each index maps to that process value.
- */
-export const SCOPE_PROCESS_NAME_OPTIONS: readonly string[] = Array.from(
-  { length: 20 },
-  (_, i) => `Process ${i + 1}`,
-);
 
 /** Aligns with scope grid criticality display (Assessment scope assets table). */
 export const SCOPE_CRITICALITY_FILTER_OPTIONS: readonly {
@@ -53,9 +39,10 @@ export type ScopeAssetTableFilters = {
   threatIds: string[];
   vulnerabilityIds: string[];
   criticality: FivePointScaleValue[];
-  /** Subset of [`SCOPE_OBJECTIVE_NAME_OPTIONS`]. */
-  objectiveNames: string[];
-  processNames: string[];
+  /** Library objective ids: row matches if the asset appears in that objective’s `relationships.assetIds`. */
+  objectiveIds: string[];
+  /** Library process ids: row matches if the asset appears in that process’s `relationships.assetIds`. */
+  processIds: string[];
   businessUnitIds: string[];
 };
 
@@ -65,30 +52,32 @@ export const EMPTY_SCOPE_ASSET_TABLE_FILTERS: ScopeAssetTableFilters = {
   threatIds: [],
   vulnerabilityIds: [],
   criticality: [],
-  objectiveNames: [],
-  processNames: [],
+  objectiveIds: [],
+  processIds: [],
   businessUnitIds: [],
 };
-
-const objectiveNameToValue = new Map(
-  SCOPE_OBJECTIVE_NAME_OPTIONS.map((n, i) => [n, i + 1] as const),
-);
-const processNameToValue = new Map(
-  SCOPE_PROCESS_NAME_OPTIONS.map((n, i) => [n, i + 1] as const),
-);
 
 export function hasAnyScopeAssetFilterSelected(
   f: ScopeAssetTableFilters,
 ): boolean {
-  if (f.assetTypes.length > 0) return true;
-  if (f.cyberRiskIds.length > 0) return true;
-  if (f.threatIds.length > 0) return true;
-  if (f.vulnerabilityIds.length > 0) return true;
-  if (f.criticality.length > 0) return true;
-  if (f.objectiveNames.length > 0) return true;
-  if (f.processNames.length > 0) return true;
-  if (f.businessUnitIds.length > 0) return true;
-  return false;
+  return countScopeAssetFilterCriteria(f) > 0;
+}
+
+/**
+ * Number of filter **categories** with at least one selection (not total selected values).
+ * Categories: asset types, cyber risks, threats, vulnerabilities, criticality, objectives, processes, business units.
+ */
+export function countScopeAssetFilterCriteria(f: ScopeAssetTableFilters): number {
+  let n = 0;
+  if (f.assetTypes.length > 0) n += 1;
+  if (f.cyberRiskIds.length > 0) n += 1;
+  if (f.threatIds.length > 0) n += 1;
+  if (f.vulnerabilityIds.length > 0) n += 1;
+  if (f.criticality.length > 0) n += 1;
+  if (f.objectiveIds.length > 0) n += 1;
+  if (f.processIds.length > 0) n += 1;
+  if (f.businessUnitIds.length > 0) n += 1;
+  return n;
 }
 
 export type ScopeAssetFilterableRow = {
@@ -118,6 +107,16 @@ function assetTouchedByVulnerabilityId(
   return v != null && isVulnerabilityActiveForAssessment(v) && v.assetIds.includes(assetId);
 }
 
+function assetTouchedByObjectiveId(assetId: string, objectiveId: string): boolean {
+  const o = objectives.find((x) => x.id === objectiveId);
+  return o != null && o.relationships.assetIds.includes(assetId);
+}
+
+function assetTouchedByProcessId(assetId: string, processId: string): boolean {
+  const p = processes.find((x) => x.id === processId);
+  return p != null && p.relationships.assetIds.includes(assetId);
+}
+
 export function applyScopeAssetFilters<T extends ScopeAssetFilterableRow>(
   rows: T[],
   filters: ScopeAssetTableFilters,
@@ -132,29 +131,23 @@ export function applyScopeAssetFilters<T extends ScopeAssetFilterableRow>(
     filters.criticality.length > 0
       ? new Set(filters.criticality)
       : null;
-  const objAllowed =
-    filters.objectiveNames.length > 0
-      ? new Set(
-          filters.objectiveNames
-            .map((n) => objectiveNameToValue.get(n))
-            .filter((n): n is number => n != null),
-        )
-      : null;
-  const procAllowed =
-    filters.processNames.length > 0
-      ? new Set(
-          filters.processNames
-            .map((n) => processNameToValue.get(n))
-            .filter((n): n is number => n != null),
-        )
-      : null;
 
   return rows.filter((row) => {
     if (typeSet && !typeSet.has(row.assetType as AssetType)) return false;
     if (buSet && !buSet.has(row.businessUnitId)) return false;
     if (critSet && !critSet.has(row.criticality)) return false;
-    if (objAllowed && !objAllowed.has(row.objectives)) return false;
-    if (procAllowed && !procAllowed.has(row.processes)) return false;
+    if (
+      filters.objectiveIds.length > 0 &&
+      !filters.objectiveIds.some((id) => assetTouchedByObjectiveId(row.assetId, id))
+    ) {
+      return false;
+    }
+    if (
+      filters.processIds.length > 0 &&
+      !filters.processIds.some((id) => assetTouchedByProcessId(row.assetId, id))
+    ) {
+      return false;
+    }
     if (
       filters.cyberRiskIds.length > 0 &&
       !filters.cyberRiskIds.some((id) => assetTouchedByCyberRiskId(row.assetId, id))
@@ -201,5 +194,17 @@ export function getScopeAssetVulnerabilityFilterOptions(): { id: string; name: s
 export function getScopeAssetBusinessUnitFilterOptions(): { id: string; name: string }[] {
   return businessUnits
     .map((bu) => ({ id: bu.id, name: bu.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getScopeAssetObjectiveFilterOptions(): { id: string; name: string }[] {
+  return objectives
+    .map((o) => ({ id: o.id, name: o.title }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getScopeAssetProcessFilterOptions(): { id: string; name: string }[] {
+  return processes
+    .map((p) => ({ id: p.id, name: p.title }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

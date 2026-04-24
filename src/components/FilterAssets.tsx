@@ -1,3 +1,7 @@
+/**
+ * Scope-assets filter sheet. Each non-empty filter **category** in `ScopeAssetTableFilters` counts once
+ * toward the **Filter (n)** badge on the scope assets grid toolbar (`ScopeToolbar` + `countScopeAssetFilterCriteria`).
+ */
 import {
   Autocomplete,
   Box,
@@ -18,11 +22,11 @@ import {
   ASSET_TYPE_FILTER_OPTIONS,
   getScopeAssetBusinessUnitFilterOptions,
   getScopeAssetCyberRiskFilterOptions,
+  getScopeAssetObjectiveFilterOptions,
+  getScopeAssetProcessFilterOptions,
   getScopeAssetThreatFilterOptions,
   getScopeAssetVulnerabilityFilterOptions,
   SCOPE_CRITICALITY_FILTER_OPTIONS,
-  SCOPE_OBJECTIVE_NAME_OPTIONS,
-  SCOPE_PROCESS_NAME_OPTIONS,
   type ScopeAssetTableFilters,
 } from "../utils/scopeAssetTableFilters.js";
 
@@ -68,7 +72,7 @@ function MultiSelectField<T extends string | number>({
         multiple
         displayEmpty
         labelId={labelId}
-        value={value as never}
+        value={value}
         label={label}
         onChange={(e) => onChange(e.target.value as T[])}
         renderValue={(selected) => {
@@ -165,14 +169,6 @@ const criticalityOptions: { value: FivePointScaleValue; label: string }[] = [
   ...SCOPE_CRITICALITY_FILTER_OPTIONS,
 ];
 
-const objectiveNameOptions: IdName[] = SCOPE_OBJECTIVE_NAME_OPTIONS.map(
-  (name) => ({ id: name, name }),
-);
-
-const processNameOptions: IdName[] = SCOPE_PROCESS_NAME_OPTIONS.map(
-  (name) => ({ id: name, name }),
-);
-
 export default function FilterAssets({ value, onChange }: FilterAssetsProps) {
   const cyberRiskOptions = useMemo(
     () => getScopeAssetCyberRiskFilterOptions(),
@@ -187,6 +183,8 @@ export default function FilterAssets({ value, onChange }: FilterAssetsProps) {
     () => getScopeAssetBusinessUnitFilterOptions(),
     [],
   );
+  const objectiveOptions = useMemo(() => getScopeAssetObjectiveFilterOptions(), []);
+  const processOptions = useMemo(() => getScopeAssetProcessFilterOptions(), []);
 
   return (
     <Stack
@@ -243,18 +241,18 @@ export default function FilterAssets({ value, onChange }: FilterAssetsProps) {
       <IdNameAutocomplete
         fieldId="filter-assets-objectives"
         label="Objectives"
-        placeholder="Search by name..."
-        options={objectiveNameOptions}
-        selectedIds={value.objectiveNames}
-        onSelectedIdsChange={(ids) => onChange({ ...value, objectiveNames: ids })}
+        placeholder="Search by title..."
+        options={objectiveOptions}
+        selectedIds={value.objectiveIds}
+        onSelectedIdsChange={(ids) => onChange({ ...value, objectiveIds: ids })}
       />
       <IdNameAutocomplete
         fieldId="filter-assets-processes"
         label="Processes"
-        placeholder="Search by name..."
-        options={processNameOptions}
-        selectedIds={value.processNames}
-        onSelectedIdsChange={(ids) => onChange({ ...value, processNames: ids })}
+        placeholder="Search by title..."
+        options={processOptions}
+        selectedIds={value.processIds}
+        onSelectedIdsChange={(ids) => onChange({ ...value, processIds: ids })}
       />
       <IdNameAutocomplete
         fieldId="filter-assets-business-units"

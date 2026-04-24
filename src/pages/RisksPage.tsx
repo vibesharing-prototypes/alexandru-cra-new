@@ -3,24 +3,13 @@ import {
   PageHeader,
   OverflowBreadcrumbs,
 } from "@diligentcorp/atlas-react-bundle";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  Container,
-  MenuItem,
-  Select,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Container, Stack } from "@mui/material";
 import { NavLink } from "react-router";
 
 import FilterRisks from "../components/FilterRisks.js";
 import FilterSideSheet from "../components/FilterSideSheet.js";
+import RisksHeroSection from "../components/RisksHeroSection.js";
 import RisksTable from "../components/RisksTable.js";
-import RisksMatrix from "../components/RisksMatrix.js";
-import RiskStatusDonut from "../components/RiskStatusDonut.js";
-import { cyberRisks } from "../data/cyberRisks.js";
 import {
   applyCyberRiskFilters,
   buildCyberRiskRows,
@@ -37,21 +26,6 @@ function hasAnyFilterSelected(f: CyberRiskTableFilters): boolean {
     f.assetIds.length > 0
   );
 }
-
-// ---------------------------------------------------------------------------
-// Workflow status donut data
-// ---------------------------------------------------------------------------
-
-const workflowData = [
-  { label: "Identification", value: 26, color: "#c6c6c9" },
-  { label: "Assessment", value: 46, color: "#1565c0" },
-  { label: "Mitigation", value: 106, color: "#0086fa" },
-  { label: "Monitoring", value: 38, color: "#64b5f6" },
-];
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 export default function RisksPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -130,32 +104,7 @@ export default function RisksPage() {
           }
         />
 
-        <Card
-          sx={({ tokens }) => ({
-            backgroundColor: tokens.semantic.color.background.container.value,
-            border: "none",
-          })}
-        >
-          <CardHeader
-            sx={{ display: "flex" }}
-            title={
-              <Typography variant="h3" component="h2" sx={{ fontWeight: 600 }}>
-                Overview
-              </Typography>
-            }
-            action={
-              <Select value="all" size="medium" sx={{ minWidth: 180 }}>
-                <MenuItem value="all">All business units</MenuItem>
-              </Select>
-            }
-          />
-          <CardContent>
-            <Stack direction="row" gap={3} sx={{ alignItems: "stretch" }}>
-              <RiskStatusDonut data={workflowData} />
-              <RisksMatrix risks={cyberRisks} sx={{ flex: 3, minWidth: 0 }} />
-            </Stack>
-          </CardContent>
-        </Card>
+        <RisksHeroSection />
 
         <RisksTable rows={filteredRows} onOpenFilters={handleOpenFilters} />
       </Stack>

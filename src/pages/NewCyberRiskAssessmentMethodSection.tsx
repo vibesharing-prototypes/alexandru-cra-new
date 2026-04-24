@@ -248,7 +248,7 @@ export default function NewCyberRiskAssessmentMethodSection({
       </Stack>
 
       <Stack gap={3} sx={{ pt: 2 }}>
-        <SectionHeader title="Instructions" headingLevel="h2" />
+        <SectionHeader title="Background and scope" headingLevel="h2" />
 
         <Stack gap={3}>
           <AssessmentWysiwygEditor

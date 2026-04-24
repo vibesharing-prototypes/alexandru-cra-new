@@ -35,6 +35,10 @@ export type {
   MockScenarioRelationships,
   MockCyberRiskAssessment,
   MockMitigationPlan,
+  MockObjective,
+  MockObjectiveRelationships,
+  MockProcess,
+  MockProcessRelationships,
 } from "./types.js";
 
 export {
@@ -97,6 +101,8 @@ export {
   getRiskAssessmentsSnapshotVersion,
 } from "./riskAssessments.js";
 export { mitigationPlans, getMitigationPlanById } from "./mitigationPlans.js";
+export { objectives, getObjectiveById } from "./objectives.js";
+export { processes, getProcessById } from "./processes.js";
 
 export type { CraNewAssessmentPersistedDraft } from "./craAssessmentDraftTypes.js";
 

@@ -4,6 +4,9 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
+import { cyberRisks } from "../data/cyberRisks.js";
+import type { CyberRiskStatus, MockCyberRisk } from "../data/types.js";
+
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export type RiskStatusDonutSegment = {
@@ -12,17 +15,50 @@ export type RiskStatusDonutSegment = {
   color: string;
 };
 
+const WORKFLOW_STATUS_ORDER: readonly CyberRiskStatus[] = [
+  "Draft",
+  "Identification",
+  "Assessment",
+  "Mitigation",
+  "Monitoring",
+] as const;
+
+const WORKFLOW_STATUS_COLOR: Record<CyberRiskStatus, string> = {
+  Draft: "#757575",
+  Identification: "#c6c6c9",
+  Assessment: "#1565c0",
+  Mitigation: "#0086fa",
+  Monitoring: "#64b5f6",
+};
+
+function workflowSegmentsFromRisks(risks: readonly MockCyberRisk[]): RiskStatusDonutSegment[] {
+  const counts = new Map<CyberRiskStatus, number>();
+  for (const s of WORKFLOW_STATUS_ORDER) {
+    counts.set(s, 0);
+  }
+  for (const r of risks) {
+    counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
+  }
+  return WORKFLOW_STATUS_ORDER.filter((s) => (counts.get(s) ?? 0) > 0).map((s) => ({
+    label: s,
+    value: counts.get(s) ?? 0,
+    color: WORKFLOW_STATUS_COLOR[s],
+  }));
+}
+
 export type RiskStatusDonutProps = {
   title?: string;
   centerLabel?: string;
-  data: RiskStatusDonutSegment[];
+  /** When omitted, uses the full library (`cyberRisks`). */
+  risks?: readonly MockCyberRisk[];
 };
 
 export default function RiskStatusDonut({
   title = "Workflow status",
   centerLabel = "Risks",
-  data,
+  risks = cyberRisks,
 }: RiskStatusDonutProps) {
+  const data = workflowSegmentsFromRisks(risks);
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
   const chartData = {
@@ -77,17 +113,19 @@ export default function RiskStatusDonut({
             alignItems: "center",
           }}
         >
-          <Doughnut
-            data={chartData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: true,
-              plugins: {
-                legend: { display: false },
-                tooltip: { enabled: true },
-              },
-            }}
-          />
+          {total > 0 ? (
+            <Doughnut
+              data={chartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { enabled: true },
+                },
+              }}
+            />
+          ) : null}
           <Box
             sx={{
               position: "absolute",

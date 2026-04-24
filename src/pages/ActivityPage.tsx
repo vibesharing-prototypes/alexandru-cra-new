@@ -14,6 +14,7 @@ import LabelScoreLegend from "../components/LabelScoreLegend.js";
 import LabelValue from "../components/LabelValue.js";
 import PageLayout from "../components/PageLayout.js";
 import AICard, {
+  AICardAggregationMethodRow,
   AICardAssessmentPreset,
   AICardScoringDescription,
 } from "../components/AICard.js";
@@ -204,7 +205,12 @@ export default function ActivityPage() {
                 <AICardAssessmentPreset
                   omitAssessmentType
                   title="AI scoring"
-                  description={<AICardScoringDescription />}
+                  description={
+                    <>
+                      <AICardScoringDescription />
+                      <AICardAggregationMethodRow />
+                    </>
+                  }
                   actionLabel="Start AI scoring"
                   onAction={() => {}}
                 />

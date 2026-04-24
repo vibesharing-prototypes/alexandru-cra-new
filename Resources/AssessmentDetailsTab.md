@@ -29,7 +29,7 @@ User opens an assessment from the list with a valid `:assessmentId`. Header meta
 
 ### Edit assessment
 
-User changes **Details** fields (name, custom ID, type, owners, due date, method, instructions, attachments UI), **Scope** inclusion, **Scoring** interactions, and **Results** views. Status can be changed from the **status dropdown** (with constraints: some statuses are display-only). **Save** writes the draft for the **new** assessment path only.
+User changes **Details** fields (name, custom ID, type, owners, due date, method, background and scope, attachments UI), **Scope** inclusion, **Scoring** interactions, and **Results** views. Status can be changed from the **status dropdown** (with constraints: some statuses are display-only). **Save** writes the draft for the **new** assessment path only.
 
 ---
 
@@ -98,7 +98,7 @@ Top to bottom, main header layout (from `AssessmentDetailHeader` + `PageHeader`)
 - **Select assessment method** (caption-style section title)
   - **Qualitative** / **Quantitative** — Radio group (**Quantitative** disabled with tooltip “Currently not available.”).
   - Descriptive copy under each option (qualitative explains Impact × Likelihood, and so on).
-- **Instructions** (`SectionHeader` + `AssessmentWysiwygEditor`) — Rich text **Assessment instructions** (required field in editor).
+- **Background and scope** (`SectionHeader` + `AssessmentWysiwygEditor`) — Rich text **Assessment instructions** (required field in editor).
 - **Attachments** — Dashed drop zone; **Drag files here** + **browse** link; hidden file input (`.jpg`, `.jpeg`, `.pdf`, `.xls`, `.xlsx`).
 
 ---

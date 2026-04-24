@@ -39,6 +39,8 @@ import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualizatio
 import { assets } from "../data/assets.js";
 import { controls } from "../data/controls.js";
 import { cyberRisks } from "../data/cyberRisks.js";
+import { objectives } from "../data/objectives.js";
+import { processes } from "../data/processes.js";
 import { threats } from "../data/threats.js";
 import {
   isVulnerabilityActiveForAssessment,
@@ -46,6 +48,7 @@ import {
 } from "../data/vulnerabilities.js";
 import { getUserById, joinUserFullNames } from "../data/users.js";
 import type {
+  CyberRiskStatus,
   FivePointScaleValue,
   MockControl,
   MockCyberRisk,
@@ -65,6 +68,7 @@ import {
   SCOPE_CATALOG_TOTALS,
 } from "./scopeAssessmentRollup.js";
 import FilterAssets from "../components/FilterAssets.js";
+import FilterRisks from "../components/FilterRisks.js";
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import { DEFAULT_SEARCH_FIELD_SX } from "../components/NewToolbar.js";
 import { ScopeCard } from "../components/ScopeCard.js";
@@ -73,7 +77,15 @@ import ScopeToolbar, {
   type ScopeViewFilter,
 } from "../components/ScopeToolbar.js";
 import {
+  applyCyberRiskTableFiltersToCatalogRows,
+  countCyberRiskFilterCriteria,
+  CYBER_RISK_WORKFLOW_FILTER_OPTIONS,
+  EMPTY_CYBER_RISK_TABLE_FILTERS,
+  type CyberRiskTableFilters,
+} from "../utils/cyberRiskTableRows.js";
+import {
   applyScopeAssetFilters,
+  countScopeAssetFilterCriteria,
   EMPTY_SCOPE_ASSET_TABLE_FILTERS,
   hasAnyScopeAssetFilterSelected,
 } from "../utils/scopeAssetTableFilters.js";
@@ -160,6 +172,20 @@ function buildScopeRows(): ScopeAssetRow[] {
     }
   }
 
+  const objectiveCountByAsset = new Map<string, number>();
+  for (const o of objectives) {
+    for (const aid of new Set(o.relationships.assetIds)) {
+      objectiveCountByAsset.set(aid, (objectiveCountByAsset.get(aid) ?? 0) + 1);
+    }
+  }
+
+  const processCountByAsset = new Map<string, number>();
+  for (const p of processes) {
+    for (const aid of new Set(p.relationships.assetIds)) {
+      processCountByAsset.set(aid, (processCountByAsset.get(aid) ?? 0) + 1);
+    }
+  }
+
   return assets.map((a, i) => {
     const relatedBuIds = new Set<string>();
     relatedBuIds.add(a.businessUnitId);
@@ -177,8 +203,8 @@ function buildScopeRows(): ScopeAssetRow[] {
       vulnerabilities: vulnCountByAsset.get(a.id) ?? 0,
       controls: controlIdsByAsset.get(a.id)?.size ?? 0,
       criticality: a.criticality,
-      objectives: ((i + 3) % 12) + 1,
-      processes: ((i + 5) % 20) + 1,
+      objectives: objectiveCountByAsset.get(a.id) ?? 0,
+      processes: processCountByAsset.get(a.id) ?? 0,
       businessUnitId: a.businessUnitId,
       businessUnits: relatedBuIds.size,
     };
@@ -721,6 +747,11 @@ function ScopeAssetsDataGrid({
   const hasClearableScopeAssetFilterState =
     hasCommittedScopeAssetFilters || hasDraftScopeAssetFilterSelection;
 
+  const appliedFilterCriteriaCount = useMemo(
+    () => countScopeAssetFilterCriteria(appliedScopeAssetFilters),
+    [appliedScopeAssetFilters],
+  );
+
   const handleOpenScopeAssetFilters = useCallback(() => {
     setDraftScopeAssetFilters(appliedScopeAssetFilters);
     setIsScopeAssetsFilterOpen(true);
@@ -1003,6 +1034,8 @@ function ScopeAssetsDataGrid({
               totalCount={rows.length}
               includedCount={includedCount}
               onOpenFilters={handleOpenScopeAssetFilters}
+              filterCriteriaCount={appliedFilterCriteriaCount}
+              onClearFilters={handleClearScopeAssetFilters}
             />
           ),
         }}
@@ -1073,6 +1106,15 @@ function ScopeAssetsDataGrid({
   );
 }
 
+function scopeCyberRiskWorkflowOptions(rows: ScopeCyberRiskRow[]): CyberRiskStatus[] {
+  const seen = new Set(rows.map((r) => r.status));
+  const ordered = CYBER_RISK_WORKFLOW_FILTER_OPTIONS.filter((s) => seen.has(s));
+  const catalogOrder = new Set(CYBER_RISK_WORKFLOW_FILTER_OPTIONS as readonly string[]);
+  const extras = [...seen].filter((s) => !catalogOrder.has(s));
+  extras.sort((a, b) => a.localeCompare(b));
+  return [...ordered, ...extras];
+}
+
 function ScopeScopedCyberRisksGrid({
   rows,
   hasIncludedAssets,
@@ -1086,14 +1128,70 @@ function ScopeScopedCyberRisksGrid({
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
+  const [isScopeCyberRisksFilterOpen, setIsScopeCyberRisksFilterOpen] = useState(false);
+  const [appliedScopeCyberRiskFilters, setAppliedScopeCyberRiskFilters] =
+    useState<CyberRiskTableFilters>(EMPTY_CYBER_RISK_TABLE_FILTERS);
+  const [draftScopeCyberRiskFilters, setDraftScopeCyberRiskFilters] = useState<CyberRiskTableFilters>(
+    EMPTY_CYBER_RISK_TABLE_FILTERS,
+  );
+
+  const hasCommittedScopeCyberRiskFilters = useMemo(
+    () => countCyberRiskFilterCriteria(appliedScopeCyberRiskFilters) > 0,
+    [appliedScopeCyberRiskFilters],
+  );
+  const hasDraftScopeCyberRiskFilterSelection = useMemo(
+    () => countCyberRiskFilterCriteria(draftScopeCyberRiskFilters) > 0,
+    [draftScopeCyberRiskFilters],
+  );
+  const hasClearableScopeCyberRiskFilterState =
+    hasCommittedScopeCyberRiskFilters || hasDraftScopeCyberRiskFilterSelection;
+
+  const appliedFilterCriteriaCount = useMemo(
+    () => countCyberRiskFilterCriteria(appliedScopeCyberRiskFilters),
+    [appliedScopeCyberRiskFilters],
+  );
+
+  const handleOpenScopeCyberRiskFilters = useCallback(() => {
+    setDraftScopeCyberRiskFilters(appliedScopeCyberRiskFilters);
+    setIsScopeCyberRisksFilterOpen(true);
+  }, [appliedScopeCyberRiskFilters]);
+
+  const handleCloseScopeCyberRiskFilterSheet = useCallback(() => {
+    setDraftScopeCyberRiskFilters(appliedScopeCyberRiskFilters);
+    setIsScopeCyberRisksFilterOpen(false);
+  }, [appliedScopeCyberRiskFilters]);
+
+  const handleDiscardScopeCyberRiskFilters = useCallback(() => {
+    setDraftScopeCyberRiskFilters(appliedScopeCyberRiskFilters);
+  }, [appliedScopeCyberRiskFilters]);
+
+  const handleClearScopeCyberRiskFilters = useCallback(() => {
+    setDraftScopeCyberRiskFilters(EMPTY_CYBER_RISK_TABLE_FILTERS);
+    setAppliedScopeCyberRiskFilters(EMPTY_CYBER_RISK_TABLE_FILTERS);
+  }, []);
+
+  const handleApplyScopeCyberRiskFilters = useCallback(() => {
+    setAppliedScopeCyberRiskFilters(draftScopeCyberRiskFilters);
+    setIsScopeCyberRisksFilterOpen(false);
+  }, [draftScopeCyberRiskFilters]);
+
+  const workflowOptionsForFilter = useMemo(() => scopeCyberRiskWorkflowOptions(rows), [rows]);
+  const boundedOwnerIds = useMemo(() => [...new Set(rows.map((r) => r.ownerId))], [rows]);
+  const boundedScoreLabels = useMemo(() => [...new Set(rows.map((r) => r.cyberRiskScoreLabel))], [rows]);
+  const boundedAssetIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of rows) for (const aid of r.assetIds) ids.add(aid);
+    return [...ids];
+  }, [rows]);
 
   const includedCount = useMemo(() => rows.filter((r) => r.included).length, [rows]);
 
   const filteredRows = useMemo(() => {
-    if (view === "included") return rows.filter((r) => r.included);
-    if (view === "excluded") return rows.filter((r) => !r.included);
-    return rows;
-  }, [rows, view]);
+    let next = rows;
+    if (view === "included") next = next.filter((r) => r.included);
+    else if (view === "excluded") next = next.filter((r) => !r.included);
+    return applyCyberRiskTableFiltersToCatalogRows(next, appliedScopeCyberRiskFilters);
+  }, [rows, view, appliedScopeCyberRiskFilters]);
 
   const setIncluded = useCallback(
     (cyberRiskId: string, included: boolean) => {
@@ -1215,73 +1313,98 @@ function ScopeScopedCyberRisksGrid({
   );
 
   return (
-    <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
-      {rows.length === 0 ? (
-        <Typography
-          variant="body1"
-          sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
-        >
-          {hasIncludedAssets
-            ? "No cyber risks are linked to the assets in scope."
-            : "Include assets in this assessment to see related cyber risks."}
-        </Typography>
-      ) : null}
-      <Box sx={{ width: "100%", minHeight: 400 }}>
-        <DataGridPro
-          rows={filteredRows}
-          columns={columns}
-          getRowId={(r) => r.id}
-          pagination
-          autoHeight
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50]}
-          showToolbar
-          slots={{
-            toolbar: () => (
-              <ScopeDataGridInclusionToolbar
-                view={view}
-                onViewChange={handleViewChange}
-                totalCount={rows.length}
-                includedCount={includedCount}
-                toolbarAriaLabel="Scoped cyber risks toolbar"
-                inclusionFilterAriaLabel="Filter cyber risks by inclusion"
-              />
-            ),
-          }}
-          disableRowSelectionOnClick
-          slotProps={{
-            main: {
-              "aria-label":
-                "Cyber risks linked to assets in assessment scope. Use the first column to include or exclude each risk.",
-            },
-            basePagination: { material: { labelRowsPerPage: "Rows" } },
-          }}
-          initialState={{
-            sorting: { sortModel: [{ field: "name", sort: "asc" }] },
-          }}
-          sx={({ tokens: t }) => ({
-            border: "none",
-            borderRadius: t.semantic.radius.md.value,
-            "& .MuiDataGrid-scrollShadow": { display: "none" },
-            "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: t.semantic.color.surface.variant.value,
-            },
-            "& .MuiDataGrid-columnHeaderTitle": {
-              fontWeight: 600,
-              fontSize: 12,
-              letterSpacing: "0.3px",
-            },
-            "& .MuiDataGrid-withBorderColor": {
-              borderColor: t.semantic.color.outline.default.value,
-            },
-          })}
-          showColumnVerticalBorder
-          showCellVerticalBorder
+    <>
+      <Stack gap={2} sx={{ width: "100%", pt: 2, pb: 3 }}>
+        {rows.length === 0 ? (
+          <Typography
+            variant="body1"
+            sx={({ tokens: t }) => ({ color: t.semantic.color.type.muted.value })}
+          >
+            {hasIncludedAssets
+              ? "No cyber risks are linked to the assets in scope."
+              : "Include assets in this assessment to see related cyber risks."}
+          </Typography>
+        ) : null}
+        <Box sx={{ width: "100%", minHeight: 400 }}>
+          <DataGridPro
+            rows={filteredRows}
+            columns={columns}
+            getRowId={(r) => r.id}
+            pagination
+            autoHeight
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            pageSizeOptions={[10, 25, 50]}
+            showToolbar
+            slots={{
+              toolbar: () => (
+                <ScopeToolbar
+                  view={view}
+                  onViewChange={handleViewChange}
+                  totalCount={rows.length}
+                  includedCount={includedCount}
+                  onOpenFilters={handleOpenScopeCyberRiskFilters}
+                  filterCriteriaCount={appliedFilterCriteriaCount}
+                  onClearFilters={handleClearScopeCyberRiskFilters}
+                  toolbarAriaLabel="Scoped cyber risks toolbar"
+                  inclusionFilterAriaLabel="Filter cyber risks by inclusion"
+                />
+              ),
+            }}
+            disableRowSelectionOnClick
+            slotProps={{
+              main: {
+                "aria-label":
+                  "Cyber risks linked to assets in assessment scope. Use the first column to include or exclude each risk.",
+              },
+              basePagination: { material: { labelRowsPerPage: "Rows" } },
+            }}
+            initialState={{
+              sorting: { sortModel: [{ field: "name", sort: "asc" }] },
+            }}
+            sx={({ tokens: t }) => ({
+              border: "none",
+              borderRadius: t.semantic.radius.md.value,
+              "& .MuiDataGrid-scrollShadow": { display: "none" },
+              "& .MuiDataGrid-columnHeader, & .MuiDataGrid-cell": { boxShadow: "none" },
+              "& .MuiDataGrid-columnHeaders": {
+                backgroundColor: t.semantic.color.surface.variant.value,
+              },
+              "& .MuiDataGrid-columnHeaderTitle": {
+                fontWeight: 600,
+                fontSize: 12,
+                letterSpacing: "0.3px",
+              },
+              "& .MuiDataGrid-withBorderColor": {
+                borderColor: t.semantic.color.outline.default.value,
+              },
+            })}
+            showColumnVerticalBorder
+            showCellVerticalBorder
+          />
+        </Box>
+      </Stack>
+      <FilterSideSheet
+        open={isScopeCyberRisksFilterOpen}
+        onClose={handleCloseScopeCyberRiskFilterSheet}
+        onApply={handleApplyScopeCyberRiskFilters}
+        onClear={handleClearScopeCyberRiskFilters}
+        onDiscard={handleDiscardScopeCyberRiskFilters}
+        hasClearableFilterState={hasClearableScopeCyberRiskFilterState}
+        hasDraftFilterSelection={hasDraftScopeCyberRiskFilterSelection}
+        titleId="scope-cyber-risks-filters-title"
+        contentAriaLabel="Scoped cyber risks filters"
+      >
+        <FilterRisks
+          value={draftScopeCyberRiskFilters}
+          onChange={setDraftScopeCyberRiskFilters}
+          workflowOptions={workflowOptionsForFilter}
+          boundedOwnerIds={boundedOwnerIds}
+          boundedAssetIds={boundedAssetIds}
+          boundedScoreLabels={boundedScoreLabels}
         />
-      </Box>
-    </Stack>
+      </FilterSideSheet>
+    </>
   );
 }
 

@@ -199,7 +199,7 @@ export default function AssessmentDetailsTab() {
     return "";
   });
   const [ownerIds, setOwnerIds] = useState<string[]>(() => {
-    if (initialDraft) return initialDraft.ownerIds;
+    if (initialDraft) return initialDraft.ownerIds.slice(0, 1);
     if (mockFromRoute) return [mockFromRoute.ownerId];
     return [DEFAULT_NEW_OWNER_ID];
   });
@@ -447,10 +447,10 @@ export default function AssessmentDetailsTab() {
     }));
   }, []);
 
-  const selectedAssessmentOwners = useMemo((): AssessmentOwnerLookupOption[] => {
-    return ownerIds
-      .map((id) => assessmentOwnerLookupOptions.find((o) => o.id === id))
-      .filter((o): o is AssessmentOwnerLookupOption => o != null);
+  const selectedAssessmentOwner = useMemo((): AssessmentOwnerLookupOption | null => {
+    const id = ownerIds[0];
+    if (id == null || id === "") return null;
+    return assessmentOwnerLookupOptions.find((o) => o.id === id) ?? null;
   }, [ownerIds, assessmentOwnerLookupOptions]);
 
   const createdByDisplay = useMemo(() => joinUserFullNames(ownerIds, "—"), [ownerIds]);
@@ -712,23 +712,21 @@ export default function AssessmentDetailsTab() {
             <Box sx={{ width: "100%" }}>
               <FormControl fullWidth margin="none">
                 <Autocomplete
-                  multiple
                   id="cra-new-assessment-owner-lookup"
                   options={assessmentOwnerLookupOptions as never}
-                  value={selectedAssessmentOwners as never}
-                  onChange={(_, newValue) => setOwnerIds(newValue.map((o) => o.id))}
+                  value={(selectedAssessmentOwner ?? null) as never}
+                  onChange={(_, newValue) => setOwnerIds(newValue ? [newValue.id] : [])}
                   getOptionLabel={(option) => option.label}
                   isOptionEqualToValue={(a, b) => a.id === b.id}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       label="Owner"
-                      placeholder="Select users..."
+                      placeholder="Select a user..."
                       margin="none"
                     />
                   )}
                   renderOption={AutocompletePresets.userLookup.renderOption}
-                  renderTags={AutocompletePresets.userLookup.type.multiple.renderTags}
                 />
               </FormControl>
             </Box>

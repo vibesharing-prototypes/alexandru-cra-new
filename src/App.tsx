@@ -20,6 +20,7 @@ import OverviewPage from "./pages/OverviewPage.js";
 import ControlsPage from "./pages/ControlsPage.js";
 import RisksPage from "./pages/RisksPage.js";
 import CyberRiskDetailPage from "./pages/CyberRiskDetailPage.js";
+import CyberRiskSettingsPage from "./pages/CyberRiskSettingsPage.js";
 import MitigationPlansPage from "./pages/MitigationPlansPage.js";
 import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
 import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
@@ -182,15 +183,7 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="settings/cyber-risk-settings"
-          element={
-            <GenericPage
-              title="Cyber risk settings"
-              breadcrumbParent="Settings"
-            />
-          }
-        />
+        <Route path="settings/cyber-risk-settings" element={<CyberRiskSettingsPage />} />
         <Route
           path="settings/vulnerability-settings"
           element={

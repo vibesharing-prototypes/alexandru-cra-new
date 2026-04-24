@@ -33,6 +33,16 @@ type ScopeToolbarBaseProps = {
   totalCount: number;
   includedCount: number;
   onOpenFilters: () => void;
+  /**
+   * Number of filter **criteria** (categories with any selection), e.g. Criticality + Asset type = 2.
+   * When &gt; 0, the Filter label shows `Filter (n)` and the icon uses the **filled** variant.
+   */
+  filterCriteriaCount?: number;
+  /**
+   * Clears applied filter state (same as **Clear filters** in [`FilterSideSheet`](./FilterSideSheet.tsx)).
+   * When set and `filterCriteriaCount` &gt; 0, a **Clear filters** control is shown after **Columns**.
+   */
+  onClearFilters?: () => void;
   toolbarAriaLabel?: string;
   inclusionFilterAriaLabel?: string;
   /**
@@ -52,8 +62,8 @@ type ScopeToolbarBaseProps = {
 
 /**
  * DataGrid Pro **toolbar** for assessment scope: quick search, **Filter** (opens page filter UI via
- * `onOpenFilters`), **Columns**, and inclusion filters (All / Included / Not included). Does not use
- * MUI’s `FilterPanelTrigger`.
+ * `onOpenFilters`), **Columns**, optional **Clear filters** when criteria are applied (`onClearFilters`),
+ * and inclusion filters (All / Included / Not included). Does not use MUI’s `FilterPanelTrigger`.
  */
 export default function ScopeToolbar({
   view,
@@ -61,6 +71,8 @@ export default function ScopeToolbar({
   totalCount,
   includedCount,
   onOpenFilters,
+  filterCriteriaCount = 0,
+  onClearFilters,
   toolbarAriaLabel = "Scope assets toolbar",
   inclusionFilterAriaLabel = "Filter assets by inclusion",
   searchLabel,
@@ -69,6 +81,16 @@ export default function ScopeToolbar({
 }: ScopeToolbarBaseProps) {
   const textFieldLabel: string | undefined =
     searchLabel === null ? undefined : (searchLabel ?? DEFAULT_SEARCH_LABEL);
+
+  const hasFilterCriteria = filterCriteriaCount > 0;
+  const filterButtonLabel = hasFilterCriteria
+    ? `Filter (${filterCriteriaCount})`
+    : "Filter";
+  const filterButtonAriaLabel = hasFilterCriteria
+    ? `Show filters, ${filterCriteriaCount} filter criteria applied`
+    : "Show filters";
+
+  const showClearFilters = hasFilterCriteria && Boolean(onClearFilters);
 
   return (
     <Toolbar aria-label={toolbarAriaLabel}>
@@ -100,11 +122,20 @@ export default function ScopeToolbar({
       </QuickFilter>
       <Button
         type="button"
-        startIcon={<FilterIcon />}
-        aria-label="Show filters"
+        startIcon={
+          <FilterIcon variant={hasFilterCriteria ? "filled" : "outlined"} size="lg" aria-hidden />
+        }
+        aria-label={filterButtonAriaLabel}
         onClick={onOpenFilters}
+        sx={{
+          display: "inline-flex",
+          flexDirection: "row",
+          alignItems: "center",
+          px: 0.5,
+          columnGap: 0.5,
+        }}
       >
-        Filter
+        {filterButtonLabel}
       </Button>
       <ColumnsPanelTrigger
         render={(props) => (
@@ -113,6 +144,17 @@ export default function ScopeToolbar({
           </Button>
         )}
       />
+      {showClearFilters ? (
+        <Button
+          type="button"
+          variant="text"
+          onClick={onClearFilters}
+          aria-label="Clear filters"
+          sx={{ ml: 0.5, whiteSpace: "nowrap" }}
+        >
+          Clear filters
+        </Button>
+      ) : null}
       <Box sx={{ flex: "1 1 120px" }} />
       <ToggleButtonGroup
         value={view}

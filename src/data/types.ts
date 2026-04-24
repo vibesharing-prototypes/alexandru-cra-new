@@ -428,6 +428,50 @@ export interface MockMitigationPlan {
   assessmentIds: string[];
 }
 
+/** Cross-catalog links for strategic objectives (populated in `objectives.ts`). */
+export interface MockObjectiveRelationships {
+  businessUnitIds: string[];
+  assetIds: string[];
+  threatIds: string[];
+  vulnerabilityIds: string[];
+  controlIds: string[];
+  cyberRiskIds: string[];
+  scenarioIds: string[];
+  assessmentIds: string[];
+  mitigationPlanIds: string[];
+  processIds: string[];
+}
+
+export interface MockObjective {
+  id: string;
+  title: string;
+  description: string;
+  ownerId: string;
+  relationships: MockObjectiveRelationships;
+}
+
+/** Cross-catalog links for operational processes (populated in `processes.ts`). */
+export interface MockProcessRelationships {
+  businessUnitIds: string[];
+  assetIds: string[];
+  threatIds: string[];
+  vulnerabilityIds: string[];
+  controlIds: string[];
+  cyberRiskIds: string[];
+  scenarioIds: string[];
+  assessmentIds: string[];
+  mitigationPlanIds: string[];
+  objectiveIds: string[];
+}
+
+export interface MockProcess {
+  id: string;
+  title: string;
+  description: string;
+  ownerId: string;
+  relationships: MockProcessRelationships;
+}
+
 // ---------------------------------------------------------------------------
 // Utility functions — scale labels & RAG mapping
 // ---------------------------------------------------------------------------

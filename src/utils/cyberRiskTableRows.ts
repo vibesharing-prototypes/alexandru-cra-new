@@ -82,24 +82,70 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
   });
 }
 
-export function applyCyberRiskFilters(
-  rows: CyberRiskRow[],
+function matchesCyberRiskTableFilters(
+  workflowStatus: CyberRiskStatus,
+  ownerId: string,
+  cyberRiskScoreLabel: FivePointScaleLabel,
+  assetIds: readonly string[],
   filters: CyberRiskTableFilters,
-): CyberRiskRow[] {
+): boolean {
   const statusSet =
     filters.workflowStatuses.length > 0 ? new Set(filters.workflowStatuses) : null;
   const ownerSet = filters.ownerIds.length > 0 ? new Set(filters.ownerIds) : null;
   const scoreSet = filters.scoreLabels.length > 0 ? new Set(filters.scoreLabels) : null;
   const assetSet = filters.assetIds.length > 0 ? new Set(filters.assetIds) : null;
 
-  return rows.filter((row) => {
-    if (statusSet && !statusSet.has(row.workflowStatus)) return false;
-    if (ownerSet && !ownerSet.has(row.ownerId)) return false;
-    if (scoreSet && !scoreSet.has(row.cyberRiskScoreLabel)) return false;
-    if (assetSet) {
-      const hasOverlap = row.assetIds.some((id) => assetSet.has(id));
-      if (!hasOverlap) return false;
-    }
-    return true;
-  });
+  if (statusSet && !statusSet.has(workflowStatus)) return false;
+  if (ownerSet && !ownerSet.has(ownerId)) return false;
+  if (scoreSet && !scoreSet.has(cyberRiskScoreLabel)) return false;
+  if (assetSet) {
+    const hasOverlap = assetIds.some((id) => assetSet.has(id));
+    if (!hasOverlap) return false;
+  }
+  return true;
+}
+
+export function applyCyberRiskFilters(
+  rows: CyberRiskRow[],
+  filters: CyberRiskTableFilters,
+): CyberRiskRow[] {
+  return rows.filter((row) =>
+    matchesCyberRiskTableFilters(
+      row.workflowStatus,
+      row.ownerId,
+      row.cyberRiskScoreLabel,
+      row.assetIds,
+      filters,
+    ),
+  );
+}
+
+/** Same semantics as `applyCyberRiskFilters` for catalog/mock rows using `status` as workflow. */
+export function applyCyberRiskTableFiltersToCatalogRows<
+  T extends {
+    status: CyberRiskStatus;
+    ownerId: string;
+    cyberRiskScoreLabel: FivePointScaleLabel;
+    assetIds: readonly string[];
+  },
+>(rows: T[], filters: CyberRiskTableFilters): T[] {
+  return rows.filter((row) =>
+    matchesCyberRiskTableFilters(
+      row.status,
+      row.ownerId,
+      row.cyberRiskScoreLabel,
+      row.assetIds,
+      filters,
+    ),
+  );
+}
+
+/** Counts filter categories with any selection (for toolbar badge). */
+export function countCyberRiskFilterCriteria(filters: CyberRiskTableFilters): number {
+  let n = 0;
+  if (filters.workflowStatuses.length > 0) n++;
+  if (filters.ownerIds.length > 0) n++;
+  if (filters.scoreLabels.length > 0) n++;
+  if (filters.assetIds.length > 0) n++;
+  return n;
 }

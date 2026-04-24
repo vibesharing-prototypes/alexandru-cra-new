@@ -25,6 +25,12 @@ export type FilterRisksProps = {
   value: CyberRiskTableFilters;
   onChange: (next: CyberRiskTableFilters) => void;
   workflowOptions: readonly CyberRiskStatus[];
+  /** When set, Owner autocomplete lists only these user ids (plus any currently selected in `value`). */
+  boundedOwnerIds?: string[];
+  /** When set, Assets autocomplete lists only these asset ids (plus any currently selected in `value`). */
+  boundedAssetIds?: string[];
+  /** When set, Cyber risk score multiselect lists only these labels in catalog order (plus any currently selected). */
+  boundedScoreLabels?: FivePointScaleLabel[];
 };
 
 const fieldLabelSx = {
@@ -109,7 +115,14 @@ function MultiSelectField<T extends string>({
   );
 }
 
-export default function FilterRisks({ value, onChange, workflowOptions }: FilterRisksProps) {
+export default function FilterRisks({
+  value,
+  onChange,
+  workflowOptions,
+  boundedOwnerIds,
+  boundedAssetIds,
+  boundedScoreLabels,
+}: FilterRisksProps) {
   const { presets } = useTheme();
   const { AutocompletePresets } = presets;
 
@@ -118,19 +131,32 @@ export default function FilterRisks({ value, onChange, workflowOptions }: Filter
     [workflowOptions],
   );
 
-  const scoreFieldOptions = useMemo(
-    () => CYBER_RISK_SCORE_FILTER_OPTIONS.map((s) => ({ value: s, label: s })),
-    [],
-  );
+  const scoreFieldOptions = useMemo(() => {
+    const selected = value.scoreLabels;
+    if (boundedScoreLabels == null) {
+      return CYBER_RISK_SCORE_FILTER_OPTIONS.map((s) => ({ value: s, label: s }));
+    }
+    const allowed = new Set(boundedScoreLabels);
+    const fromTable = CYBER_RISK_SCORE_FILTER_OPTIONS.filter((s) => allowed.has(s));
+    const extras = selected.filter((s) => !fromTable.includes(s));
+    const ordered = [...fromTable, ...extras];
+    return ordered.map((s) => ({ value: s, label: s }));
+  }, [boundedScoreLabels, value.scoreLabels]);
 
   const userLookupOptions = useMemo((): UserLookupOption[] => {
-    return users.map((u) => ({
+    const toOption = (u: (typeof users)[number]): UserLookupOption => ({
       id: u.id,
       label: u.fullName,
       email: mockUserEmail(u),
       type: "user" as const,
-    }));
-  }, []);
+    });
+    if (boundedOwnerIds == null) {
+      return users.map(toOption);
+    }
+    const idSet = new Set(boundedOwnerIds);
+    for (const id of value.ownerIds) idSet.add(id);
+    return users.filter((u) => idSet.has(u.id)).map(toOption);
+  }, [boundedOwnerIds, value.ownerIds]);
 
   const selectedOwners = useMemo((): UserLookupOption[] => {
     return value.ownerIds
@@ -139,8 +165,16 @@ export default function FilterRisks({ value, onChange, workflowOptions }: Filter
   }, [value.ownerIds, userLookupOptions]);
 
   const assetOptions = useMemo((): AssetOption[] => {
-    return assets.map((a) => ({ id: a.id, label: a.name })).sort((a, b) => a.label.localeCompare(b.label));
-  }, []);
+    if (boundedAssetIds == null) {
+      return assets.map((a) => ({ id: a.id, label: a.name })).sort((a, b) => a.label.localeCompare(b.label));
+    }
+    const idSet = new Set(boundedAssetIds);
+    for (const id of value.assetIds) idSet.add(id);
+    return assets
+      .filter((a) => idSet.has(a.id))
+      .map((a) => ({ id: a.id, label: a.name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [boundedAssetIds, value.assetIds]);
 
   const selectedAssets = useMemo((): AssetOption[] => {
     return value.assetIds

@@ -28,6 +28,7 @@ import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
 import AICard, {
+  AICardAggregationMethodRow,
   AICardAssessmentPreset,
   AICardScoringDescription,
 } from "../components/AICard.js";
@@ -666,7 +667,12 @@ export default function AssessmentScoringTab({
             <AICardAssessmentPreset
               omitAssessmentType
               title="AI scoring"
-              description={<AICardScoringDescription />}
+              description={
+                <>
+                  <AICardScoringDescription />
+                  <AICardAggregationMethodRow />
+                </>
+              }
               actionLabel="Start AI scoring"
               onAction={onAiScoringClick}
               actionLoading={aiScoringPhase === "processing"}

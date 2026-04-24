@@ -1,13 +1,15 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, type MouseEvent, type ReactNode } from "react";
 import {
   Box,
   Button,
   CircularProgress,
   FormControl,
   FormControlLabel,
+  Link,
   Radio,
   RadioGroup,
   Stack,
+  SvgIcon,
   Typography,
   useTheme,
 } from "@mui/material";
@@ -152,7 +154,7 @@ function FormulasRow({ children }: { children: ReactNode }) {
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
-        gap: 0,
+        gap: t.core.spacing["2"].value,
         width: "100%",
         minWidth: 0,
         height: 18,
@@ -165,10 +167,249 @@ function FormulasRow({ children }: { children: ReactNode }) {
   );
 }
 
-/** Body copy and formula chips for the CRA scoring tab AI card. */
-export function AICardScoringDescription() {
+function AggregationRadioUncheckedIcon() {
   return (
-    <Stack spacing={1} sx={{ width: "100%", color: "inherit" }}>
+    <Box
+      sx={{
+        width: 24,
+        height: 24,
+        borderRadius: "50%",
+        border: "1.4px solid #282E37",
+        boxSizing: "border-box",
+      }}
+    />
+  );
+}
+
+function AggregationRadioCheckedIcon() {
+  return (
+    <Box
+      sx={{
+        width: 24,
+        height: 24,
+        borderRadius: "50%",
+        border: "1.4px solid #282E37",
+        bgcolor: "#282E37",
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#FFFFFF" }} />
+    </Box>
+  );
+}
+
+/** 1×12px divider centered in a 24px-tall column (aggregation row). */
+function AggregationMethodDivider() {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        flex: "0 0 1px",
+        width: 1,
+        height: 24,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxSizing: "border-box",
+      }}
+    >
+      <Box sx={{ width: 1, height: 12, flexShrink: 0, bgcolor: "#DADADA" }} />
+    </Box>
+  );
+}
+
+function ScoringLogicInfoIcon() {
+  return (
+    <SvgIcon viewBox="0 0 24 24" aria-hidden sx={{ width: 24, height: 24, color: "#282E37" }}>
+      <path
+        fill="currentColor"
+        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+      />
+    </SvgIcon>
+  );
+}
+
+export type AICardScoringDescriptionProps = {
+  /** Destination for “View scoring logic and aggregation details”. Placeholder `#` is inert (click prevented). */
+  scoringLogicHref?: string;
+};
+
+export type AICardAggregationMethodRowProps = {
+  /** Destination for “View scoring logic and aggregation details”. Placeholder `#` is inert (click prevented). */
+  scoringLogicHref?: string;
+};
+
+/** Aggregation radios + scoring logic link (sibling to formulas block under the AI scoring section). */
+export function AICardAggregationMethodRow({ scoringLogicHref = "#" }: AICardAggregationMethodRowProps = {}) {
+  const aggregationBlockId = useId();
+  const aggregationLabelId = `${aggregationBlockId}-agg-label`;
+  const aggregationGroupName = `${aggregationBlockId}-aggregation`;
+  const [aggregationMethod, setAggregationMethod] = useState<"highest" | "average">("highest");
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "flex-end",
+        flexWrap: "wrap",
+        gap: "16px",
+        width: "fit-content",
+        minHeight: 52,
+        boxSizing: "border-box",
+      }}
+    >
+      <Stack
+        spacing="12px"
+        sx={{
+          width: "fit-content",
+          flexShrink: 0,
+          alignItems: "flex-start",
+          boxSizing: "border-box",
+        }}
+      >
+        <Typography
+          id={aggregationLabelId}
+          component="p"
+          sx={{
+            m: 0,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontWeight: 600,
+            fontSize: 12,
+            lineHeight: "16px",
+            letterSpacing: "0.3px",
+            color: "#282E37",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          Aggregation method
+        </Typography>
+        <FormControl
+          variant="standard"
+          sx={{ width: "100%", m: 0, height: 24, "& .MuiFormGroup-root": { height: 24 } }}
+        >
+          <RadioGroup
+            row
+            name={aggregationGroupName}
+            value={aggregationMethod}
+            onChange={(_, v) => {
+              if (v === "highest" || v === "average") setAggregationMethod(v);
+            }}
+            aria-labelledby={aggregationLabelId}
+            sx={{
+              flexWrap: "nowrap",
+              gap: "24px",
+              alignItems: "center",
+              width: "100%",
+              height: 24,
+            }}
+          >
+            <FormControlLabel
+              value="highest"
+              control={
+                <Radio
+                  disableRipple
+                  icon={<AggregationRadioUncheckedIcon />}
+                  checkedIcon={<AggregationRadioCheckedIcon />}
+                  sx={{ p: 0 }}
+                />
+              }
+              label="Highest"
+              sx={{
+                mr: 0,
+                ml: 0,
+                gap: 0,
+                height: 24,
+                alignItems: "center",
+                "& .MuiFormControlLabel-label": {
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 400,
+                  fontSize: 14,
+                  lineHeight: "20px",
+                  letterSpacing: "0.2px",
+                  color: "#282E37",
+                },
+              }}
+            />
+            <FormControlLabel
+              value="average"
+              control={
+                <Radio
+                  disableRipple
+                  icon={<AggregationRadioUncheckedIcon />}
+                  checkedIcon={<AggregationRadioCheckedIcon />}
+                  sx={{ p: 0 }}
+                />
+              }
+              label="Weighted average"
+              sx={{
+                mr: 0,
+                ml: 0,
+                gap: 0,
+                height: 24,
+                alignItems: "center",
+                "& .MuiFormControlLabel-label": {
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 400,
+                  fontSize: 14,
+                  lineHeight: "20px",
+                  letterSpacing: "0.2px",
+                  color: "#282E37",
+                },
+              }}
+            />
+          </RadioGroup>
+        </FormControl>
+      </Stack>
+      <AggregationMethodDivider />
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: "4px",
+          minHeight: 24,
+          minWidth: 0,
+          flex: "1 1 200px",
+        }}
+      >
+        <ScoringLogicInfoIcon />
+        <Link
+          href={scoringLogicHref}
+          underline="always"
+          onClick={
+            scoringLogicHref === "#"
+              ? (e: MouseEvent<HTMLAnchorElement>) => e.preventDefault()
+              : undefined
+          }
+          sx={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontWeight: 600,
+            fontSize: 12,
+            lineHeight: "16px",
+            letterSpacing: "0.3px",
+            color: "#282E37",
+            textDecorationColor: "#282E37",
+            width: 300,
+            minWidth: 300,
+            height: "fit-content",
+          }}
+        >
+          View scoring logic and aggregation details
+        </Link>
+      </Box>
+    </Box>
+  );
+}
+
+/** Intro copy and formula chips for the CRA scoring tab AI card. */
+export function AICardScoringDescription(_props: AICardScoringDescriptionProps = {}) {
+  return (
+    <Stack sx={{ width: "100%", color: "inherit", gap: "8px" }}>
       <Typography
         component="p"
         sx={({ tokens: t }) => ({
@@ -232,16 +473,12 @@ export default function AICard({ children }: AICardProps) {
         border: "1px solid rgba(218, 218, 218, 1)",
         px: t.core.spacing["3"].value,
         py: t.core.spacing["3"].value,
+        display: "flex",
+        flexDirection: "column",
+        gap: t.core.spacing["1_5"].value,
       })}
     >
-      <Stack
-        sx={({ tokens: t }) => ({
-          gap: t.core.spacing["1_5"].value,
-          width: "100%",
-        })}
-      >
-        {children}
-      </Stack>
+      {children}
     </Box>
   );
 }
@@ -378,7 +615,7 @@ export function AICardAssessmentPreset({
       alignItems="flex-start"
       sx={({ tokens: t }) => ({
         width: "100%",
-        gap: useFigmaScoringHeader ? t.core.spacing["1_5"].value : t.core.spacing["3"].value,
+        gap: t.core.spacing["3"].value,
       })}
     >
       {useFigmaScoringHeader ? (
@@ -393,7 +630,21 @@ export function AICardAssessmentPreset({
             {plainTitleTypography}
             {primaryActionButton}
           </Stack>
-          {descriptionBody}
+          {typeof description === "string" ? (
+            <Box
+              sx={({ tokens: t }) => ({
+                m: 0,
+                color: t.semantic.color.type.default.value,
+                width: "100%",
+              })}
+            >
+              <Typography variant="body1" component="p" sx={{ m: 0 }}>
+                {description}
+              </Typography>
+            </Box>
+          ) : (
+            description
+          )}
         </>
       ) : (
         <>
