@@ -15,6 +15,7 @@ import ThreatsPage from "./pages/ThreatsPage.js";
 import ThreatDetailPage from "./pages/ThreatDetailPage.js";
 import AssessmentsPage from "./pages/AssessmentsPage.js";
 import AssessmentDetailsTab from "./pages/AssessmentDetailsTab.js";
+import RationaleReadOnly from "./pages/RationaleReadOnlyPage.js";
 import ScoringRationalePage from "./pages/ScoringRationalePage.js";
 import OverviewPage from "./pages/OverviewPage.js";
 import ControlsPage from "./pages/ControlsPage.js";
@@ -140,6 +141,10 @@ export default function App() {
         <Route
           path="cyber-risk/cyber-risk-assessments/:assessmentId"
           element={<AssessmentDetailsTab />}
+        />
+        <Route
+          path="cyber-risk/cyber-risk-assessments/new/scenario/:scenarioId/rationale-read-only"
+          element={<RationaleReadOnly />}
         />
         <Route
           path="cyber-risk/cyber-risk-assessments/new/scenario/:scenarioId"

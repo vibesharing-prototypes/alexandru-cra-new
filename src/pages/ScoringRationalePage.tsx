@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { OverflowBreadcrumbs, SectionHeader } from "@diligentcorp/atlas-react-bundle";
+import { OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
 import { Alert, AlertTitle, Box, Container, Stack, Typography } from "@mui/material";
 import { visuallyHidden } from "@mui/utils";
 import { NavLink, useLocation, useNavigate, useParams } from "react-router";
@@ -7,13 +7,13 @@ import { NavLink, useLocation, useNavigate, useParams } from "react-router";
 import AiSparkleIcon from "@diligentcorp/atlas-react-bundle/icons/AiSparkle";
 
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
-import HistoryAccordion, {
-  formatHistoryLogDateTime,
-} from "../components/HistoryAccordion.js";
 import ScoringRationaleHeader from "../components/ScoringRationaleHeader.js";
+import {
+  type ScenarioHistoryEntry,
+  ScenarioHistorySection,
+} from "../components/ScenarioHistorySection.js";
 import ScenarioHistoryReadOnlyPanel, {
   buildScenarioHistorySnapshot,
-  type ScenarioHistoryReadOnlySnapshot,
 } from "../components/ScenarioHistoryReadOnlyPanel.js";
 import ScenarioScoringDropdownsBlock from "../components/ScenarioScoringDropdownsBlock.js";
 import type { ScenarioScoringInitialScores } from "../components/ScenarioScoringDropdownsBlock.js";
@@ -23,7 +23,10 @@ import {
   numericOf,
   SCORE_OPTIONS,
 } from "../components/ScoringMetricField.js";
-import type { CraScenarioDetailLocationState } from "./craNewAssessmentDraftStorage.js";
+import {
+  NEW_CRA_SCORING_TAB_INDEX,
+  type CraScenarioDetailLocationState,
+} from "./craNewAssessmentDraftStorage.js";
 import {
   getCyberRiskScoreLabel,
   getFivePointLabel,
@@ -41,49 +44,6 @@ const SCENARIO_HISTORY_CURRENT_USER_NAME = users[0]!.fullName;
 const SCENARIO_HISTORY_BASELINE_LATEST_OWNER = users[1]!.fullName;
 const SCENARIO_HISTORY_BASELINE_PRIOR_OWNER = users[2]!.fullName;
 const ASSESSMENTS_PATH = "/cyber-risk/cyber-risk-assessments";
-
-type ScenarioHistoryEntry = {
-  id: string;
-  owner: string;
-  at: Date;
-  snapshot: ScenarioHistoryReadOnlySnapshot;
-};
-
-function ScenarioHistorySection({
-  scenarioId,
-  entries,
-  expandedEntryId,
-  onExpandedEntryChange,
-}: {
-  scenarioId: string;
-  entries: ScenarioHistoryEntry[];
-  expandedEntryId: string | false;
-  onExpandedEntryChange: (id: string | false) => void;
-}) {
-  return (
-    <Stack sx={{ width: "100%" }} gap={2}>
-      <SectionHeader title="History" headingLevel="h3" />
-      <Stack gap={0} sx={{ width: "100%" }}>
-        {entries.map((entry) => {
-          const panelId = `${scenarioId}-history-${entry.id}`;
-          const expanded = expandedEntryId === entry.id;
-          return (
-            <HistoryAccordion
-              key={entry.id}
-              panelId={panelId}
-              title={entry.owner}
-              subtitle={formatHistoryLogDateTime(entry.at)}
-              expanded={expanded}
-              onExpandedChange={(next) => onExpandedEntryChange(next ? entry.id : false)}
-            >
-              <ScenarioHistoryReadOnlyPanel snapshot={entry.snapshot} />
-            </HistoryAccordion>
-          );
-        })}
-      </Stack>
-    </Stack>
-  );
-}
 
 export default function ScoringRationalePage() {
   const { scenarioId } = useParams<{ scenarioId: string }>();
@@ -194,8 +154,9 @@ export default function ScoringRationalePage() {
 
   const goBackToScoring = useCallback(() => {
     const returnPath = nav?.returnToAssessmentPath?.trim() || NEW_CRA_PATH;
-    navigate(returnPath, { state: { craReturnToScoring: true } });
-  }, [navigate, nav?.returnToAssessmentPath]);
+    const tabIndex = nav?.craReturnToTabIndex ?? NEW_CRA_SCORING_TAB_INDEX;
+    navigate(returnPath, { state: { craReturnToTabIndex: tabIndex } });
+  }, [navigate, nav?.returnToAssessmentPath, nav?.craReturnToTabIndex]);
 
   const handleSave = useCallback(() => {
     if (!scenario) return;
@@ -251,7 +212,7 @@ export default function ScoringRationalePage() {
 
   if (!scenario) {
     return (
-      <Container maxWidth="xl" sx={{ py: 2 }}>
+      <Container sx={{ py: 2 }}>
         <Stack gap={0}>
           <ScoringRationaleHeader
             scenarioName="Scenario not found"
@@ -269,7 +230,7 @@ export default function ScoringRationalePage() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 2 }}>
+    <Container sx={{ py: 2 }}>
       <Stack gap={0}>
         <ScoringRationaleHeader
           scenarioName={scenario.name.trim() || scenario.id}

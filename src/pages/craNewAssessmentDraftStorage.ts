@@ -22,13 +22,18 @@ export type {
   ScopeSubView,
 } from "../data/craAssessmentDraftTypes.js";
 
-/** `navigate` state when opening a scenario from the new CRA scoring table. */
+/** `navigate` state when opening a scenario from the new CRA scoring or results table. */
 export type CraScenarioDetailLocationState = {
   assessmentName?: string;
   scoringType?: CraScoringTypeChoice;
   aiScoringPhase?: AiScoringPhase;
   /** CRA assessment route to return to (e.g. `/cyber-risk/cyber-risk-assessments/new` or `.../:id`). */
   returnToAssessmentPath?: string;
+  /**
+   * Which main assessment tab the user was on (for back from scenario / rationale).
+   * {@link NEW_CRA_SCORING_TAB_INDEX} = Scoring, {@link NEW_CRA_RESULTS_TAB_INDEX} = Results.
+   */
+  craReturnToTabIndex?: number;
 };
 
 const STORAGE_KEY = "cra_new_assessment_draft_v1";
@@ -36,6 +41,10 @@ const STORAGE_KEY = "cra_new_assessment_draft_v1";
 const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
 const RESULTS_TAB_INDEX = 3;
+
+/** New CRA `AssessmentDetailsTab` tab indices (match persisted `activeTab`). */
+export const NEW_CRA_SCORING_TAB_INDEX = SCORING_TAB_INDEX;
+export const NEW_CRA_RESULTS_TAB_INDEX = RESULTS_TAB_INDEX;
 
 function isAssessmentPhase(v: unknown): v is AssessmentPhase {
   return (

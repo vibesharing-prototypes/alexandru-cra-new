@@ -159,12 +159,7 @@ export default function ScopedRiskSS({
         secondaryAction={<span />}
         tertiaryAction={
           <Button variant="text" onClick={onClose}>
-            Cancel
-          </Button>
-        }
-        primaryAction={
-          <Button variant="contained" onClick={onClose}>
-            Apply changes
+            Close
           </Button>
         }
       />

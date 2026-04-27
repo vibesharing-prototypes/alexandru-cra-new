@@ -4,20 +4,16 @@ import {
   Box,
   Container,
   FormControl,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   TextField,
   Typography,
   useTheme,
 } from "@mui/material";
+import { LocalizationProvider } from "@mui/x-date-pickers-pro";
+import { AdapterDateFns } from "@mui/x-date-pickers-pro/AdapterDateFns";
+import { DesktopDatePicker } from "@mui/x-date-pickers";
+import { format, isValid, parseISO } from "date-fns";
 import { useLocation, useNavigate, useNavigationType, useParams } from "react-router";
-
-import CalendarIcon from "@diligentcorp/atlas-react-bundle/icons/Calendar";
-import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
 
 import NewCyberRiskAssessmentMethodSection from "./NewCyberRiskAssessmentMethodSection.js";
 import AssessmentScoringTab from "./AssessmentScoringTab.js";
@@ -50,16 +46,24 @@ import {
 import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
 
-const ASSESSMENT_TYPE_OPTIONS = [
-  "Cyber risk assessment",
-  "Enterprise risk assessment",
-] as const;
-
+const DEFAULT_ASSESSMENT_TYPE = "Cyber risk assessment";
 const DEFAULT_NEW_ASSESSMENT_NAME = "New cyber risk assessment";
 const DEFAULT_NEW_OWNER_ID = users[0]!.id;
 
-function isStandardAssessmentType(value: string): boolean {
-  return (ASSESSMENT_TYPE_OPTIONS as readonly string[]).includes(value);
+function dueDateStringToValue(s: string): Date | null {
+  const t = s.trim();
+  if (!t) return null;
+  if (t.length >= 10) {
+    const fromIso = parseISO(t.slice(0, 10));
+    if (isValid(fromIso)) return fromIso;
+  }
+  const parsed = new Date(t);
+  return isValid(parsed) ? parsed : null;
+}
+
+function valueToDueDateString(d: Date | null): string {
+  if (!d || !isValid(d)) return "";
+  return format(d, "yyyy-MM-dd");
 }
 
 /** Atlas user-lookup `Autocomplete` option shape (`OptionType.user`). */
@@ -129,22 +133,6 @@ function TabPanel({
   );
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography
-      component="h2"
-      sx={({ tokens: t }) => ({
-        fontSize: 26,
-        fontWeight: 600,
-        lineHeight: "34px",
-        color: t.semantic.color.type.default.value,
-      })}
-    >
-      {children}
-    </Typography>
-  );
-}
-
 export default function AssessmentDetailsTab() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -153,8 +141,12 @@ export default function AssessmentDetailsTab() {
   const { presets } = useTheme();
   const { AutocompletePresets } = presets;
 
-  const isReturningFromScenario =
-    (location.state as { craReturnToScoring?: boolean } | null)?.craReturnToScoring === true;
+  const isReturningFromScenario = (() => {
+    const st = location.state as
+      | { craReturnToScoring?: boolean; craReturnToTabIndex?: number }
+      | null;
+    return st?.craReturnToScoring === true || typeof st?.craReturnToTabIndex === "number";
+  })();
 
   const mockFromRoute =
     routeAssessmentId != null && routeAssessmentId !== ""
@@ -188,10 +180,10 @@ export default function AssessmentDetailsTab() {
     if (mockFromRoute) return mockFromRoute.id;
     return "";
   });
-  const [assessmentType, setAssessmentType] = useState(() => {
+  const [persistedAssessmentType] = useState(() => {
     if (initialDraft) return initialDraft.assessmentType;
     if (mockFromRoute) return mockFromRoute.assessmentType;
-    return ASSESSMENT_TYPE_OPTIONS[0];
+    return DEFAULT_ASSESSMENT_TYPE;
   });
   const [dueDate, setDueDate] = useState(() => {
     if (initialDraft) return initialDraft.dueDate;
@@ -495,7 +487,7 @@ export default function AssessmentDetailsTab() {
           name: trimmedName || row.name,
           ownerId: ownerIds[0] ?? row.ownerId,
           status: assessmentPhaseToAssessmentStatus(assessmentPhase),
-          assessmentType,
+          assessmentType: row.assessmentType,
           dueDate,
           startDate: row.startDate,
           ...rollup,
@@ -509,7 +501,7 @@ export default function AssessmentDetailsTab() {
         assessmentPhase,
         name,
         assessmentId,
-        assessmentType,
+        assessmentType: persistedAssessmentType,
         startDate: "",
         dueDate,
         ownerIds,
@@ -529,7 +521,7 @@ export default function AssessmentDetailsTab() {
     assessmentPhase,
     name,
     assessmentId,
-    assessmentType,
+    persistedAssessmentType,
     dueDate,
     ownerIds,
     scopeSubView,
@@ -586,8 +578,13 @@ export default function AssessmentDetailsTab() {
   }, [routeAssessmentId, navigate]);
 
   useEffect(() => {
-    const st = location.state as { craReturnToScoring?: boolean } | null;
-    if (st?.craReturnToScoring) {
+    const st = location.state as
+      | { craReturnToScoring?: boolean; craReturnToTabIndex?: number }
+      | null;
+    if (st?.craReturnToTabIndex != null) {
+      setActiveTab(st.craReturnToTabIndex);
+      navigate(location.pathname, { replace: true, state: null });
+    } else if (st?.craReturnToScoring) {
       setActiveTab(SCORING_TAB_INDEX);
       navigate(location.pathname, { replace: true, state: null });
     }
@@ -606,6 +603,8 @@ export default function AssessmentDetailsTab() {
       setScopeSubView("overview");
     }
   }, [activeTab]);
+
+  const isApproved = assessmentPhase === "assessmentApproved";
 
   return (
     <Container sx={{ py: 2 }}>
@@ -629,41 +628,87 @@ export default function AssessmentDetailsTab() {
           scopeDetail={scopeDetail}
           onScopeSubViewBack={() => setScopeSubView("overview")}
           onScopeDetailDone={() => setScopeSubView("overview")}
-          onSave={handleSaveDraft}
+          onSave={isApproved ? undefined : handleSaveDraft}
           aiScoringPhase={aiScoringPhase}
         />
 
         <TabPanel value={activeTab} index={0}>
           <Stack gap={6} sx={{ pt: 3, pb: 4, width: "100%" }}>
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              gap={2}
-              flexWrap="wrap"
-              alignItems={{ xs: "stretch", md: "flex-end" }}
+            <Box sx={{ width: "100%" }}>
+              <Stack gap={1}>
+                <Typography
+                  variant="caption"
+                  fontWeight={600}
+                  sx={({ tokens: t }) => ({
+                    color: t.semantic.color.type.default.value,
+                    letterSpacing: "0.3px",
+                  })}
+                >
+                  Name
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Assessment name"
+                  aria-label="Assessment name"
+                  slotProps={{ input: { readOnly: isApproved } }}
+                />
+              </Stack>
+            </Box>
+
+            <Box
+              sx={({ tokens: t }) => ({
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                gap: t.core.spacing["3"].value,
+                flexWrap: "wrap",
+                width: "100%",
+                alignItems: { xs: "stretch", sm: "flex-end" },
+              })}
             >
-              <Box sx={{ flex: { md: "7 1 0" }, minWidth: { xs: "100%", md: 280 } }}>
-                <Stack gap={1}>
-                  <Typography
-                    variant="caption"
-                    fontWeight={600}
-                    sx={({ tokens: t }) => ({
-                      color: t.semantic.color.type.default.value,
-                      letterSpacing: "0.3px",
-                    })}
-                  >
-                    Name
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Assessment name"
-                    aria-label="Assessment name"
+              <Box sx={{ flex: { sm: "2 1 0" }, minWidth: { xs: "100%", sm: 0 }, minHeight: 0 }}>
+                <FormControl fullWidth margin="none">
+                  <Autocomplete
+                    id="cra-new-assessment-owner-lookup"
+                    options={assessmentOwnerLookupOptions as never}
+                    value={(selectedAssessmentOwner ?? null) as never}
+                    onChange={(_, newValue) => setOwnerIds(newValue ? [newValue.id] : [])}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                    disabled={isApproved}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Owner"
+                        placeholder="Select a user..."
+                        margin="none"
+                      />
+                    )}
+                    renderOption={AutocompletePresets.userLookup.renderOption}
                   />
-                </Stack>
+                </FormControl>
               </Box>
-              <Box sx={{ flex: { md: "2 1 0" }, minWidth: { xs: "100%", md: 120 } }}>
+              <Box sx={{ flex: { sm: "1 1 0" }, minWidth: { xs: "100%", sm: 0 }, minHeight: 0 }}>
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <DesktopDatePicker
+                    label="Due date"
+                    value={dueDateStringToValue(dueDate)}
+                    onChange={(d) => setDueDate(valueToDueDateString(d))}
+                    dayOfWeekFormatter={(day: Date) => format(day, "EEEEEE")}
+                    readOnly={isApproved}
+                    disabled={isApproved}
+                    slotProps={{
+                      textField: {
+                        size: "small",
+                        fullWidth: true,
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
+              </Box>
+              <Box sx={{ flex: { sm: "1 1 0" }, minWidth: { xs: "100%", sm: 0 }, minHeight: 0 }}>
                 <Stack gap={1}>
                   <Typography
                     variant="caption"
@@ -682,104 +727,16 @@ export default function AssessmentDetailsTab() {
                     onChange={(e) => setAssessmentId(e.target.value)}
                     placeholder="e.g. CRA-001"
                     aria-label="Custom ID"
+                    slotProps={{ input: { readOnly: isApproved } }}
                   />
                 </Stack>
               </Box>
-              <Box sx={{ flex: { md: "3 1 0" }, minWidth: { xs: "100%", md: 200 } }}>
-                <FormControl fullWidth>
-                  <InputLabel id="cra-assessment-type-label">Assessment type</InputLabel>
-                  <Select
-                    labelId="cra-assessment-type-label"
-                    id="cra-assessment-type"
-                    label="Assessment type"
-                    value={assessmentType}
-                    onChange={(e) => setAssessmentType(e.target.value)}
-                    aria-label="Assessment type"
-                  >
-                    {!isStandardAssessmentType(assessmentType) && assessmentType ? (
-                      <MenuItem value={assessmentType}>{assessmentType}</MenuItem>
-                    ) : null}
-                    {ASSESSMENT_TYPE_OPTIONS.map((opt) => (
-                      <MenuItem key={opt} value={opt}>
-                        {opt}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            </Stack>
-
-            <Box sx={{ width: "100%" }}>
-              <FormControl fullWidth margin="none">
-                <Autocomplete
-                  id="cra-new-assessment-owner-lookup"
-                  options={assessmentOwnerLookupOptions as never}
-                  value={(selectedAssessmentOwner ?? null) as never}
-                  onChange={(_, newValue) => setOwnerIds(newValue ? [newValue.id] : [])}
-                  getOptionLabel={(option) => option.label}
-                  isOptionEqualToValue={(a, b) => a.id === b.id}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Owner"
-                      placeholder="Select a user..."
-                      margin="none"
-                    />
-                  )}
-                  renderOption={AutocompletePresets.userLookup.renderOption}
-                />
-              </FormControl>
             </Box>
-
-            <Stack gap={2}>
-              <SectionHeading>Scheduling</SectionHeading>
-              <Stack direction={{ xs: "column", sm: "row" }} gap={3} flexWrap="wrap">
-                <Box sx={{ flex: { sm: "1 1 240px" }, minWidth: 194, maxWidth: 400 }}>
-                  <Stack gap={1}>
-                    <Typography
-                      variant="caption"
-                      fontWeight={600}
-                      sx={({ tokens: t }) => ({
-                        color: t.semantic.color.type.default.value,
-                        letterSpacing: "0.3px",
-                      })}
-                    >
-                      Due date
-                    </Typography>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      placeholder="e.g. 23 Aug 2026"
-                      aria-label="Due date"
-                      slotProps={{
-                        input: {
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                size="small"
-                                aria-label="Clear due date"
-                                onClick={() => setDueDate("")}
-                              >
-                                <CloseIcon fontSize="small" aria-hidden />
-                              </IconButton>
-                              <IconButton size="small" aria-label="Open calendar">
-                                <CalendarIcon aria-hidden />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        },
-                      }}
-                    />
-                  </Stack>
-                </Box>
-              </Stack>
-            </Stack>
 
             <NewCyberRiskAssessmentMethodSection
               scoringType={scoringType}
               onScoringTypeChange={setScoringType}
+              readOnly={isApproved}
             />
           </Stack>
         </TabPanel>
@@ -803,6 +760,7 @@ export default function AssessmentDetailsTab() {
             onBulkControlsScopeIncluded={bulkSetControlsScopeIncluded}
             onToggleAssetIncluded={toggleAssetIncluded}
             onBulkAssetIdsIncluded={bulkSetAssetsIncluded}
+            scopeTogglesReadOnly={isApproved}
           />
         </TabPanel>
         <TabPanel
@@ -832,6 +790,11 @@ export default function AssessmentDetailsTab() {
             includedAssetIds={includedScopeAssetIds}
             excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
             onGoToScoring={() => setActiveTab(SCORING_TAB_INDEX)}
+            assessmentName={name}
+            returnToAssessmentPath={location.pathname}
+            assessmentPhase={assessmentPhase}
+            scoringType={scoringType}
+            aiScoringPhase={aiScoringPhase}
           />
         </TabPanel>
       </Stack>

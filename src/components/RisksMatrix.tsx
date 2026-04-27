@@ -31,6 +31,8 @@ export type { RiskHeatmapLegendItem } from "../utils/cyberRiskMatrixAggregates.j
 
 const CYBER_RISKS_PATH = "/cyber-risk/cyber-risks";
 
+export type AssessmentMatrixMode = "default" | "inherentOnly" | "residualPreferred";
+
 export type MatrixSelectionPayload = {
   kind: "cell" | "legend";
   basis: CyberRiskHeatmapScoreBasis;
@@ -49,6 +51,13 @@ export interface RisksMatrixProps {
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
   /** When a BU is selected in the parent (hero), pass through so the table can match the heatmap count. */
   businessUnitId?: string | null;
+  /**
+   * Assessment results: align matrix with CRA scoring type.
+   * - Omitted or `"default"`: show Inherent/Residual toggle; Inherent is the default selection.
+   * - `"inherentOnly"`: hide the toggle; matrix always uses Inherent.
+   * - `"residualPreferred"`: show the toggle; Residual is the default selection.
+   */
+  assessmentMatrixMode?: AssessmentMatrixMode;
 }
 
 /** Position-based risk level for a 5x5 matrix: green (bottom-left) to red (top-right). */
@@ -68,9 +77,15 @@ export default function RisksMatrix({
   sx,
   onMatrixSelection,
   businessUnitId: businessUnitIdProp = null,
+  assessmentMatrixMode = "default",
 }: RisksMatrixProps) {
   const navigate = useNavigate();
-  const [basis, setBasis] = useState<CyberRiskHeatmapScoreBasis>("inherent");
+  const isInherentOnly = assessmentMatrixMode === "inherentOnly";
+  const showInherentResidualToggle = !isInherentOnly;
+  const [basisState, setBasis] = useState<CyberRiskHeatmapScoreBasis>(() =>
+    assessmentMatrixMode === "residualPreferred" ? "residual" : "inherent",
+  );
+  const basis: CyberRiskHeatmapScoreBasis = isInherentOnly ? "inherent" : basisState;
 
   const { grid, legend } = useMemo(
     () => buildCyberRiskHeatmapAggregates(risks, basis),
@@ -134,22 +149,24 @@ export default function RisksMatrix({
           </Typography>
         }
         action={
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={basis}
-            onChange={(_e, value: CyberRiskHeatmapScoreBasis | null) => {
-              if (value != null) setBasis(value);
-            }}
-            aria-label="Cyber risk score basis"
-          >
-            <ToggleButton value="inherent" aria-label="Inherent cyber risk score">
-              Inherent
-            </ToggleButton>
-            <ToggleButton value="residual" aria-label="Residual cyber risk score">
-              Residual
-            </ToggleButton>
-          </ToggleButtonGroup>
+          showInherentResidualToggle ? (
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={basis}
+              onChange={(_e, value: CyberRiskHeatmapScoreBasis | null) => {
+                if (value != null) setBasis(value);
+              }}
+              aria-label="Cyber risk score basis"
+            >
+              <ToggleButton value="inherent" aria-label="Inherent cyber risk score">
+                Inherent
+              </ToggleButton>
+              <ToggleButton value="residual" aria-label="Residual cyber risk score">
+                Residual
+              </ToggleButton>
+            </ToggleButtonGroup>
+          ) : undefined
         }
       />
       <CardContent sx={{ pt: 0 }}>

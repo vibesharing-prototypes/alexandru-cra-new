@@ -18,6 +18,7 @@ import AICard, {
   AICardAssessmentPreset,
   AICardScoringDescription,
 } from "../components/AICard.js";
+import RadioButtonArray from "../components/RadioButtonArray.js";
 import { ScopeCard } from "../components/ScopeCard.js";
 import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
@@ -60,12 +61,21 @@ const activityTab3Columns: GridColDef<ActivityTab3Row>[] = [
   { field: "label", headerName: "Label", flex: 1, minWidth: 200 },
 ];
 
+const ACTIVITY_TAB3_AGG_OPTIONS = [
+  { value: "highest", label: "Highest" },
+  { value: "average", label: "Weighted average" },
+  { value: "lowest", label: "Lowest" },
+] as const;
+
 export default function ActivityPage() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(0);
   const [isSideSheetOpen, setIsSideSheetOpen] = useState(false);
   const [isFilterSideSheetOpen, setIsFilterSideSheetOpen] = useState(false);
   const [isScopedRiskSSOpen, setIsScopedRiskSSOpen] = useState(false);
+  const [activityTab3Aggregation, setActivityTab3Aggregation] = useState("highest");
+  const [activityTab3ViewMode, setActivityTab3ViewMode] = useState("list");
+  const [activityTab3Pairing, setActivityTab3Pairing] = useState("independent");
   const { presets } = useTheme();
   const { TabsPresets } = presets;
   const CardHeaderIcon = presets.CardComponentsPresets?.components?.CardHeaderIcon;
@@ -249,7 +259,51 @@ export default function ActivityPage() {
                 sx={{ border: 0 }}
               />
             </Box>
-            <Stack gap={2}>
+            <Stack
+              gap={2}
+              sx={({ tokens: t }) => ({
+                alignItems: "flex-start",
+                width: "100%",
+                maxWidth: "100%",
+                "& > *": { minWidth: 0 },
+                mt: t.core.spacing["1"].value,
+              })}
+            >
+              <RadioButtonArray
+                label="Aggregation method"
+                options={[...ACTIVITY_TAB3_AGG_OPTIONS]}
+                value={activityTab3Aggregation}
+                onChange={setActivityTab3Aggregation}
+                showAction
+                showIcon
+                showActionText
+                actionHref="/settings/cyber-risk-settings"
+                actionText="View scoring logic and aggregation details"
+              />
+              <RadioButtonArray
+                label="Layout preview (text only, no icon)"
+                options={[
+                  { value: "list", label: "List" },
+                  { value: "grid", label: "Grid" },
+                ]}
+                value={activityTab3ViewMode}
+                onChange={setActivityTab3ViewMode}
+                showAction
+                showIcon={false}
+                showActionText
+                actionHref="#"
+                actionText="About layout options"
+              />
+              <RadioButtonArray
+                label="Pairing (radios only, no divider or link)"
+                options={[
+                  { value: "independent", label: "Independent" },
+                  { value: "paired", label: "Paired" },
+                ]}
+                value={activityTab3Pairing}
+                onChange={setActivityTab3Pairing}
+                showAction={false}
+              />
               <LabelScoreLegend
                 label="Risk level"
                 value={{ numeric: "4", label: "High", rag: "neg03" }}

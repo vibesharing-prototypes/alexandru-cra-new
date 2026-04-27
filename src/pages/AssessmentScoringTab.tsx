@@ -39,10 +39,15 @@ import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualizatio
 import { getScenarioById } from "../data/scenarios.js";
 import { fivePointLabelToRag, getLikelihoodLabel, getCyberRiskScoreLabel } from "../data/types.js";
 import type { FivePointScaleLabel } from "../data/types.js";
-import type {
-  AiScoringPhase,
-  AssessmentPhase,
-  CraScoringTypeChoice,
+import {
+  scenarioRationaleReadOnlyPath,
+  scenarioScoringRationalePath,
+} from "./craScenarioRoutes.js";
+import {
+  NEW_CRA_SCORING_TAB_INDEX,
+  type AiScoringPhase,
+  type AssessmentPhase,
+  type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
 import {
   assessmentScopedCyberRisks,
@@ -70,8 +75,6 @@ type ScoringRow = {
 };
 
 type AggregationMethod = "highest" | "average";
-
-const SCENARIO_DETAIL_PATH = "/cyber-risk/cyber-risk-assessments/new/scenario";
 
 /** Name column is fixed width (sticky first column). */
 const SCORING_NAME_COL_WIDTH_PX = 400;
@@ -542,16 +545,28 @@ export default function AssessmentScoringTab({
 
   const goToScenario = useCallback(
     (scenarioId: string) => {
-      navigate(`${SCENARIO_DETAIL_PATH}/${encodeURIComponent(scenarioId)}`, {
+      const path =
+        assessmentPhase === "assessmentApproved"
+          ? scenarioRationaleReadOnlyPath(scenarioId)
+          : scenarioScoringRationalePath(scenarioId);
+      navigate(path, {
         state: {
           assessmentName: assessmentName.trim() || undefined,
           scoringType,
           aiScoringPhase,
           returnToAssessmentPath,
+          craReturnToTabIndex: NEW_CRA_SCORING_TAB_INDEX,
         },
       });
     },
-    [navigate, assessmentName, scoringType, aiScoringPhase, returnToAssessmentPath],
+    [
+      navigate,
+      assessmentName,
+      scoringType,
+      aiScoringPhase,
+      returnToAssessmentPath,
+      assessmentPhase,
+    ],
   );
 
   const toggleGroup = useCallback((groupId: string) => {
@@ -972,7 +987,9 @@ export default function AssessmentScoringTab({
                         tabIndex={isScenario ? 0 : undefined}
                         aria-label={
                           isScenario
-                            ? `Open ${row.tag}: ${row.id}. Press Enter to view scoring rationale.`
+                            ? assessmentPhase === "assessmentApproved"
+                              ? `Open ${row.tag}: ${row.id}. Press Enter to view scenario rationale (read-only).`
+                              : `Open ${row.tag}: ${row.id}. Press Enter to view scoring rationale.`
                             : undefined
                         }
                         onClick={() => {

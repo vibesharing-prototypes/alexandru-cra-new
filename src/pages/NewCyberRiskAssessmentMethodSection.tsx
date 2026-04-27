@@ -1,20 +1,11 @@
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { SectionHeader } from "@diligentcorp/atlas-react-bundle";
-import {
-  Box,
-  FormControl,
-  FormControlLabel,
-  Link,
-  Radio,
-  RadioGroup,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Box, Link, Stack, Typography } from "@mui/material";
 
 import UploadIcon from "@diligentcorp/atlas-react-bundle/icons/Upload";
 
 import AssessmentWysiwygEditor from "../components/AssessmentWysiwygEditor.js";
+import RadioButtonArray from "../components/RadioButtonArray.js";
 import type { CraScoringTypeChoice } from "./craNewAssessmentDraftStorage.js";
 
 const SCORING_TYPE_OPTIONS = [
@@ -22,45 +13,14 @@ const SCORING_TYPE_OPTIONS = [
   { value: "residual" satisfies CraScoringTypeChoice, label: "Residual" },
 ] as const;
 
-const QUALITATIVE_DESCRIPTION = (
-  <>
-    Assessments are scored using (
-    <Box component="span" sx={{ fontWeight: 600 }}>
-      Impact
-    </Box>
-    {" x "}
-    <Box component="span" sx={{ fontWeight: 600 }}>
-      Likelihood
-    </Box>
-    ). Impact is determined by Asset criticality and Likelihood is determined by (
-    <Box component="span" sx={{ fontWeight: 600 }}>
-      Vulnerability severity
-    </Box>
-    {" x "}
-    <Box component="span" sx={{ fontWeight: 600 }}>
-      Threat severity
-    </Box>
-    ).
-  </>
-);
-
-const QUANTITATIVE_DESCRIPTION = (
-  <>
-    Assessments are scored using numerical data, typically calculated as (Financial consequence x Frequency of
-    occurrence). Financial consequence is determined by the specific monetary value of the loss, and frequency
-    is determined by the probability of the event occurring within a given timeframe. <br />
-    The calculation often results in an Annualized loss expectancy (ALE)
-  </>
-);
-
-const assessmentMethodFormControlLabelSx = {
-  gap: 0,
-  py: 0,
-} as const;
+const ASSESSMENT_METHOD_BODY =
+  "This is a qualitative assessment. Risks are scored using Impact × Likelihood, where Impact is determined by asset criticality and Likelihood by Vulnerability severity × Threat severity. This produces a score from 1–125, mapped to ordinal risk bands (Very low, Low, Medium, High, Very high).";
 
 export type NewCyberRiskAssessmentMethodSectionProps = {
   scoringType: CraScoringTypeChoice;
   onScoringTypeChange: (value: CraScoringTypeChoice) => void;
+  /** When true, scoring radios, instructions editor, and attachments are not editable. */
+  readOnly?: boolean;
 };
 
 /**
@@ -69,16 +29,10 @@ export type NewCyberRiskAssessmentMethodSectionProps = {
 export default function NewCyberRiskAssessmentMethodSection({
   scoringType,
   onScoringTypeChange,
+  readOnly = false,
 }: NewCyberRiskAssessmentMethodSectionProps) {
-  const groupLabelId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [assessmentMethod, setAssessmentMethod] = useState<"qualitative" | "quantitative">("qualitative");
   const [instructions, setInstructions] = useState("");
-
-  const handleMethodChange = useCallback((_event: React.ChangeEvent<HTMLInputElement>, value: string) => {
-    if (value === "quantitative") return;
-    setAssessmentMethod(value as "qualitative");
-  }, []);
 
   const openFilePicker = useCallback(() => {
     fileInputRef.current?.click();
@@ -88,7 +42,6 @@ export default function NewCyberRiskAssessmentMethodSection({
     <Stack gap={3} sx={{ width: "100%" }}>
       <Stack gap={2}>
         <Typography
-          id={groupLabelId}
           variant="caption"
           fontWeight={600}
           component="p"
@@ -100,151 +53,42 @@ export default function NewCyberRiskAssessmentMethodSection({
             lineHeight: 1.3,
           })}
         >
-          Select assessment method
+          Assessment method
         </Typography>
 
-        <FormControl variant="standard" fullWidth>
-          <RadioGroup
-            aria-labelledby={groupLabelId}
-            name="new-cra-assessment-method"
-            value={assessmentMethod}
-            onChange={handleMethodChange}
-          >
-            <Stack gap={3}>
-              <Stack gap={1}>
-                <FormControlLabel
-                  value="qualitative"
-                  control={<Radio />}
-                  label="Qualitative"
-                  sx={assessmentMethodFormControlLabelSx}
-                  slotProps={{
-                    typography: {
-                      sx: ({ tokens: t }) => ({
-                        fontSize: t.semantic.font.text.md.fontSize.value,
-                        lineHeight: t.semantic.font.text.md.lineHeight.value,
-                        letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                        color: t.semantic.color.type.default.value,
-                      }),
-                    },
-                  }}
-                />
-                <Box sx={{ pl: 4.5 }}>
-                  <Typography
-                    variant="body1"
-                    component="p"
-                    sx={({ tokens: t }) => ({
-                      m: 0,
-                      color: t.semantic.color.type.default.value,
-                      letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                      lineHeight: t.semantic.font.text.md.lineHeight.value,
-                      fontSize: t.semantic.font.text.md.fontSize.value,
-                    })}
-                  >
-                    {QUALITATIVE_DESCRIPTION}
-                  </Typography>
-                </Box>
-              </Stack>
+        <Typography
+          variant="textMd"
+          component="p"
+          sx={({ tokens: t }) => ({
+            m: 0,
+            color: t.semantic.color.type.default.value,
+            fontSize: t.semantic.font.text.body.fontSize.value,
+            lineHeight: t.semantic.font.text.body.lineHeight.value,
+            letterSpacing: t.semantic.font.text.body.letterSpacing.value,
+          })}
+        >
+          {ASSESSMENT_METHOD_BODY}
+        </Typography>
 
-              <Tooltip title="Currently not available." placement="top" arrow>
-                <Box
-                  component="span"
-                  sx={{
-                    display: "block",
-                    width: "100%",
-                    cursor: "not-allowed",
-                  }}
-                >
-                  <Stack gap={1}>
-                    <FormControlLabel
-                      value="quantitative"
-                      disabled
-                      control={<Radio disabled />}
-                      label="Quantitative"
-                      sx={assessmentMethodFormControlLabelSx}
-                      slotProps={{
-                        typography: {
-                          sx: ({ tokens: t }) => ({
-                            fontSize: t.semantic.font.text.md.fontSize.value,
-                            lineHeight: t.semantic.font.text.md.lineHeight.value,
-                            letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                          }),
-                        },
-                      }}
-                    />
-                    <Box sx={{ pl: 4.5 }}>
-                      <Typography
-                        variant="body1"
-                        component="p"
-                        sx={({ tokens: t }) => ({
-                          m: 0,
-                          color: t.semantic.color.type.default.value,
-                          letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                          lineHeight: t.semantic.font.text.md.lineHeight.value,
-                          fontSize: t.semantic.font.text.md.fontSize.value,
-                        })}
-                      >
-                        {QUANTITATIVE_DESCRIPTION}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Box>
-              </Tooltip>
-            </Stack>
-          </RadioGroup>
-        </FormControl>
-
-        <Stack gap={1} sx={{ pt: 1 }}>
-          <Typography
-            variant="caption"
-            fontWeight={600}
-            component="p"
-            sx={({ tokens: t }) => ({
-              color: t.semantic.color.type.default.value,
-              letterSpacing: "0.3px",
-              m: 0,
-            })}
-          >
-            Scoring type
-          </Typography>
-          <FormControl variant="standard" fullWidth>
-            <RadioGroup
-              row
-              name="new-cra-scoring-type"
-              value={scoringType}
-              onChange={(_e, v) => {
-                if (v === "inherent" || v === "residual") {
-                  onScoringTypeChange(v);
-                }
-              }}
-              sx={{
-                flexWrap: "wrap",
-                gap: 2,
-                columnGap: 3,
-                rowGap: 1,
-              }}
-            >
-              {SCORING_TYPE_OPTIONS.map((opt) => (
-                <FormControlLabel
-                  key={opt.value}
-                  value={opt.value}
-                  control={<Radio />}
-                  label={opt.label}
-                  sx={assessmentMethodFormControlLabelSx}
-                  slotProps={{
-                    typography: {
-                      sx: ({ tokens: t }) => ({
-                        fontSize: t.semantic.font.text.md.fontSize.value,
-                        lineHeight: t.semantic.font.text.md.lineHeight.value,
-                        letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                        color: t.semantic.color.type.default.value,
-                      }),
-                    },
-                  }}
-                />
-              ))}
-            </RadioGroup>
-          </FormControl>
-        </Stack>
+        <Box sx={{ pt: 1 }}>
+          <RadioButtonArray
+            label="Scoring type"
+            name="new-cra-scoring-type"
+            options={SCORING_TYPE_OPTIONS}
+            value={scoringType}
+            onChange={(v) => {
+              if (v === "inherent" || v === "residual") {
+                onScoringTypeChange(v);
+              }
+            }}
+            showAction
+            showIcon={false}
+            showActionText
+            actionTextPlain
+            actionText="Select whether assessment scores contribute to the inherent or residual risk score."
+            disabled={readOnly}
+          />
+        </Box>
       </Stack>
 
       <Stack gap={3} sx={{ pt: 2 }}>
@@ -260,6 +104,7 @@ export default function NewCyberRiskAssessmentMethodSection({
             onChange={setInstructions}
             minRows={10}
             aria-label="Assessment instructions"
+            readOnly={readOnly}
           />
 
           <Stack gap={1}>
@@ -277,7 +122,14 @@ export default function NewCyberRiskAssessmentMethodSection({
               Attachments
             </Typography>
 
-            <input ref={fileInputRef} type="file" hidden multiple accept=".jpg,.jpeg,.pdf,.xls,.xlsx" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              multiple
+              accept=".jpg,.jpeg,.pdf,.xls,.xlsx"
+              disabled={readOnly}
+            />
 
             <Box
               sx={({ tokens: t }) => ({
@@ -292,10 +144,16 @@ export default function NewCyberRiskAssessmentMethodSection({
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 3,
-                "&:hover": {
-                  borderColor: t.semantic.color.outline.hover.value,
-                  backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
-                },
+                pointerEvents: readOnly ? "none" : undefined,
+                opacity: readOnly ? 0.85 : undefined,
+                ...(!readOnly
+                  ? {
+                      "&:hover": {
+                        borderColor: t.semantic.color.outline.hover.value,
+                        backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                      },
+                    }
+                  : {}),
               })}
             >
               <Stack alignItems="center" gap={0.5} sx={{ width: "100%" }}>
@@ -314,7 +172,8 @@ export default function NewCyberRiskAssessmentMethodSection({
                   <Link
                     component="button"
                     type="button"
-                    onClick={openFilePicker}
+                    onClick={readOnly ? undefined : openFilePicker}
+                    disabled={readOnly}
                     sx={({ tokens: t }) => ({
                       verticalAlign: "baseline",
                       fontSize: t.semantic.font.text.md.fontSize.value,

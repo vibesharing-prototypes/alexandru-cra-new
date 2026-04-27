@@ -2,11 +2,9 @@ import {
   OverflowBreadcrumbs,
   PageHeader,
 } from "@diligentcorp/atlas-react-bundle";
-import { Button, IconButton, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
+import { Button, Stack, Tab, Tabs, Typography, useTheme } from "@mui/material";
 import { useRef } from "react";
 import { NavLink, useNavigate } from "react-router";
-
-import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
 import {
   assessmentStatusFromDisplayLabel,
@@ -85,8 +83,6 @@ export type AssessmentDetailHeaderProps = {
   onScopeDetailDone: () => void;
   /** Primary Save action (main header only; not shown in scope-detail mode). */
   onSave?: () => void;
-  /** Tertiary More icon action (main header only). */
-  onMoreClick?: () => void;
   /** When scoring/overdue, controls when the header shows "Approve assessment" (after AI run completes). */
   aiScoringPhase?: AiScoringPhase;
 };
@@ -106,8 +102,7 @@ export default function AssessmentDetailHeader({
   scopeDetail,
   onScopeSubViewBack,
   onScopeDetailDone,
-  onSave = () => {},
-  onMoreClick = () => {},
+  onSave,
   aiScoringPhase = "complete",
 }: AssessmentDetailHeaderProps) {
   const navigate = useNavigate();
@@ -195,7 +190,7 @@ export default function AssessmentDetailHeader({
           onActiveTabChange(SCORING_TAB_INDEX);
         }}
       >
-        Back to scoring
+        Reset scores
       </Button>
     ) : inProgressOrOverdue && aiScoringPhase !== "complete" ? null : (
       <Button
@@ -231,12 +226,11 @@ export default function AssessmentDetailHeader({
       })}
     >
       {primaryCta}
-      <Button variant="contained" size="medium" onClick={onSave}>
-        Save
-      </Button>
-      <IconButton size="medium" aria-label="More options" onClick={onMoreClick}>
-        <MoreIcon aria-hidden />
-      </IconButton>
+      {onSave ? (
+        <Button variant="contained" size="medium" onClick={onSave}>
+          Save
+        </Button>
+      ) : null}
     </Stack>
   );
 

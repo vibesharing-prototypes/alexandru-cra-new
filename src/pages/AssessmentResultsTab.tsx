@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SectionHeader } from "@diligentcorp/atlas-react-bundle";
+import { useNavigate } from "react-router";
 
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
 import {
@@ -34,6 +35,13 @@ import {
 } from "./craAssessmentScopeRows.js";
 import { ragDataVizColor } from "../data/ragDataVisualization.js";
 import { assessmentScopedCyberRisks } from "../data/assessmentScopeRollup.js";
+import { scenarioRationaleReadOnlyPath } from "./craScenarioRoutes.js";
+import {
+  NEW_CRA_RESULTS_TAB_INDEX,
+  type AiScoringPhase,
+  type AssessmentPhase,
+  type CraScoringTypeChoice,
+} from "./craNewAssessmentDraftStorage.js";
 
 type ScoreChip = { numeric: string; label: string; rag: CraRagKey };
 
@@ -131,11 +139,14 @@ function CyberRisksResultsTable({
   expanded,
   onToggleGroup,
   onOpenMitigationPlan,
+  onScenarioRowClick,
 }: {
   visibleRows: CyberResultsRow[];
   expanded: Record<string, boolean>;
   onToggleGroup: (groupId: string) => void;
   onOpenMitigationPlan: (row: CyberResultsRow) => void;
+  /** When set, scenario rows are clickable (e.g. approved assessment → read-only rationale). */
+  onScenarioRowClick?: (scenarioId: string) => void;
 }) {
   return (
     <TableContainer
@@ -206,8 +217,47 @@ function CyberRisksResultsTable({
           </TableRow>
         </TableHead>
         <TableBody>
-          {visibleRows.map((row) => (
-            <TableRow key={row.id}>
+          {visibleRows.map((row) => {
+            const isScenario = row.kind === "scenario";
+            const scenarioRowClickable = isScenario && onScenarioRowClick != null;
+            return (
+            <TableRow
+              key={row.id}
+              hover={scenarioRowClickable}
+              tabIndex={scenarioRowClickable ? 0 : undefined}
+              aria-label={
+                scenarioRowClickable
+                  ? `Open ${row.name}. Press Enter to view scenario rationale (read-only).`
+                  : undefined
+              }
+              onClick={() => {
+                if (scenarioRowClickable) onScenarioRowClick!(row.id);
+              }}
+              onKeyDown={(e) => {
+                if (!scenarioRowClickable) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onScenarioRowClick!(row.id);
+                }
+              }}
+              sx={
+                scenarioRowClickable
+                  ? ({ tokens: t }) => ({
+                      cursor: "pointer",
+                      "&.MuiTableRow-hover:hover": {
+                        backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                      },
+                      "&.MuiTableRow-hover:hover .MuiTableCell-root": {
+                        backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+                      },
+                      "&:focus-visible": {
+                        outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                        outlineOffset: -2,
+                      },
+                    })
+                  : undefined
+              }
+            >
               <TableCell
                 sx={({ tokens: t }) => ({
                   position: "sticky",
@@ -256,7 +306,8 @@ function CyberRisksResultsTable({
                 ) : null}
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </TableContainer>
@@ -382,11 +433,41 @@ export default function AssessmentResultsTab({
   includedAssetIds,
   excludedScopeCyberRiskIds,
   onGoToScoring,
+  assessmentName = "",
+  returnToAssessmentPath = "",
+  assessmentPhase,
+  scoringType,
+  aiScoringPhase,
 }: {
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
   onGoToScoring: () => void;
+  /** Matches {@link AssessmentScoringTab} — used when navigating to scenario read-only rationale. */
+  assessmentName?: string;
+  returnToAssessmentPath?: string;
+  assessmentPhase: AssessmentPhase;
+  scoringType: CraScoringTypeChoice;
+  aiScoringPhase: AiScoringPhase;
 }) {
+  const navigate = useNavigate();
+
+  const goToScenarioReadOnly = useCallback(
+    (scenarioId: string) => {
+      navigate(scenarioRationaleReadOnlyPath(scenarioId), {
+        state: {
+          assessmentName: assessmentName.trim() || undefined,
+          scoringType,
+          aiScoringPhase,
+          returnToAssessmentPath: returnToAssessmentPath.trim() || undefined,
+          craReturnToTabIndex: NEW_CRA_RESULTS_TAB_INDEX,
+        },
+      });
+    },
+    [navigate, assessmentName, scoringType, aiScoringPhase, returnToAssessmentPath],
+  );
+
+  const onScenarioRowClick =
+    assessmentPhase === "assessmentApproved" ? goToScenarioReadOnly : undefined;
   const cyberResultRows = useMemo(
     () => buildCyberResultsRowsForScope(includedAssetIds, excludedScopeCyberRiskIds),
     [includedAssetIds, excludedScopeCyberRiskIds],
@@ -454,7 +535,11 @@ export default function AssessmentResultsTab({
 
   return (
     <Stack gap={6} sx={{ pt: 3, pb: 4, width: "100%" }}>
-      <ResultsHero scopedRisks={scopedCyberRisks} assetResultRows={assetResultRows} />
+      <ResultsHero
+        scopedRisks={scopedCyberRisks}
+        assetResultRows={assetResultRows}
+        scoringType={scoringType}
+      />
 
       <SectionHeader
         title="Cyber risks"
@@ -471,6 +556,7 @@ export default function AssessmentResultsTab({
             expanded={expandedGroups}
             onToggleGroup={toggleGroup}
             onOpenMitigationPlan={handleOpenMitigationPlan}
+            onScenarioRowClick={onScenarioRowClick}
           />
         ) : null}
       </SectionHeader>

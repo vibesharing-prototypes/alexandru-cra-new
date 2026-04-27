@@ -373,9 +373,12 @@ function NumericLink({
 function ScopeIncludedColumnHeader({
   rows,
   onBulkRowIdsIncluded,
+  togglesReadOnly = false,
 }: {
   rows: ScopeAssetRow[];
   onBulkRowIdsIncluded: (dataGridRowIds: number[], included: boolean) => void;
+  /** When true, column header does not run bulk include/exclude. */
+  togglesReadOnly?: boolean;
 }) {
   const apiRef = useGridApiContext();
   const rowIdsOnPage = useGridSelector(apiRef, gridPaginatedVisibleSortedGridRowIdsSelector);
@@ -400,6 +403,7 @@ function ScopeIncludedColumnHeader({
     pageIncludedCount < idsOnPage.length;
 
   const handleHeaderToggle = useCallback(() => {
+    if (togglesReadOnly) return;
     const ids = gridPaginatedVisibleSortedGridRowIdsSelector(apiRef).map((id) =>
       typeof id === "number" ? id : Number(id),
     );
@@ -409,26 +413,32 @@ function ScopeIncludedColumnHeader({
     );
     const nextIncluded = !everyOnPageIncluded;
     onBulkRowIdsIncluded(ids, nextIncluded);
-  }, [apiRef, rows, onBulkRowIdsIncluded]);
+  }, [apiRef, rows, onBulkRowIdsIncluded, togglesReadOnly]);
 
-  const headerAriaLabel = headerIncludeIntermediate
-    ? "Some assets on this page are in scope. Click to include all on this page."
-    : allPageRowsIncluded
-      ? "All assets on this page are in scope. Click to exclude all on this page."
-      : "Click to include or exclude all assets shown on this page.";
+  const headerAriaLabel = togglesReadOnly
+    ? "Include in scope. Bulk actions are disabled for approved assessments."
+    : headerIncludeIntermediate
+      ? "Some assets on this page are in scope. Click to include all on this page."
+      : allPageRowsIncluded
+        ? "All assets on this page are in scope. Click to exclude all on this page."
+        : "Click to include or exclude all assets shown on this page.";
 
   return (
     <Box
-      role="button"
-      tabIndex={0}
+      role={togglesReadOnly ? "presentation" : "button"}
+      tabIndex={togglesReadOnly ? -1 : 0}
       aria-label={headerAriaLabel}
-      onKeyDown={(e: React.KeyboardEvent) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          e.stopPropagation();
-          handleHeaderToggle();
-        }
-      }}
+      onKeyDown={
+        togglesReadOnly
+          ? undefined
+          : (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                handleHeaderToggle();
+              }
+            }
+      }
       sx={({ tokens: t }) => ({
         position: "relative",
         display: "flex",
@@ -442,14 +452,18 @@ function ScopeIncludedColumnHeader({
         py: 0,
         boxSizing: "border-box",
         color: "inherit",
-        cursor: "pointer",
+        cursor: togglesReadOnly ? "default" : "pointer",
         border: "none",
         background: "none",
         outline: "none",
-        "&:focus-visible": {
-          outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-          outlineOffset: -2,
-        },
+        ...(!togglesReadOnly
+          ? {
+              "&:focus-visible": {
+                outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                outlineOffset: -2,
+              },
+            }
+          : {}),
       })}
     >
       <Box sx={{ display: "flex", alignItems: "center", pointerEvents: "none" }}>
@@ -458,6 +472,7 @@ function ScopeIncludedColumnHeader({
           // @ts-expect-error Lens Switch color union is "default" only; primary required for indeterminate theme rules
           color="primary"
           checked={allPageRowsIncluded}
+          disabled={togglesReadOnly}
           tabIndex={-1}
           slotProps={{
             input: {
@@ -468,20 +483,22 @@ function ScopeIncludedColumnHeader({
           }}
         />
       </Box>
-      <Box
-        aria-hidden
-        onClick={(e: React.MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleHeaderToggle();
-        }}
-        sx={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 1,
-          cursor: "pointer",
-        }}
-      />
+      {!togglesReadOnly ? (
+        <Box
+          aria-hidden
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleHeaderToggle();
+          }}
+          sx={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 1,
+            cursor: "pointer",
+          }}
+        />
+      ) : null}
     </Box>
   );
 }
@@ -491,10 +508,12 @@ function ScopePagedIncludedColumnHeader({
   rows,
   onBulkRowIdsIncluded,
   entityPlural,
+  togglesReadOnly = false,
 }: {
   rows: { id: string; included: boolean }[];
   onBulkRowIdsIncluded: (rowIds: string[], included: boolean) => void;
   entityPlural: string;
+  togglesReadOnly?: boolean;
 }) {
   const apiRef = useGridApiContext();
   const rowIdsOnPage = useGridSelector(apiRef, gridPaginatedVisibleSortedGridRowIdsSelector);
@@ -519,6 +538,7 @@ function ScopePagedIncludedColumnHeader({
     pageIncludedCount < idsOnPage.length;
 
   const handleHeaderToggle = useCallback(() => {
+    if (togglesReadOnly) return;
     const ids = gridPaginatedVisibleSortedGridRowIdsSelector(apiRef).map((id) => String(id));
     if (ids.length === 0) return;
     const everyOnPageIncluded = ids.every(
@@ -526,26 +546,32 @@ function ScopePagedIncludedColumnHeader({
     );
     const nextIncluded = !everyOnPageIncluded;
     onBulkRowIdsIncluded(ids, nextIncluded);
-  }, [apiRef, rows, onBulkRowIdsIncluded]);
+  }, [apiRef, rows, onBulkRowIdsIncluded, togglesReadOnly]);
 
-  const headerAriaLabel = headerIncludeIntermediate
-    ? `Some ${entityPlural} on this page are in scope. Click to include all on this page.`
-    : allPageRowsIncluded
-      ? `All ${entityPlural} on this page are in scope. Click to exclude all on this page.`
-      : `Click to include or exclude all ${entityPlural} shown on this page.`;
+  const headerAriaLabel = togglesReadOnly
+    ? `Include in scope. Bulk actions are disabled for approved assessments.`
+    : headerIncludeIntermediate
+      ? `Some ${entityPlural} on this page are in scope. Click to include all on this page.`
+      : allPageRowsIncluded
+        ? `All ${entityPlural} on this page are in scope. Click to exclude all on this page.`
+        : `Click to include or exclude all ${entityPlural} shown on this page.`;
 
   return (
     <Box
-      role="button"
-      tabIndex={0}
+      role={togglesReadOnly ? "presentation" : "button"}
+      tabIndex={togglesReadOnly ? -1 : 0}
       aria-label={headerAriaLabel}
-      onKeyDown={(e: React.KeyboardEvent) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          e.stopPropagation();
-          handleHeaderToggle();
-        }
-      }}
+      onKeyDown={
+        togglesReadOnly
+          ? undefined
+          : (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                handleHeaderToggle();
+              }
+            }
+      }
       sx={({ tokens: t }) => ({
         position: "relative",
         display: "flex",
@@ -559,14 +585,18 @@ function ScopePagedIncludedColumnHeader({
         py: 0,
         boxSizing: "border-box",
         color: "inherit",
-        cursor: "pointer",
+        cursor: togglesReadOnly ? "default" : "pointer",
         border: "none",
         background: "none",
         outline: "none",
-        "&:focus-visible": {
-          outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-          outlineOffset: -2,
-        },
+        ...(!togglesReadOnly
+          ? {
+              "&:focus-visible": {
+                outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                outlineOffset: -2,
+              },
+            }
+          : {}),
       })}
     >
       <Box sx={{ display: "flex", alignItems: "center", pointerEvents: "none" }}>
@@ -575,6 +605,7 @@ function ScopePagedIncludedColumnHeader({
           // @ts-expect-error Lens Switch color union is "default" only; primary required for indeterminate theme rules
           color="primary"
           checked={allPageRowsIncluded}
+          disabled={togglesReadOnly}
           tabIndex={-1}
           slotProps={{
             input: {
@@ -585,20 +616,22 @@ function ScopePagedIncludedColumnHeader({
           }}
         />
       </Box>
-      <Box
-        aria-hidden
-        onClick={(e: React.MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleHeaderToggle();
-        }}
-        sx={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 1,
-          cursor: "pointer",
-        }}
-      />
+      {!togglesReadOnly ? (
+        <Box
+          aria-hidden
+          onClick={(e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleHeaderToggle();
+          }}
+          sx={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 1,
+            cursor: "pointer",
+          }}
+        />
+      ) : null}
     </Box>
   );
 }
@@ -606,15 +639,18 @@ function ScopePagedIncludedColumnHeader({
 function ScopeCyberRiskIncludedColumnHeader({
   rows,
   onBulkCyberRiskRowIdsIncluded,
+  togglesReadOnly = false,
 }: {
   rows: ScopeCyberRiskRow[];
   onBulkCyberRiskRowIdsIncluded: (cyberRiskIds: string[], included: boolean) => void;
+  togglesReadOnly?: boolean;
 }) {
   return (
     <ScopePagedIncludedColumnHeader
       rows={rows}
       onBulkRowIdsIncluded={onBulkCyberRiskRowIdsIncluded}
       entityPlural="cyber risks"
+      togglesReadOnly={togglesReadOnly}
     />
   );
 }
@@ -731,10 +767,12 @@ function ScopeAssetsDataGrid({
   rows,
   onToggleAssetIncluded,
   onBulkRowIdsIncluded,
+  togglesReadOnly = false,
 }: {
   rows: ScopeAssetRow[];
   onToggleAssetIncluded: (assetId: string, included: boolean) => void;
   onBulkRowIdsIncluded: (dataGridRowIds: number[], included: boolean) => void;
+  togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
@@ -831,7 +869,11 @@ function ScopeAssetsDataGrid({
         disableColumnMenu: true,
         editable: false,
         renderHeader: () => (
-          <ScopeIncludedColumnHeader rows={rows} onBulkRowIdsIncluded={onBulkRowIdsIncluded} />
+          <ScopeIncludedColumnHeader
+            rows={rows}
+            onBulkRowIdsIncluded={onBulkRowIdsIncluded}
+            togglesReadOnly={togglesReadOnly}
+          />
         ),
         renderCell: (params: GridRenderCellParams<ScopeAssetRow>) => {
           const included = params.row.included;
@@ -841,33 +883,46 @@ function ScopeAssetsDataGrid({
               direction="row"
               alignItems="center"
               gap={1}
-              role="button"
-              tabIndex={0}
-              aria-label={`${label}. Click to ${included ? "exclude" : "include"} ${params.row.assetName} from scope.`}
-              aria-pressed={included}
-              onClick={() => setIncluded(params.row.id, !included)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIncluded(params.row.id, !included);
-                }
-              }}
+              role={togglesReadOnly ? "group" : "button"}
+              tabIndex={togglesReadOnly ? -1 : 0}
+              aria-label={
+                togglesReadOnly
+                  ? `${label} for ${params.row.assetName}.`
+                  : `${label}. Click to ${included ? "exclude" : "include"} ${params.row.assetName} from scope.`
+              }
+              aria-pressed={togglesReadOnly ? undefined : included}
+              onClick={togglesReadOnly ? undefined : () => setIncluded(params.row.id, !included)}
+              onKeyDown={
+                togglesReadOnly
+                  ? undefined
+                  : (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIncluded(params.row.id, !included);
+                      }
+                    }
+              }
               sx={({ tokens: t }) => ({
                 height: "100%",
                 width: "100%",
                 minWidth: 0,
                 py: 0.5,
-                cursor: "pointer",
+                cursor: togglesReadOnly ? "default" : "pointer",
                 boxSizing: "border-box",
-                "&:focus-visible": {
-                  outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-                  outlineOffset: -2,
-                },
+                ...(!togglesReadOnly
+                  ? {
+                      "&:focus-visible": {
+                        outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                        outlineOffset: -2,
+                      },
+                    }
+                  : {}),
               })}
             >
               <Switch
                 size="small"
                 checked={included}
+                disabled={togglesReadOnly}
                 tabIndex={-1}
                 sx={{ pointerEvents: "none" }}
                 slotProps={{
@@ -1021,7 +1076,7 @@ function ScopeAssetsDataGrid({
         ),
       },
     ],
-    [rows, onBulkRowIdsIncluded, setIncluded, handleOpenCyberRisksForAsset],
+    [rows, onBulkRowIdsIncluded, setIncluded, handleOpenCyberRisksForAsset, togglesReadOnly],
   );
 
   return (
@@ -1132,11 +1187,13 @@ function ScopeScopedCyberRisksGrid({
   hasIncludedAssets,
   onSetCyberRiskScopeIncluded,
   onBulkCyberRiskRowIdsIncluded,
+  togglesReadOnly = false,
 }: {
   rows: ScopeCyberRiskRow[];
   hasIncludedAssets: boolean;
   onSetCyberRiskScopeIncluded: (cyberRiskId: string, included: boolean) => void;
   onBulkCyberRiskRowIdsIncluded: (cyberRiskIds: string[], included: boolean) => void;
+  togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
@@ -1236,6 +1293,7 @@ function ScopeScopedCyberRisksGrid({
           <ScopeCyberRiskIncludedColumnHeader
             rows={rows}
             onBulkCyberRiskRowIdsIncluded={onBulkCyberRiskRowIdsIncluded}
+            togglesReadOnly={togglesReadOnly}
           />
         ),
         renderCell: (params: GridRenderCellParams<ScopeCyberRiskRow>) => {
@@ -1246,33 +1304,46 @@ function ScopeScopedCyberRisksGrid({
               direction="row"
               alignItems="center"
               gap={1}
-              role="button"
-              tabIndex={0}
-              aria-label={`${label}. Click to ${included ? "exclude" : "include"} ${params.row.name} from scope.`}
-              aria-pressed={included}
-              onClick={() => setIncluded(params.row.id, !included)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIncluded(params.row.id, !included);
-                }
-              }}
+              role={togglesReadOnly ? "group" : "button"}
+              tabIndex={togglesReadOnly ? -1 : 0}
+              aria-label={
+                togglesReadOnly
+                  ? `${label} for ${params.row.name}.`
+                  : `${label}. Click to ${included ? "exclude" : "include"} ${params.row.name} from scope.`
+              }
+              aria-pressed={togglesReadOnly ? undefined : included}
+              onClick={togglesReadOnly ? undefined : () => setIncluded(params.row.id, !included)}
+              onKeyDown={
+                togglesReadOnly
+                  ? undefined
+                  : (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIncluded(params.row.id, !included);
+                      }
+                    }
+              }
               sx={({ tokens: t }) => ({
                 height: "100%",
                 width: "100%",
                 minWidth: 0,
                 py: 0.5,
-                cursor: "pointer",
+                cursor: togglesReadOnly ? "default" : "pointer",
                 boxSizing: "border-box",
-                "&:focus-visible": {
-                  outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-                  outlineOffset: -2,
-                },
+                ...(!togglesReadOnly
+                  ? {
+                      "&:focus-visible": {
+                        outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                        outlineOffset: -2,
+                      },
+                    }
+                  : {}),
               })}
             >
               <Switch
                 size="small"
                 checked={included}
+                disabled={togglesReadOnly}
                 tabIndex={-1}
                 sx={{ pointerEvents: "none" }}
                 slotProps={{
@@ -1321,7 +1392,7 @@ function ScopeScopedCyberRisksGrid({
         valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
       },
     ],
-    [rows, onBulkCyberRiskRowIdsIncluded, setIncluded],
+    [rows, onBulkCyberRiskRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
   return (
@@ -1425,11 +1496,13 @@ function ScopeScopedThreatsGrid({
   hasIncludedAssets,
   onSetThreatScopeIncluded,
   onBulkThreatRowIdsIncluded,
+  togglesReadOnly = false,
 }: {
   rows: ScopeThreatRow[];
   hasIncludedAssets: boolean;
   onSetThreatScopeIncluded: (threatId: string, included: boolean) => void;
   onBulkThreatRowIdsIncluded: (threatIds: string[], included: boolean) => void;
+  togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
@@ -1528,6 +1601,7 @@ function ScopeScopedThreatsGrid({
             rows={rows}
             onBulkRowIdsIncluded={onBulkThreatRowIdsIncluded}
             entityPlural="threats"
+            togglesReadOnly={togglesReadOnly}
           />
         ),
         renderCell: (params: GridRenderCellParams<ScopeThreatRow>) => {
@@ -1567,33 +1641,46 @@ function ScopeScopedThreatsGrid({
               direction="row"
               alignItems="center"
               gap={1}
-              role="button"
-              tabIndex={0}
-              aria-label={`${label}. Click to ${included ? "exclude" : "include"} ${name} from scope.`}
-              aria-pressed={included}
-              onClick={() => setIncluded(id, !included)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIncluded(id, !included);
-                }
-              }}
+              role={togglesReadOnly ? "group" : "button"}
+              tabIndex={togglesReadOnly ? -1 : 0}
+              aria-label={
+                togglesReadOnly
+                  ? `${label} for ${name}.`
+                  : `${label}. Click to ${included ? "exclude" : "include"} ${name} from scope.`
+              }
+              aria-pressed={togglesReadOnly ? undefined : included}
+              onClick={togglesReadOnly ? undefined : () => setIncluded(id, !included)}
+              onKeyDown={
+                togglesReadOnly
+                  ? undefined
+                  : (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIncluded(id, !included);
+                      }
+                    }
+              }
               sx={({ tokens: t }) => ({
                 height: "100%",
                 width: "100%",
                 minWidth: 0,
                 py: 0.5,
-                cursor: "pointer",
+                cursor: togglesReadOnly ? "default" : "pointer",
                 boxSizing: "border-box",
-                "&:focus-visible": {
-                  outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-                  outlineOffset: -2,
-                },
+                ...(!togglesReadOnly
+                  ? {
+                      "&:focus-visible": {
+                        outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                        outlineOffset: -2,
+                      },
+                    }
+                  : {}),
               })}
             >
               <Switch
                 size="small"
                 checked={included}
+                disabled={togglesReadOnly}
                 tabIndex={-1}
                 sx={{ pointerEvents: "none" }}
                 slotProps={{
@@ -1649,7 +1736,7 @@ function ScopeScopedThreatsGrid({
         valueGetter: (_v, row) => joinUserFullNames(row.ownerIds),
       },
     ],
-    [rows, onBulkThreatRowIdsIncluded, setIncluded],
+    [rows, onBulkThreatRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
   return (
@@ -1752,11 +1839,13 @@ function ScopeScopedVulnerabilitiesGrid({
   hasIncludedAssets,
   onSetVulnerabilityScopeIncluded,
   onBulkVulnerabilityRowIdsIncluded,
+  togglesReadOnly = false,
 }: {
   rows: ScopeVulnerabilityRow[];
   hasIncludedAssets: boolean;
   onSetVulnerabilityScopeIncluded: (vulnerabilityId: string, included: boolean) => void;
   onBulkVulnerabilityRowIdsIncluded: (vulnerabilityIds: string[], included: boolean) => void;
+  togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
@@ -1801,6 +1890,7 @@ function ScopeScopedVulnerabilitiesGrid({
             rows={rows}
             onBulkRowIdsIncluded={onBulkVulnerabilityRowIdsIncluded}
             entityPlural="vulnerabilities"
+            togglesReadOnly={togglesReadOnly}
           />
         ),
         renderCell: (params: GridRenderCellParams<ScopeVulnerabilityRow>) => {
@@ -1811,33 +1901,46 @@ function ScopeScopedVulnerabilitiesGrid({
               direction="row"
               alignItems="center"
               gap={1}
-              role="button"
-              tabIndex={0}
-              aria-label={`${label}. Click to ${included ? "exclude" : "include"} ${params.row.name} from scope.`}
-              aria-pressed={included}
-              onClick={() => setIncluded(params.row.id, !included)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIncluded(params.row.id, !included);
-                }
-              }}
+              role={togglesReadOnly ? "group" : "button"}
+              tabIndex={togglesReadOnly ? -1 : 0}
+              aria-label={
+                togglesReadOnly
+                  ? `${label} for ${params.row.name}.`
+                  : `${label}. Click to ${included ? "exclude" : "include"} ${params.row.name} from scope.`
+              }
+              aria-pressed={togglesReadOnly ? undefined : included}
+              onClick={togglesReadOnly ? undefined : () => setIncluded(params.row.id, !included)}
+              onKeyDown={
+                togglesReadOnly
+                  ? undefined
+                  : (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIncluded(params.row.id, !included);
+                      }
+                    }
+              }
               sx={({ tokens: t }) => ({
                 height: "100%",
                 width: "100%",
                 minWidth: 0,
                 py: 0.5,
-                cursor: "pointer",
+                cursor: togglesReadOnly ? "default" : "pointer",
                 boxSizing: "border-box",
-                "&:focus-visible": {
-                  outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-                  outlineOffset: -2,
-                },
+                ...(!togglesReadOnly
+                  ? {
+                      "&:focus-visible": {
+                        outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                        outlineOffset: -2,
+                      },
+                    }
+                  : {}),
               })}
             >
               <Switch
                 size="small"
                 checked={included}
+                disabled={togglesReadOnly}
                 tabIndex={-1}
                 sx={{ pointerEvents: "none" }}
                 slotProps={{
@@ -1896,7 +1999,7 @@ function ScopeScopedVulnerabilitiesGrid({
         valueGetter: (_v, row) => joinUserFullNames(row.ownerIds),
       },
     ],
-    [rows, onBulkVulnerabilityRowIdsIncluded, setIncluded],
+    [rows, onBulkVulnerabilityRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
   return (
@@ -1975,11 +2078,13 @@ function ScopeScopedControlsGrid({
   hasIncludedAssets,
   onSetControlScopeIncluded,
   onBulkControlRowIdsIncluded,
+  togglesReadOnly = false,
 }: {
   rows: ScopeControlRow[];
   hasIncludedAssets: boolean;
   onSetControlScopeIncluded: (controlId: string, included: boolean) => void;
   onBulkControlRowIdsIncluded: (controlIds: string[], included: boolean) => void;
+  togglesReadOnly?: boolean;
 }) {
   const [view, setView] = useState<ScopeViewFilter>("all");
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
@@ -2024,6 +2129,7 @@ function ScopeScopedControlsGrid({
             rows={rows}
             onBulkRowIdsIncluded={onBulkControlRowIdsIncluded}
             entityPlural="controls"
+            togglesReadOnly={togglesReadOnly}
           />
         ),
         renderCell: (params: GridRenderCellParams<ScopeControlRow>) => {
@@ -2063,33 +2169,46 @@ function ScopeScopedControlsGrid({
               direction="row"
               alignItems="center"
               gap={1}
-              role="button"
-              tabIndex={0}
-              aria-label={`${label}. Click to ${included ? "exclude" : "include"} ${name} from scope.`}
-              aria-pressed={included}
-              onClick={() => setIncluded(id, !included)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIncluded(id, !included);
-                }
-              }}
+              role={togglesReadOnly ? "group" : "button"}
+              tabIndex={togglesReadOnly ? -1 : 0}
+              aria-label={
+                togglesReadOnly
+                  ? `${label} for ${name}.`
+                  : `${label}. Click to ${included ? "exclude" : "include"} ${name} from scope.`
+              }
+              aria-pressed={togglesReadOnly ? undefined : included}
+              onClick={togglesReadOnly ? undefined : () => setIncluded(id, !included)}
+              onKeyDown={
+                togglesReadOnly
+                  ? undefined
+                  : (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIncluded(id, !included);
+                      }
+                    }
+              }
               sx={({ tokens: t }) => ({
                 height: "100%",
                 width: "100%",
                 minWidth: 0,
                 py: 0.5,
-                cursor: "pointer",
+                cursor: togglesReadOnly ? "default" : "pointer",
                 boxSizing: "border-box",
-                "&:focus-visible": {
-                  outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
-                  outlineOffset: -2,
-                },
+                ...(!togglesReadOnly
+                  ? {
+                      "&:focus-visible": {
+                        outline: `2px solid ${t.semantic.color.action.primary.default.value}`,
+                        outlineOffset: -2,
+                      },
+                    }
+                  : {}),
               })}
             >
               <Switch
                 size="small"
                 checked={included}
+                disabled={togglesReadOnly}
                 tabIndex={-1}
                 sx={{ pointerEvents: "none" }}
                 slotProps={{
@@ -2140,7 +2259,7 @@ function ScopeScopedControlsGrid({
         valueGetter: (_v, row) => getUserById(row.ownerId)?.fullName ?? "Unassigned",
       },
     ],
-    [rows, onBulkControlRowIdsIncluded, setIncluded],
+    [rows, onBulkControlRowIdsIncluded, setIncluded, togglesReadOnly],
   );
 
   return (
@@ -2232,6 +2351,8 @@ type AssessmentScopeTabProps = {
   onBulkControlsScopeIncluded: (controlIds: string[], included: boolean) => void;
   onToggleAssetIncluded: (assetId: string, included: boolean) => void;
   onBulkAssetIdsIncluded: (assetIds: string[], included: boolean) => void;
+  /** When true (e.g. approved assessment), scope include/exclude toggles are not editable. */
+  scopeTogglesReadOnly?: boolean;
 };
 
 export default function AssessmentScopeTab({
@@ -2252,6 +2373,7 @@ export default function AssessmentScopeTab({
   onBulkControlsScopeIncluded,
   onToggleAssetIncluded,
   onBulkAssetIdsIncluded,
+  scopeTogglesReadOnly = false,
 }: AssessmentScopeTabProps) {
   const rows = useMemo(
     () =>
@@ -2343,6 +2465,7 @@ export default function AssessmentScopeTab({
         rows={rows}
         onToggleAssetIncluded={onToggleAssetIncluded}
         onBulkRowIdsIncluded={handleBulkRowIdsIncluded}
+        togglesReadOnly={scopeTogglesReadOnly}
       />
     );
   }
@@ -2354,6 +2477,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetCyberRiskScopeIncluded={onSetCyberRiskScopeIncluded}
         onBulkCyberRiskRowIdsIncluded={onBulkCyberRisksScopeIncluded}
+        togglesReadOnly={scopeTogglesReadOnly}
       />
     );
   }
@@ -2365,6 +2489,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetThreatScopeIncluded={onSetThreatScopeIncluded}
         onBulkThreatRowIdsIncluded={onBulkThreatsScopeIncluded}
+        togglesReadOnly={scopeTogglesReadOnly}
       />
     );
   }
@@ -2376,6 +2501,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetVulnerabilityScopeIncluded={onSetVulnerabilityScopeIncluded}
         onBulkVulnerabilityRowIdsIncluded={onBulkVulnerabilitiesScopeIncluded}
+        togglesReadOnly={scopeTogglesReadOnly}
       />
     );
   }
@@ -2387,6 +2513,7 @@ export default function AssessmentScopeTab({
         hasIncludedAssets={includedCount > 0}
         onSetControlScopeIncluded={onSetControlScopeIncluded}
         onBulkControlRowIdsIncluded={onBulkControlsScopeIncluded}
+        togglesReadOnly={scopeTogglesReadOnly}
       />
     );
   }
