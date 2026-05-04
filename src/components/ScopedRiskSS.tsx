@@ -1,5 +1,5 @@
 import { Footer } from "@diligentcorp/atlas-react-bundle";
-import { Box, Divider, Drawer, Stack, Typography, useTheme, Button } from "@mui/material";
+import { Box, Drawer, Stack, Typography, useTheme, Button } from "@mui/material";
 
 import { fivePointLabelToRag } from "../data/types.js";
 import type { MockCyberRisk } from "../data/types.js";
@@ -77,24 +77,29 @@ export default function ScopedRiskSS({
               No cyber risks linked to this asset.
             </Typography>
           ) : (
-            cyberRisks.map((cr, index) => (
+            cyberRisks.map((cr) => (
               <Box key={cr.id}>
-                {index > 0 ? (
-                  <Divider
-                    sx={({ tokens: t }) => ({
-                      borderColor: t.semantic.color.outline.default.value,
-                      mb: t.core.spacing["3"].value,
-                    })}
-                  />
-                ) : null}
                 <Stack
                   sx={({ tokens: t }) => ({
                     alignItems: "flex-start",
-                    gap: t.core.spacing["3"].value,
+                    gap: t.core.spacing["2"].value,
                     width: "100%",
                   })}
                 >
-                  <LabelValueMd label="Name" value={cr.name} />
+                  <Typography
+                    component="span"
+                    sx={({ tokens: t }) => ({
+                      m: 0,
+                      fontFamily: "inherit",
+                      fontSize: t.semantic.font.text.md.fontSize.value,
+                      lineHeight: t.semantic.font.text.md.lineHeight.value,
+                      letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                      fontWeight: 600,
+                      color: t.semantic.color.type.default.value,
+                    })}
+                  >
+                    {cr.name}
+                  </Typography>
                   <Stack
                     direction="row"
                     flexWrap="nowrap"

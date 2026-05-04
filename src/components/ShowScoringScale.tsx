@@ -10,7 +10,7 @@ const BAR_HEIGHT_PX = 12;
 const MARKER_HEIGHT_PX = 14;
 const MARKER_WIDTH_PX = 2;
 
-export type ShowScaleProps = {
+export type ShowScoringScaleProps = {
   /** Which segment (0–4) the vertical marker centers on; default 2 (medium / yellow). */
   markerBandIndex?: number;
   /** Router path for “View scoring scales”. */
@@ -20,10 +20,10 @@ export type ShowScaleProps = {
 /**
  * Scoring scale summary: five-band RAG bar, marker, description, and link to settings (Figma: ITRM — Scoring scale).
  */
-export default function ShowScale({
+export default function ShowScoringScale({
   markerBandIndex = 2,
   scalesHref = "/settings/cyber-risk-settings",
-}: ShowScaleProps) {
+}: ShowScoringScaleProps) {
   const { tokens: t } = useTheme();
   const clampedIndex = Math.min(Math.max(markerBandIndex, 0), SCALE_SEGMENT_RAG.length - 1);
   const markerCenterPercent = ((clampedIndex + 0.5) / SCALE_SEGMENT_RAG.length) * 100;
@@ -31,7 +31,7 @@ export default function ShowScale({
   return (
     <Box
       component="section"
-      aria-labelledby="show-scale-heading"
+      aria-labelledby="show-scoring-scale-heading"
       sx={({ tokens: tok }) => ({
         display: "flex",
         flexDirection: "column",
@@ -41,7 +41,7 @@ export default function ShowScale({
       })}
     >
       <Typography
-        id="show-scale-heading"
+        id="show-scoring-scale-heading"
         component="h2"
         variant="caption"
         sx={({ tokens: tok }) => ({

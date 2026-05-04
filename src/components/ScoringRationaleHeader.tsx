@@ -37,7 +37,7 @@ export default function ScoringRationaleHeader({
         breadcrumbs={breadcrumbs}
         moreButton={
           onSave ? (
-            <Button variant="contained" size="medium" onClick={onSave}>
+            <Button variant="text" size="medium" onClick={onSave}>
               Save changes
             </Button>
           ) : undefined

@@ -14,7 +14,7 @@ import FilterResults, {
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import MitigationPlanPageSideSheet from "../components/MitigationPlanPageSideSheet.js";
 import ResultsHero from "../components/ResultsHero.js";
-import ScoringInfo from "../components/ScoringInfo.js";
+import ScoringWide from "../components/ScoringWide.js";
 import { ResultsRiskChip, ResultsTreeData } from "../components/ResultsTreeData.js";
 import type { MatrixSelectionPayload } from "../components/RisksMatrix.js";
 import { Box, Link, Stack } from "@mui/material";
@@ -322,9 +322,7 @@ export default function AssessmentResultsTab({
 
   return (
     <Stack gap={6} sx={{ pt: 3, pb: 4, width: "100%" }}>
-      <ScoringInfo
-        aggregationMethodRadio={{ name: "cra-assessment-results-aggregation" }}
-      />
+      <ScoringWide />
       <ResultsHero
         scopedRisks={scopedCyberRisks}
         assetResultRows={assetResultRows}

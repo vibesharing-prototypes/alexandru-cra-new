@@ -63,31 +63,31 @@ function FormulaRow({ children }: { children: ReactNode }) {
   );
 }
 
-export type ShowScoringAggregationProps = {
+export type ScoringFormulasWideProps = {
   /** When true, the section width follows formula content (for horizontal flex rows). */
   shrinkToContent?: boolean;
 };
 
-/** CRA scoring formula reference for activity / assessment surfaces. */
-export default function ShowScoringAggregation({
+/** CRA scoring formula reference for activity / assessment surfaces (wide variant). */
+export default function ScoringFormulasWide({
   shrinkToContent = false,
-}: ShowScoringAggregationProps = {}) {
+}: ScoringFormulasWideProps = {}) {
   return (
     <Box
       component="section"
-      aria-labelledby="show-scoring-aggregation-heading"
+      aria-labelledby="scoring-formulas-wide-heading"
       sx={({ tokens: t }) => ({
         display: "flex",
         flexDirection: "column",
         alignItems: "flex-start",
         gap: t.core.spacing["1_5"].value,
         width: shrinkToContent ? "fit-content" : "100%",
-        maxWidth: shrinkToContent ? "100%" : undefined,
+        maxWidth: shrinkToContent ? "100%" : "100%",
         boxSizing: "border-box",
       })}
     >
       <Typography
-        id="show-scoring-aggregation-heading"
+        id="scoring-formulas-wide-heading"
         component="h2"
         variant="caption"
         sx={({ tokens: t }) => ({
@@ -104,11 +104,13 @@ export default function ShowScoringAggregation({
       </Typography>
 
       <Stack
+        direction="row"
+        flexWrap="wrap"
         sx={({ tokens: t }) => ({
           width: shrinkToContent ? "fit-content" : "100%",
           maxWidth: shrinkToContent ? "100%" : undefined,
           alignItems: "flex-start",
-          gap: t.core.spacing["1_5"].value,
+          gap: t.core.spacing["3"].value,
         })}
       >
         <FormulaRow>

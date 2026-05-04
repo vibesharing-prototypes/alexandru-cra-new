@@ -48,7 +48,6 @@ import AssessmentStatus, {
 import { assessmentStatusLabel } from "../data/assessmentStatusLabels.js";
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
 import {
-  addRiskAssessment,
   getRiskAssessmentsSnapshotVersion,
   riskAssessments,
   subscribeRiskAssessments,
@@ -651,8 +650,7 @@ export default function AssessmentsPage() {
   }, [catalogVersion]);
 
   const handleNewAssessment = () => {
-    const created = addRiskAssessment();
-    navigate(`/cyber-risk/cyber-risk-assessments/${created.id}`);
+    navigate("/cyber-risk/cyber-risk-assessments/new");
   };
 
   return (

@@ -395,14 +395,9 @@ export default function AssessmentDetailHeader({
         minWidth: 0,
       }}
     >
-      <Stack direction="row" alignItems="center" gap={1}>
-        <Button variant="text" size="medium" onClick={onScopeSubViewBack}>
-          Cancel
-        </Button>
-        <Button variant="text" size="medium" onClick={onScopeDetailDone}>
-          Save changes
-        </Button>
-      </Stack>
+      <Button variant="text" size="medium" onClick={onScopeDetailDone}>
+        Save changes
+      </Button>
     </Box>
   );
 

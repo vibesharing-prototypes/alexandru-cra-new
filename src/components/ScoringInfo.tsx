@@ -3,15 +3,13 @@ import { Box } from "@mui/material";
 import AggregationMethodRadio, {
   type AggregationMethodRadioProps,
 } from "./AggregationMethodRadio.js";
-import ShowScoringAggregation, {
-  type ShowScoringAggregationProps,
-} from "./ShowScoringAggregation.js";
-import ShowScale, { type ShowScaleProps } from "./ShowScale.js";
+import ScoringFormulas, { type ScoringFormulasProps } from "./ScoringFormulas.js";
+import ShowScoringScale, { type ShowScoringScaleProps } from "./ShowScoringScale.js";
 
 export type ScoringInfoProps = {
   aggregationMethodRadio?: AggregationMethodRadioProps;
-  showScoringAggregation?: ShowScoringAggregationProps;
-  showScale?: ShowScaleProps;
+  scoringFormulas?: ScoringFormulasProps;
+  showScoringScale?: ShowScoringScaleProps;
 };
 
 /**
@@ -19,8 +17,8 @@ export type ScoringInfoProps = {
  */
 export default function ScoringInfo({
   aggregationMethodRadio,
-  showScoringAggregation,
-  showScale,
+  scoringFormulas,
+  showScoringScale,
 }: ScoringInfoProps = {}) {
   return (
     <Box
@@ -38,7 +36,9 @@ export default function ScoringInfo({
     >
       <Box
         sx={{
-          flex: "1 1 0",
+          flex: "0 0 auto",
+          width: "100%",
+          maxWidth: 200,
           minWidth: 0,
           alignSelf: "stretch",
         }}
@@ -48,11 +48,12 @@ export default function ScoringInfo({
       <Box
         sx={{
           flex: "0 0 auto",
+          width: "100%",
           minWidth: 0,
           maxWidth: "100%",
         }}
       >
-        <ShowScoringAggregation {...{ shrinkToContent: true, ...showScoringAggregation }} />
+        <ScoringFormulas {...{ shrinkToContent: true, ...scoringFormulas }} />
       </Box>
       <Box
         sx={{
@@ -63,7 +64,7 @@ export default function ScoringInfo({
           boxSizing: "border-box",
         }}
       >
-        <ShowScale {...showScale} />
+        <ShowScoringScale {...showScoringScale} />
       </Box>
     </Box>
   );

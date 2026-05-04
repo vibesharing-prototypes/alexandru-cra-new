@@ -210,6 +210,16 @@ export default function AssessmentDetailsTab() {
       ? getRiskAssessmentById(routeAssessmentId)
       : undefined;
 
+  /** Clear stale draft on fresh entry to `/new`, but not when the user pops back (browser-style back preserves remounted state + draft). */
+  const needsInitialDraftClear =
+    !routeAssessmentId &&
+    mockFromRoute == null &&
+    !isReturningFromScenario &&
+    navigationType !== "POP";
+
+  const isNewCraDraftFlow =
+    !(routeAssessmentId != null && routeAssessmentId !== "") && mockFromRoute == null;
+
   const [initialDraft] = useState(() => {
     if (routeAssessmentId != null && routeAssessmentId !== "") return null;
     if (mockFromRoute != null) return null;
@@ -320,13 +330,8 @@ export default function AssessmentDetailsTab() {
     return new Set();
   });
 
-  const isNewCraDraftFlow = useMemo(
-    () => !(routeAssessmentId != null && routeAssessmentId !== "") && mockFromRoute == null,
-    [routeAssessmentId, mockFromRoute],
-  );
-
   const [scenarioCatalogScoresReleased, setScenarioCatalogScoresReleased] = useState(() => {
-    if (!isNewCraDraftFlow) return true;
+    if (!isNewCraDraftFlow || needsInitialDraftClear) return !isNewCraDraftFlow;
     if (initialDraft) return initialDraft.scenarioCatalogScoresReleased;
     return false;
   });
@@ -334,7 +339,7 @@ export default function AssessmentDetailsTab() {
   const [scenarioManuallyRevealedScoreIds, setScenarioManuallyRevealedScoreIds] = useState<
     Set<string>
   >(() => {
-    if (!isNewCraDraftFlow) return new Set<string>();
+    if (!isNewCraDraftFlow || needsInitialDraftClear) return new Set<string>();
     if (initialDraft?.scenarioManuallyRevealedScoreIds?.length) {
       return new Set(initialDraft.scenarioManuallyRevealedScoreIds);
     }
@@ -461,12 +466,6 @@ export default function AssessmentDetailsTab() {
   );
 
   /** Clear stale draft on fresh entry to `/new`, but not when the user pops back (browser-style back preserves remounted state + draft). */
-  const needsInitialDraftClear =
-    !routeAssessmentId &&
-    mockFromRoute == null &&
-    !isReturningFromScenario &&
-    navigationType !== "POP";
-
   useLayoutEffect(() => {
     if (!needsInitialDraftClear) return;
     clearCraNewAssessmentDraft();

@@ -28,6 +28,8 @@ export type RadioButtonArrayProps = {
   showAction?: boolean;
   /** When false, the leading icon in the action area is hidden (link text is still shown when `showActionText` is set) */
   showIcon?: boolean;
+  /** When true, radios are laid out in a row (default). When false, options stack vertically. */
+  row?: boolean;
   /** When false, the default action link is not shown (no icon-only state; the action region is omitted unless `actionSlot` is set) */
   showActionText?: boolean;
   /** Link destination for the default action (use `"#"` for inert hash; click is prevented) */
@@ -65,7 +67,7 @@ function DefaultInfoOutlineIcon() {
 }
 
 /**
- * Label, horizontal radio group, and optional icon + link or plain text below the radios.
+ * Label, radio group (row or column), and optional icon + link or plain text below the radios.
  */
 export default function RadioButtonArray({
   label,
@@ -82,6 +84,7 @@ export default function RadioButtonArray({
   actionIcon,
   actionSlot,
   disabled = false,
+  row = true,
 }: RadioButtonArrayProps) {
   if (import.meta.env.DEV && options.length < 2) {
     // eslint-disable-next-line no-console
@@ -126,18 +129,35 @@ export default function RadioButtonArray({
         {label}
       </Typography>
 
-      <FormControl sx={{ width: "100%", m: 0, height: 28 }} disabled={disabled}>
+      <FormControl
+        sx={{
+          width: "100%",
+          m: 0,
+          ...(row ? { height: 28 } : { height: "auto", alignSelf: "stretch" }),
+        }}
+        disabled={disabled}
+      >
         <RadioGroup
-          row
+          {...(row ? { row: true } : {})}
           name={groupName}
           value={value}
           onChange={(_e, v) => onChange(v)}
           aria-labelledby={labelId}
           sx={{
-            flexWrap: "wrap",
-            gap: 2,
-            columnGap: 2,
-            rowGap: 1,
+            ...(row
+              ? {
+                  flexWrap: "wrap",
+                  gap: 2,
+                  columnGap: 2,
+                  rowGap: 1,
+                }
+              : {
+                  flexWrap: "nowrap",
+                  gap: 2,
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  height: "100%",
+                }),
           }}
         >
           {options.map((opt) => (

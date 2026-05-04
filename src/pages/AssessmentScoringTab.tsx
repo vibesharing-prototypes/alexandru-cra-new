@@ -82,6 +82,7 @@ const SCORING_NAME_COL_WIDTH_PX = 400;
 /** Actions column is fixed width (sticky last column). */
 const SCORING_ACTIONS_COL_WIDTH_PX = 48;
 
+const SCORING_IMPACT_MIN_PX = 80;
 const SCORING_THREAT_MIN_PX = 132;
 const SCORING_VULNERABILITY_MIN_PX = 164;
 const SCORING_LIKELIHOOD_MIN_PX = 110;
@@ -113,6 +114,8 @@ const scoringMetricTdSx = {
   whiteSpace: "nowrap" as const,
 };
 
+const scoringImpactMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_IMPACT_MIN_PX };
+const scoringImpactMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_IMPACT_MIN_PX };
 const scoringThreatMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_THREAT_MIN_PX };
 const scoringThreatMetricTdSx = { ...scoringMetricTdSx, minWidth: SCORING_THREAT_MIN_PX };
 const scoringVulnerabilityMetricThSx = { ...scoringMetricThSx, minWidth: SCORING_VULNERABILITY_MIN_PX };
@@ -634,7 +637,6 @@ export default function AssessmentScoringTab({
       if (scenarioCatalogScoresReleased || scenarioManuallyRevealedScoreIds.has(r.id)) return r;
       return {
         ...r,
-        impact: null,
         threat: null,
         vulnerability: null,
         likelihood: null,
@@ -894,7 +896,7 @@ export default function AssessmentScoringTab({
                 })}
               >
                 <TableCell sx={scoringNameHeadCellSx}>Name</TableCell>
-                <TableCell sx={scoringMetricThSx}>Impact</TableCell>
+                <TableCell sx={scoringImpactMetricThSx}>Impact</TableCell>
                 <TableCell sx={scoringThreatMetricThSx}>Threat severity</TableCell>
                 <TableCell sx={scoringVulnerabilityMetricThSx}>Vulnerability severity</TableCell>
                 <TableCell sx={scoringLikelihoodMetricThSx}>Likelihood</TableCell>
@@ -1068,7 +1070,7 @@ export default function AssessmentScoringTab({
                         </TableCell>
                         <TableCell
                           sx={[
-                            scoringMetricTdSx,
+                            scoringImpactMetricTdSx,
                             row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
                             row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
                           ]}

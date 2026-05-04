@@ -13,9 +13,12 @@ import LabelScoreLegend from "../components/LabelScoreLegend.js";
 import LabelValue from "../components/LabelValue.js";
 import PageLayout from "../components/PageLayout.js";
 import ScoringInfo from "../components/ScoringInfo.js";
+import ScoringWide from "../components/ScoringWide.js";
 import AIBanner from "../components/AIBanner.js";
 import RadioButtonArray from "../components/RadioButtonArray.js";
 import { ScopeCard } from "../components/ScopeCard.js";
+import ShowScoringScale from "../components/ShowScoringScale.js";
+import ScoringFormulas from "../components/ScoringFormulas.js";
 import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import {
@@ -161,6 +164,7 @@ export default function ActivityPage() {
               <ScoringInfo
                 aggregationMethodRadio={{ name: "activity-tab1-aggregation" }}
               />
+              <ScoringWide />
             </Stack>
           </Box>
         </TabPanel>
@@ -209,6 +213,8 @@ export default function ActivityPage() {
                 cardActionAriaLabel="Filled variant: assets included (activity preview)"
               />
               <AIBanner onAction={() => {}} />
+              <ShowScoringScale />
+              <ScoringFormulas />
               <Accordion defaultExpanded={false}>
                 <AccordionSummary
                   aria-controls="activity-tab2-accordion-content"

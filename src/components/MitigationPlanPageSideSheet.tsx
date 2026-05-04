@@ -187,7 +187,7 @@ export default function MitigationPlanPageSideSheet({
       />
 
       <Content ariaLabel="Mitigation plan form">
-        <Stack gap={3}>
+        <Stack gap={2}>
           <FormControl fullWidth>
             <FormLabel htmlFor="mp-page-related-risk">Related risk</FormLabel>
             <Autocomplete
@@ -201,12 +201,16 @@ export default function MitigationPlanPageSideSheet({
 
           {/* Row 1: Name */}
           <FormControl fullWidth>
-            <FormLabel htmlFor="mp-name">Name</FormLabel>
             <TextField
               placeholder="Enter issue name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              slotProps={{ input: { id: "mp-name" } }}
+              slotProps={{
+                input: {
+                  id: "mp-name",
+                  "aria-label": "Name",
+                },
+              }}
             />
           </FormControl>
 
