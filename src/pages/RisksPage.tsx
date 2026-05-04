@@ -13,6 +13,7 @@ import RisksHeroSection from "../components/RisksHeroSection.js";
 import RisksTable from "../components/RisksTable.js";
 import { getOrgUnitById } from "../data/orgUnits.js";
 import type { MatrixSelectionPayload } from "../components/RisksMatrix.js";
+import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
 import {
   applyMatrixFiltersToSearchParams,
   parseRiskHeatmapSearchParams,
@@ -48,6 +49,7 @@ function readInitialTableFiltersFromLocation(): CyberRiskTableFilters {
 }
 
 export default function RisksPage() {
+  const { cyberScoreBands, likelihoodBands } = useCyberRiskScoringConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<CyberRiskTableFilters>(
@@ -66,7 +68,10 @@ export default function RisksPage() {
     });
   }, [searchParams, isFilterOpen]);
 
-  const allRows = useMemo(() => buildCyberRiskRows(), []);
+  const allRows = useMemo(
+    () => buildCyberRiskRows(),
+    [cyberScoreBands, likelihoodBands],
+  );
   const filteredRows = useMemo(
     () => applyCyberRiskFilters(allRows, appliedFilters),
     [allRows, appliedFilters],

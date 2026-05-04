@@ -92,7 +92,6 @@ export default function CyberRiskDetailPage() {
           createdBy={ownerName}
           lastUpdatedBy={ownerName}
           status={status}
-          onStatusChange={setStatus}
           tab={tab}
           onTabChange={setTab}
           onSave={handleSave}

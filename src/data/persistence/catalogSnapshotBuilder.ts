@@ -8,6 +8,10 @@ import { getScenarioOverridesForPersistence } from "../scenarios.js";
 import { threats } from "../threats.js";
 import { users } from "../users.js";
 import { vulnerabilities } from "../vulnerabilities.js";
+import {
+  getActiveCyberRiskScoreBands,
+  getActiveLikelihoodBands,
+} from "../cyberRiskScoringScales.js";
 import { getPersistedCraDraft } from "./catalogStore.js";
 import type { PersistedCatalogV1 } from "./catalogTypes.js";
 
@@ -33,5 +37,7 @@ export function buildPersistedCatalogSnapshot(): PersistedCatalogV1 {
       const d = getPersistedCraDraft();
       return d ? cloneJson(d) : null;
     })(),
+    cyberScoreBands: cloneJson([...getActiveCyberRiskScoreBands()]),
+    likelihoodBands: cloneJson([...getActiveLikelihoodBands()]),
   };
 }

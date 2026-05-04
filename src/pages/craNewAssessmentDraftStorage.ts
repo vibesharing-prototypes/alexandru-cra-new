@@ -36,6 +36,14 @@ export type CraScenarioDetailLocationState = {
    * {@link NEW_CRA_SCORING_TAB_INDEX} = Scoring, {@link NEW_CRA_RESULTS_TAB_INDEX} = Results.
    */
   craReturnToTabIndex?: number;
+  /** True when navigating from new CRA scoring tab (not catalog-backed assessment row). */
+  fromNewCraDraft?: boolean;
+  /** Snapshot: AI completed for assessment; all scenario catalog scores visible. */
+  scenarioCatalogScoresReleased?: boolean;
+  /** Snapshot: scenario ids with visible catalog scores after manual rationale save. */
+  scenarioManuallyRevealedScoreIds?: string[];
+  /** When present (e.g. after save + navigate), destination shows a one-time “Changes were saved.” toast. */
+  showSavedChangesToast?: boolean;
 };
 
 const STORAGE_KEY = "cra_new_assessment_draft_v1";
@@ -144,6 +152,14 @@ export function sanitizeCraNewAssessmentDraft(
   const scenarioNotApplicableIds = Array.isArray(raw.scenarioNotApplicableIds)
     ? (raw.scenarioNotApplicableIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
+  const excludedScopeScenarioIds = Array.isArray(raw.excludedScopeScenarioIds)
+    ? (raw.excludedScopeScenarioIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const scenarioCatalogScoresReleased = raw.scenarioCatalogScoresReleased === true;
+  const scenarioManuallyRevealedScoreIdsRaw = Array.isArray(raw.scenarioManuallyRevealedScoreIds)
+    ? (raw.scenarioManuallyRevealedScoreIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+  const scenarioManuallyRevealedScoreIds = [...new Set(scenarioManuallyRevealedScoreIdsRaw)];
   return {
     activeTab,
     assessmentPhase,
@@ -163,6 +179,9 @@ export function sanitizeCraNewAssessmentDraft(
     scoringType,
     scenarioScoreAggregationMethod,
     scenarioNotApplicableIds,
+    excludedScopeScenarioIds,
+    scenarioCatalogScoresReleased,
+    scenarioManuallyRevealedScoreIds,
   };
 }
 
@@ -195,6 +214,10 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       scenarioScoreAggregationMethod: o.scenarioScoreAggregationMethod as
         | CraScenarioScoreAggregationMethod
         | undefined,
+      scenarioNotApplicableIds: o.scenarioNotApplicableIds as string[] | undefined,
+      excludedScopeScenarioIds: o.excludedScopeScenarioIds as string[] | undefined,
+      scenarioCatalogScoresReleased: o.scenarioCatalogScoresReleased as boolean | undefined,
+      scenarioManuallyRevealedScoreIds: o.scenarioManuallyRevealedScoreIds as string[] | undefined,
     });
     setPersistedCraDraft(migrated);
     try {
@@ -223,7 +246,8 @@ export function advanceCraPhaseToScoringIfEligible(): void {
   const assetIds = new Set(draft.includedScopeAssetIds);
   if (assetIds.size === 0) return;
   const excluded = new Set(draft.excludedScopeCyberRiskIds);
-  if (assessmentScopedScenarios(assetIds, excluded).length === 0) return;
+  const excludedScenarios = new Set(draft.excludedScopeScenarioIds);
+  if (assessmentScopedScenarios(assetIds, excluded, excludedScenarios).length === 0) return;
   saveCraNewAssessmentDraft({
     ...draft,
     assessmentPhase: "inProgress",

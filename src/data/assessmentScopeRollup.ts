@@ -95,11 +95,15 @@ export function assessmentScopedControls(
 export function assessmentScopedScenarios(
   assetIds: Set<string>,
   excludedCyberRiskIds: Set<string>,
+  excludedScenarioIds: ReadonlySet<string> = new Set(),
 ): MockScenario[] {
   if (assetIds.size === 0) return [];
   const riskIds = effectiveCyberRiskIdSet(assetIds, excludedCyberRiskIds);
   return scenarios.filter(
-    (s) => assetIds.has(s.assetId) && riskIds.has(s.cyberRiskId),
+    (s) =>
+      assetIds.has(s.assetId) &&
+      riskIds.has(s.cyberRiskId) &&
+      !excludedScenarioIds.has(s.id),
   );
 }
 

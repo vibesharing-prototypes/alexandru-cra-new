@@ -14,6 +14,8 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router";
 
+import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
+
 import type { MockCyberRisk } from "../data/types.js";
 import { buildMatrixQueryStringForRisksPage } from "../utils/cyberRiskMatrixTableQuery.js";
 import {
@@ -80,6 +82,7 @@ export default function RisksMatrix({
   assessmentMatrixMode = "default",
 }: RisksMatrixProps) {
   const navigate = useNavigate();
+  const { cyberScoreBands, likelihoodBands } = useCyberRiskScoringConfig();
   const isInherentOnly = assessmentMatrixMode === "inherentOnly";
   const showInherentResidualToggle = !isInherentOnly;
   const [basisState, setBasis] = useState<CyberRiskHeatmapScoreBasis>(() =>
@@ -89,7 +92,7 @@ export default function RisksMatrix({
 
   const { grid, legend } = useMemo(
     () => buildCyberRiskHeatmapAggregates(risks, basis),
-    [risks, basis],
+    [risks, basis, cyberScoreBands, likelihoodBands],
   );
 
   const gridRows = grid.length;

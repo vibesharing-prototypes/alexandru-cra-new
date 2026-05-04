@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type { MouseEvent } from "react";
 import {
   Box,
   IconButton,
   Link,
+  Menu,
+  MenuItem,
   Skeleton,
   Stack,
   Table,
@@ -23,9 +26,7 @@ import AIBanner from "../components/AIBanner.js";
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
 import ScoringInfo from "../components/ScoringInfo.js";
 
-import { getAssetById } from "../data/assets.js";
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
-import { getScenarioById } from "../data/scenarios.js";
 import {
   fivePointLabelToRag,
   getCyberRiskScoreLabel,
@@ -34,7 +35,7 @@ import {
 } from "../data/types.js";
 import type { FivePointScaleLabel, FivePointScaleValue } from "../data/types.js";
 import { getCatalogSnapshotVersion, subscribeCatalog } from "../data/persistence/catalogStore.js";
-import { aggregateImpactWeightedParentScores } from "../utils/craParentScoreAggregation.js";
+import { aggregateArithmeticMeanParentScores } from "../utils/craParentScoreAggregation.js";
 import {
   scenarioRationaleReadOnlyPath,
   scenarioScoringRationalePath,
@@ -52,6 +53,8 @@ import {
 } from "../data/assessmentScopeRollup.js";
 
 const EMPTY_SCENARIO_NOT_APPLICABLE_IDS = new Set<string>();
+
+const EMPTY_MANUAL_REVEAL_IDS: ReadonlySet<string> = new Set<string>();
 
 type ScoreValue = {
   numeric: string;
@@ -228,26 +231,6 @@ function toFivePointScore(value: number, label: FivePointScaleLabel): ScoreValue
   return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
 }
 
-/** Impact from catalog asset criticality (scenario’s asset), not persisted scenario scores. */
-function impactScoreFromAssetForScenarioId(scenarioId: string): ScoreValue | null {
-  const scenario = getScenarioById(scenarioId);
-  if (!scenario) return null;
-  const asset = getAssetById(scenario.assetId);
-  if (!asset) return null;
-  return toFivePointScore(asset.criticality, asset.criticalityLabel);
-}
-
-/** Highest asset-based impact among scenarios in a cyber-risk group (draft/scoping table). */
-function impactPreviewByGroupFromAssets(scenarioRows: ScoringRow[]): ScoreValue | null {
-  const synthetic: ScoringRow[] = scenarioRows
-    .filter((r) => r.kind === "scenario" && r.impact != null)
-    .map((r) => ({
-      ...r,
-      impact: impactScoreFromAssetForScenarioId(r.id),
-    }));
-  return aggregateMetricForGroupHighest(synthetic, "impact");
-}
-
 function toLikelihoodScore(value: number): ScoreValue {
   const label = getLikelihoodLabel(value);
   return { numeric: String(value), label, rag: fivePointLabelToRag(label) };
@@ -261,11 +244,16 @@ function toCyberRiskScoreValue(value: number): ScoreValue {
 function buildScoringRowsForScope(
   includedAssetIds: Set<string>,
   excludedScopeCyberRiskIds: Set<string>,
+  excludedScopeScenarioIds: ReadonlySet<string>,
   scenarioNotApplicableIds: ReadonlySet<string> = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
 ): ScoringRow[] {
   if (includedAssetIds.size === 0) return [];
   const risks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
-  const scenarioList = assessmentScopedScenarios(includedAssetIds, excludedScopeCyberRiskIds);
+  const scenarioList = assessmentScopedScenarios(
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+  );
   const byRisk = new Map<string, (typeof scenarioList)[number][]>();
   for (const s of scenarioList) {
     const list = byRisk.get(s.cyberRiskId) ?? [];
@@ -374,6 +362,35 @@ function emptyParentAggregate(): Record<MetricKey, ScoreValue> {
   };
 }
 
+const SCENARIO_FULL_SCORE_METRICS: MetricKey[] = [
+  "impact",
+  "threat",
+  "vulnerability",
+  "likelihood",
+  "cyberRiskScore",
+];
+
+function hasCompleteScenarioScores(row: ScoringRow): boolean {
+  if (row.kind !== "scenario") return false;
+  for (const k of SCENARIO_FULL_SCORE_METRICS) {
+    const v = row[k];
+    if (v == null || parseScoreNumeric(v) == null) return false;
+  }
+  return true;
+}
+
+/** Parent aggregates only when every non–N/A scenario in the group has full scores. */
+function areAllApplicableScenariosFullyScored(
+  scenariosInGroup: ScoringRow[],
+  scenarioNotApplicableIds: ReadonlySet<string>,
+): boolean {
+  const applicable = scenariosInGroup.filter(
+    (r) => r.kind === "scenario" && !scenarioNotApplicableIds.has(r.id),
+  );
+  if (applicable.length === 0) return false;
+  return applicable.every(hasCompleteScenarioScores);
+}
+
 /** Highest value among scenarios for one metric (parent row when aggregation = Highest). */
 function aggregateMetricForGroupHighest(scenariosInGroup: ScoringRow[], metric: MetricKey): ScoreValue {
   const withValue = scenariosInGroup.filter((s) => s[metric] != null);
@@ -392,10 +409,8 @@ function aggregateMetricForGroupHighest(scenariosInGroup: ScoringRow[], metric: 
   return best;
 }
 
-/** Persisted `average` — Impact-weighted aggregation, then Likelihood = T×V, Cyber risk score = I×L. */
-function aggregateWeightedByImpactParent(
-  scenariosInGroup: ScoringRow[],
-): Record<MetricKey, ScoreValue> {
+/** Persisted `average` — arithmetic mean of I/T/V per scenario, then Likelihood = T×V, Cyber risk score = I×L. */
+function aggregateAverageParent(scenariosInGroup: ScoringRow[]): Record<MetricKey, ScoreValue> {
   const participating = scenariosInGroup.filter(
     (s) =>
       s.kind === "scenario" &&
@@ -414,7 +429,7 @@ function aggregateWeightedByImpactParent(
     vulnerability: parseScoreNumeric(s.vulnerability)!,
   }));
 
-  const agg = aggregateImpactWeightedParentScores(numericInputs);
+  const agg = aggregateArithmeticMeanParentScores(numericInputs);
   if (agg == null) return emptyParentAggregate();
 
   const impact = toFivePointScore(
@@ -541,7 +556,6 @@ type AssessmentScoringTabProps = {
   onAggregationMethodChange: (method: CraScenarioScoreAggregationMethod) => void;
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
-  /** Draft/Scoping: scoring table must not show catalog scenario scores yet. */
   assessmentPhase: AssessmentPhase;
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
@@ -550,8 +564,24 @@ type AssessmentScoringTabProps = {
   onAiScoringClick: () => void;
   /** Empty state: navigate to Scope tab. */
   onGoToScope: () => void;
-  /** Scenario ids marked n/a for this assessment (excluded from weighted parent aggregation). */
+  /** Scenario library ids marked N/A for scoring (scores not masked for these rows). */
   scenarioNotApplicableIds?: ReadonlySet<string>;
+  /** New CRA draft: per-scenario masking of catalog scores until AI completes or that scenario is saved on rationale. */
+  isNewCraDraftFlow?: boolean;
+  scenarioCatalogScoresReleased?: boolean;
+  scenarioManuallyRevealedScoreIds?: ReadonlySet<string>;
+  /** Pass-through to scenario rationale navigation state. */
+  scenarioNavFromNewCraDraft?: boolean;
+  scenarioNavCatalogScoresReleased?: boolean;
+  scenarioNavManuallyRevealedScoreIds?: ReadonlySet<string>;
+  /** Scenario library ids removed from this assessment (hidden from the scoring table). */
+  excludedScopeScenarioIds?: ReadonlySet<string>;
+  /** Remove a cyber risk from the assessment scope (same as Scope tab exclude). */
+  onRemoveCyberRiskFromAssessment: (cyberRiskId: string) => void;
+  /** Remove a scenario from the assessment scope. */
+  onRemoveScenarioFromAssessment: (scenarioId: string) => void;
+  /** When true, row action menus are disabled (e.g. approved assessment). */
+  rowActionsDisabled?: boolean;
 };
 
 export default function AssessmentScoringTab({
@@ -568,6 +598,16 @@ export default function AssessmentScoringTab({
   onAiScoringClick,
   onGoToScope,
   scenarioNotApplicableIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
+  excludedScopeScenarioIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
+  isNewCraDraftFlow = false,
+  scenarioCatalogScoresReleased = true,
+  scenarioManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
+  scenarioNavFromNewCraDraft = false,
+  scenarioNavCatalogScoresReleased = true,
+  scenarioNavManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
+  onRemoveCyberRiskFromAssessment,
+  onRemoveScenarioFromAssessment,
+  rowActionsDisabled = false,
 }: AssessmentScoringTabProps) {
   const navigate = useNavigate();
   const catalogVersion = useSyncExternalStore(
@@ -575,18 +615,43 @@ export default function AssessmentScoringTab({
     getCatalogSnapshotVersion,
     getCatalogSnapshotVersion,
   );
-  const scoresNotStartedYet =
-    assessmentPhase === "draft" || assessmentPhase === "scoping";
   const scoringRows = useMemo(
     () =>
       buildScoringRowsForScope(
         includedAssetIds,
         excludedScopeCyberRiskIds,
+        excludedScopeScenarioIds,
         scenarioNotApplicableIds,
       ),
-    [includedAssetIds, excludedScopeCyberRiskIds, scenarioNotApplicableIds, catalogVersion],
+    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds, scenarioNotApplicableIds, catalogVersion],
   );
+
+  const rowsForDisplay = useMemo(() => {
+    if (!isNewCraDraftFlow) return scoringRows;
+    return scoringRows.map((r) => {
+      if (r.kind !== "scenario") return r;
+      if (scenarioNotApplicableIds.has(r.id)) return r;
+      if (scenarioCatalogScoresReleased || scenarioManuallyRevealedScoreIds.has(r.id)) return r;
+      return {
+        ...r,
+        impact: null,
+        threat: null,
+        vulnerability: null,
+        likelihood: null,
+        cyberRiskScore: null,
+      };
+    });
+  }, [
+    isNewCraDraftFlow,
+    scenarioCatalogScoresReleased,
+    scenarioManuallyRevealedScoreIds,
+    scoringRows,
+    scenarioNotApplicableIds,
+  ]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [rowActionsMenu, setRowActionsMenu] = useState<
+    null | { anchor: HTMLElement; rowKind: "cyberRisk" | "scenario"; rowId: string }
+  >(null);
 
   useEffect(() => {
     const riskIds = scoringRows.filter((r) => r.kind === "cyberRisk").map((r) => r.id);
@@ -606,6 +671,13 @@ export default function AssessmentScoringTab({
           aiScoringPhase,
           returnToAssessmentPath,
           craReturnToTabIndex: NEW_CRA_SCORING_TAB_INDEX,
+          ...(assessmentPhase === "assessmentApproved"
+            ? {}
+            : {
+                fromNewCraDraft: scenarioNavFromNewCraDraft,
+                scenarioCatalogScoresReleased: scenarioNavCatalogScoresReleased,
+                scenarioManuallyRevealedScoreIds: [...scenarioNavManuallyRevealedScoreIds],
+              }),
         },
       });
     },
@@ -616,6 +688,9 @@ export default function AssessmentScoringTab({
       aiScoringPhase,
       returnToAssessmentPath,
       assessmentPhase,
+      scenarioNavFromNewCraDraft,
+      scenarioNavCatalogScoresReleased,
+      scenarioNavManuallyRevealedScoreIds,
     ],
   );
 
@@ -623,30 +698,57 @@ export default function AssessmentScoringTab({
     setExpanded((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   }, []);
 
+  const closeRowActionsMenu = useCallback(() => setRowActionsMenu(null), []);
+
+  const handleRowActionsButtonClick = useCallback(
+    (e: MouseEvent<HTMLElement>, rowKind: "cyberRisk" | "scenario", rowId: string) => {
+      e.stopPropagation();
+      if (rowActionsDisabled) return;
+      setRowActionsMenu({ anchor: e.currentTarget, rowKind, rowId });
+    },
+    [rowActionsDisabled],
+  );
+
+  const handleConfirmRemoveFromMenu = useCallback(() => {
+    setRowActionsMenu((prev) => {
+      if (!prev) return prev;
+      if (prev.rowKind === "cyberRisk") {
+        onRemoveCyberRiskFromAssessment(prev.rowId);
+      } else {
+        onRemoveScenarioFromAssessment(prev.rowId);
+      }
+      return null;
+    });
+  }, [onRemoveCyberRiskFromAssessment, onRemoveScenarioFromAssessment]);
+
+  useEffect(() => {
+    setRowActionsMenu((prev) => {
+      if (!prev) return prev;
+      const still = rowsForDisplay.some((r) => r.id === prev.rowId && r.kind === prev.rowKind);
+      return still ? prev : null;
+    });
+  }, [rowsForDisplay]);
+
   const scenariosByGroupId = useMemo(() => {
     const m = new Map<string, ScoringRow[]>();
-    for (const row of scoringRows) {
+    for (const row of rowsForDisplay) {
       if (row.kind !== "scenario") continue;
       const list = m.get(row.groupId) ?? [];
       list.push(row);
       m.set(row.groupId, list);
     }
     return m;
-  }, [scoringRows]);
-
-  const previewImpactByGroupId = useMemo(() => {
-    const result = new Map<string, ScoreValue>();
-    for (const [groupId, scenarios] of scenariosByGroupId) {
-      result.set(groupId, aggregateMetricForGroupHighest(scenarios, "impact"));
-    }
-    return result;
-  }, [scenariosByGroupId]);
+  }, [rowsForDisplay]);
 
   const aggregatedByGroupId = useMemo(() => {
     const result = new Map<string, Record<MetricKey, ScoreValue>>();
     for (const [groupId, scenarios] of scenariosByGroupId) {
+      if (!areAllApplicableScenariosFullyScored(scenarios, scenarioNotApplicableIds)) {
+        result.set(groupId, emptyParentAggregate());
+        continue;
+      }
       if (aggregationMethod === "average") {
-        result.set(groupId, aggregateWeightedByImpactParent(scenarios));
+        result.set(groupId, aggregateAverageParent(scenarios));
         continue;
       }
       const baseMetrics: Array<"impact" | "threat" | "vulnerability"> = [
@@ -664,13 +766,13 @@ export default function AssessmentScoringTab({
       result.set(groupId, agg);
     }
     return result;
-  }, [aggregationMethod, scenariosByGroupId]);
+  }, [aggregationMethod, scenarioNotApplicableIds, scenariosByGroupId]);
 
   const visibleRows = useMemo(() => {
     const out: ScoringRow[] = [];
     let currentGroup = "";
     let groupOpen = true;
-    for (const row of scoringRows) {
+    for (const row of rowsForDisplay) {
       if (row.kind === "cyberRisk") {
         currentGroup = row.groupId;
         groupOpen = expanded[row.groupId] !== false;
@@ -682,7 +784,7 @@ export default function AssessmentScoringTab({
       }
     }
     return out;
-  }, [expanded, scoringRows]);
+  }, [expanded, rowsForDisplay]);
 
   if (includedAssetIds.size === 0) {
     return (
@@ -898,63 +1000,19 @@ export default function AssessmentScoringTab({
                   ))
                 : visibleRows.map((row) => {
                     const isScenario = row.kind === "scenario";
-                    /** When AI scoring is not "complete", parent cyber-risk rows stay empty until aggregation; scenario rows show catalog metrics unless draft/scoping. */
-                    const idleMode = aiScoringPhase === "idle";
-                    let impactValue: ScoreValue = idleMode
-                      ? row.kind === "cyberRisk"
-                        ? previewImpactByGroupId.get(row.groupId) ?? null
-                        : row.impact
-                      : row.kind === "cyberRisk"
-                        ? aggregationMethod
-                          ? aggregatedByGroupId.get(row.groupId)?.impact ?? null
-                          : null
-                        : row.impact;
-                    let threatValue: ScoreValue =
-                      row.kind === "scenario"
-                        ? row.threat
-                        : idleMode
-                          ? null
-                          : row.kind === "cyberRisk" && aggregationMethod
-                            ? aggregatedByGroupId.get(row.groupId)?.threat ?? null
-                            : null;
-                    let vulnerabilityValue: ScoreValue =
-                      row.kind === "scenario"
-                        ? row.vulnerability
-                        : idleMode
-                          ? null
-                          : row.kind === "cyberRisk" && aggregationMethod
-                            ? aggregatedByGroupId.get(row.groupId)?.vulnerability ?? null
-                            : null;
-                    let likelihoodValue: ScoreValue =
-                      row.kind === "scenario"
-                        ? row.likelihood
-                        : idleMode
-                          ? null
-                          : row.kind === "cyberRisk" && aggregationMethod
-                            ? aggregatedByGroupId.get(row.groupId)?.likelihood ?? null
-                            : null;
-                    let cyberRiskScoreValue: ScoreValue =
-                      row.kind === "scenario"
-                        ? row.cyberRiskScore
-                        : idleMode
-                          ? null
-                          : row.kind === "cyberRisk" && aggregationMethod
-                            ? aggregatedByGroupId.get(row.groupId)?.cyberRiskScore ?? null
-                            : null;
-                    if (scoresNotStartedYet) {
-                      impactValue =
-                        row.kind === "scenario"
-                          ? row.impact == null
-                            ? null
-                            : impactScoreFromAssetForScenarioId(row.id)
-                          : impactPreviewByGroupFromAssets(
-                              scenariosByGroupId.get(row.groupId) ?? [],
-                            );
-                      threatValue = null;
-                      vulnerabilityValue = null;
-                      likelihoodValue = null;
-                      cyberRiskScoreValue = null;
-                    }
+                    const parentAgg =
+                      row.kind === "cyberRisk" ? aggregatedByGroupId.get(row.groupId) : undefined;
+                    let impactValue: ScoreValue = isScenario ? row.impact : parentAgg?.impact ?? null;
+                    let threatValue: ScoreValue = isScenario ? row.threat : parentAgg?.threat ?? null;
+                    let vulnerabilityValue: ScoreValue = isScenario
+                      ? row.vulnerability
+                      : parentAgg?.vulnerability ?? null;
+                    let likelihoodValue: ScoreValue = isScenario
+                      ? row.likelihood
+                      : parentAgg?.likelihood ?? null;
+                    let cyberRiskScoreValue: ScoreValue = isScenario
+                      ? row.cyberRiskScore
+                      : parentAgg?.cyberRiskScore ?? null;
                     return (
                       <TableRow
                         key={row.id}
@@ -1071,11 +1129,24 @@ export default function AssessmentScoringTab({
                             row.kind === "cyberRisk" && scoringCyberRiskRowBodyCellBgSx,
                             row.kind === "scenario" && scoringScenarioRowBodyCellBgSx,
                           ]}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <IconButton
                             size="small"
                             aria-label="Row actions"
-                            onClick={(e) => e.stopPropagation()}
+                            aria-haspopup="true"
+                            aria-expanded={
+                              rowActionsMenu?.rowId === row.id && rowActionsMenu?.rowKind === row.kind
+                                ? true
+                                : undefined
+                            }
+                            aria-controls={
+                              rowActionsMenu?.rowId === row.id && rowActionsMenu?.rowKind === row.kind
+                                ? "assessment-scoring-row-actions-menu"
+                                : undefined
+                            }
+                            disabled={rowActionsDisabled}
+                            onClick={(e) => handleRowActionsButtonClick(e, row.kind, row.id)}
                           >
                             <MoreIcon aria-hidden />
                           </IconButton>
@@ -1086,6 +1157,22 @@ export default function AssessmentScoringTab({
             </TableBody>
           </Table>
         </TableContainer>
+        <Menu
+          id="assessment-scoring-row-actions-menu"
+          anchorEl={rowActionsMenu?.anchor ?? null}
+          open={Boolean(rowActionsMenu)}
+          onClose={closeRowActionsMenu}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          <MenuItem
+            onClick={() => {
+              handleConfirmRemoveFromMenu();
+            }}
+          >
+            Remove
+          </MenuItem>
+        </Menu>
       </Box>
       )}
     </Stack>

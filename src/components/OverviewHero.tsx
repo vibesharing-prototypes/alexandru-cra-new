@@ -1,19 +1,11 @@
 import { useMemo, useState } from "react";
-import {
-  Autocomplete,
-  Card,
-  CardContent,
-  CardHeader,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Card, CardContent, CardHeader, Stack, Typography } from "@mui/material";
 
 import AssetsByCyberRiskScoreDonut from "./AssetsByCyberRiskScoreDonut.js";
+import OrgUnitDropdown, { type OrgUnitOption } from "./OrgUnitDropdown.js";
 import RisksMatrix, { type MatrixSelectionPayload } from "./RisksMatrix.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 import { getOrgUnitById } from "../data/orgUnits.js";
-import type { OrgUnitOption } from "./OrgUnitDropdown.js";
 
 function orgUnitOptionsFromRisks(): OrgUnitOption[] {
   const ids = new Set(cyberRisks.map((r) => r.orgUnitId));
@@ -73,53 +65,14 @@ export default function OverviewHero({ onMatrixSelection }: OverviewHeroProps) {
           </Typography>
         }
         action={
-          <Autocomplete<OrgUnitOption, false, false, false>
-            size="medium"
-            sx={{
-              width: 500,
-              minWidth: 0,
-              "& .MuiInputLabel-root": { paddingBottom: "0px" },
-            }}
+          <OrgUnitDropdown
             options={ouOptions}
             value={selectedOrgUnit}
-            onChange={(_, newValue) => {
-              setSelectedOrgUnit(newValue);
+            onChange={setSelectedOrgUnit}
+            sx={{
+              minWidth: 0,
+              width: { xs: "100%", sm: "fit-content" },
             }}
-            getOptionLabel={(o) => o.label}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                fullWidth={false}
-                label="Org. unit"
-                placeholder="All org. units"
-                margin="none"
-                sx={{
-                  display: "flex",
-                  flexDirection: "row",
-                  gap: "8px",
-                  width: 500,
-                  minWidth: 0,
-                  "& .MuiInputBase-root": {
-                    width: "100%",
-                  },
-                  "& .MuiInputLabel-root": {
-                    paddingBottom: "0px",
-                  },
-                }}
-                slotProps={{
-                  inputLabel: {
-                    sx: {
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      alignItems: "center",
-                      width: 130,
-                      paddingBottom: "0px",
-                    },
-                  },
-                }}
-              />
-            )}
           />
         }
       />

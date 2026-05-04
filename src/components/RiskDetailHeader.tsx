@@ -39,7 +39,6 @@ export type RiskDetailHeaderProps = {
   createdBy: string;
   lastUpdatedBy: string;
   status: CyberRiskStatus;
-  onStatusChange: (status: CyberRiskStatus) => void;
   tab: number;
   onTabChange: (tab: number) => void;
   /** Persists cyber risk fields to the prototype catalog. */
@@ -54,7 +53,6 @@ export default function RiskDetailHeader({
   createdBy,
   lastUpdatedBy,
   status,
-  onStatusChange,
   tab,
   onTabChange,
   onSave,
@@ -104,7 +102,6 @@ export default function RiskDetailHeader({
           <StatusDropdown
             value={status}
             options={CYBER_RISK_STATUSES}
-            onChange={(v) => onStatusChange(v as CyberRiskStatus)}
             aria-label="Cyber risk workflow status"
             colorMap={CYBER_RISK_STATUS_COLOR_MAP}
             renderChip={({ value }) => <RiskStatus status={value as CyberRiskStatus} />}

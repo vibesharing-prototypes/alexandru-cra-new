@@ -42,6 +42,18 @@ export type CraNewAssessmentPersistedDraft = {
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
   scenarioScoreAggregationMethod: CraScenarioScoreAggregationMethod;
-  /** Scenario library ids marked n/a for this assessment (excluded from weighted aggregation). */
+  /** Scenario library ids marked n/a for this assessment (excluded from parent aggregation). */
   scenarioNotApplicableIds: string[];
+  /** Scenario library ids explicitly removed from this assessment (hidden from scoring/results). */
+  excludedScopeScenarioIds: string[];
+  /**
+   * When true (new CRA draft only), AI scoring has completed; show catalog scores for every in-scope scenario.
+   * Not inferred from `aiScoringPhase`; set explicitly when the AI run finishes.
+   */
+  scenarioCatalogScoresReleased: boolean;
+  /**
+   * Scenario library ids for which the user saved scores on the rationale page before AI completed.
+   * Those rows show catalog scores in the scoring table while others stay masked.
+   */
+  scenarioManuallyRevealedScoreIds: string[];
 };

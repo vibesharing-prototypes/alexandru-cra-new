@@ -2,6 +2,7 @@ import { Box, Stack, Typography, useTheme } from "@mui/material";
 import { useCallback, useId, useMemo, useState } from "react";
 
 import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
+import { useSavedChangesToast } from "../context/SavedChangesToastContext.js";
 import {
   applyScoringBandPartialUpdate,
   bandsAreContinuous,
@@ -45,11 +46,12 @@ function runContinuityError(rows: ScoringBandRow[]): string | undefined {
 
 /**
  * Figma: Scoring scale configuration — Cyber risk score + Likelihood sections.
- * Band rows are shared app-wide via {@link CyberRiskScoringConfigProvider} (prototype; no API persistence).
+ * Band rows are shared app-wide via {@link CyberRiskScoringConfigProvider}; valid rows persist in the prototype catalog (localStorage / IndexedDB).
  */
 export default function CyberRiskScoringScalesContent() {
   const { tokens: t } = useTheme();
   const uid = useId();
+  const { notifySavedChanges } = useSavedChangesToast();
   const { cyberScoreBands: cyberRows, setCyberScoreBands: setCyberRows, likelihoodBands: likeRows, setLikelihoodBands: setLikeRows } =
     useCyberRiskScoringConfig();
   const [editCyber, setEditCyber] = useState(false);
@@ -86,9 +88,10 @@ export default function CyberRiskScoringScalesContent() {
       if (runContinuityError(cyberRows)) {
         return;
       }
+      notifySavedChanges();
     }
     setEditCyber((e) => !e);
-  }, [editCyber, cyberRows]);
+  }, [editCyber, cyberRows, notifySavedChanges]);
 
   const onToggleEditLike = useCallback(() => {
     if (editLike) {
@@ -98,9 +101,10 @@ export default function CyberRiskScoringScalesContent() {
       if (runContinuityError(likeRows)) {
         return;
       }
+      notifySavedChanges();
     }
     setEditLike((e) => !e);
-  }, [editLike, likeRows]);
+  }, [editLike, likeRows, notifySavedChanges]);
 
   return (
     <Box

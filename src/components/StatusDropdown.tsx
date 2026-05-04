@@ -10,7 +10,7 @@ import {
   useTheme,
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 export type LensTokens = Theme extends { tokens: infer T } ? T : never;
 
@@ -60,7 +60,6 @@ export const CONTROL_STATUS_INDICATOR_COLORS: Record<
 interface StatusDropdownProps {
   value: string;
   options: string[];
-  onChange: (value: string) => void;
   "aria-label"?: string;
   /** Override color for specific labels. Keys are label strings, values are StatusIndicator color tokens. */
   colorMap?: Record<string, StatusIndicatorSemanticColor>;
@@ -71,11 +70,6 @@ interface StatusDropdownProps {
   resolveDotFill?: (option: string, tokens: LensTokens) => string;
   /** When set, replaces the default StatusIndicator chip (e.g. custom assessment status styling). */
   renderChip?: (args: { value: string }) => ReactNode;
-  /**
-   * Labels shown in the menu for context only; they are not clickable and do not call `onChange`.
-   * Use for derived or terminal states (e.g. Approved, Overdue).
-   */
-  nonSelectableOptions?: readonly string[];
 }
 
 function statusColorForLabel(
@@ -93,7 +87,7 @@ function statusColorForLabel(
 
 /**
  * Displays the current status as a StatusIndicator chip with an expand chevron.
- * Clicking opens a dropdown menu to select a new status value.
+ * Opens a menu that lists status values for context only; rows are not selectable.
  *
  * Chip colours follow the control status mapping (Draft → subtle, Active → success,
  * Archived → generic). Unknown labels fall back to subtle.
@@ -102,18 +96,12 @@ function statusColorForLabel(
 export default function StatusDropdown({
   value,
   options,
-  onChange,
   "aria-label": ariaLabel = "Status",
   colorMap,
   resolveDotFill,
   renderChip,
-  nonSelectableOptions = [],
 }: StatusDropdownProps) {
   const { presets, tokens } = useTheme();
-  const nonSelectableSet = useMemo(
-    () => new Set(nonSelectableOptions),
-    [nonSelectableOptions],
-  );
   const StatusIndicator =
     presets.StatusIndicatorPresets?.components.StatusIndicator ?? StatusIndicatorFallback;
 
@@ -130,18 +118,13 @@ export default function StatusDropdown({
     }
   };
 
-  const handleSelect = (option: string) => {
-    onChange(option);
-    handleClose();
-  };
-
   return (
     <>
       <Box
         ref={anchorRef}
         role="button"
         tabIndex={0}
-        aria-haspopup="listbox"
+        aria-haspopup="true"
         aria-expanded={open}
         aria-label={ariaLabel}
         onClick={handleOpen}
@@ -183,14 +166,12 @@ export default function StatusDropdown({
         onClose={handleClose}
         slotProps={{
           list: {
-            role: "listbox",
-            "aria-label": ariaLabel,
+            "aria-label": `${ariaLabel} options`,
           },
         }}
       >
         {options.map((option) => {
           const selected = option === value;
-          const isNonSelectable = nonSelectableSet.has(option);
           const dotFill = resolveDotFill
             ? resolveDotFill(option, tokens)
             : statusDotFill(tokens, statusColorForLabel(option, colorMap));
@@ -198,24 +179,23 @@ export default function StatusDropdown({
           return (
             <MenuItem
               key={option}
-              disabled={isNonSelectable}
+              disabled
+              disableRipple
               selected={selected}
-              role="option"
-              aria-selected={selected}
-              onClick={() => {
-                if (!isNonSelectable) handleSelect(option);
-              }}
-              sx={
-                isNonSelectable
-                  ? ({ tokens: t }) => ({
-                      "&.Mui-disabled": {
-                        opacity: 1,
-                        color: t.semantic.color.type.default.value,
-                        WebkitTextFillColor: t.semantic.color.type.default.value,
-                      },
-                    })
-                  : undefined
-              }
+              tabIndex={-1}
+              sx={({ tokens: t }) => ({
+                cursor: "default",
+                color: t.semantic.color.type.default.value,
+                "&.Mui-disabled": {
+                  opacity: 1,
+                  color: t.semantic.color.type.default.value,
+                  WebkitTextFillColor: t.semantic.color.type.default.value,
+                },
+                "&.Mui-disabled .MuiListItemText-primary": {
+                  color: t.semantic.color.type.default.value,
+                  WebkitTextFillColor: t.semantic.color.type.default.value,
+                },
+              })}
             >
               <ListItemIcon
                 sx={{

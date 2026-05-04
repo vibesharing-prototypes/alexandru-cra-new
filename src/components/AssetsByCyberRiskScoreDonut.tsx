@@ -11,6 +11,7 @@ import {
   ragDataVizColor,
   resolveColorForCanvas,
 } from "../data/ragDataVisualization.js";
+import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
 import {
   buildAssetCyberRiskDonutSegments,
   type AssetCyberRiskDonutSegment,
@@ -40,9 +41,10 @@ export default function AssetsByCyberRiskScoreDonut({
   sx: sxProp,
 }: AssetsByCyberRiskScoreDonutProps) {
   const { tokens } = useTheme();
+  const { cyberScoreBands, likelihoodBands } = useCyberRiskScoringConfig();
   const segments = useMemo(
     () => segmentsOverride ?? buildAssetCyberRiskDonutSegments(orgUnitId),
-    [orgUnitId, segmentsOverride],
+    [orgUnitId, segmentsOverride, cyberScoreBands, likelihoodBands],
   );
   const active = useMemo(() => segmentsWithArcData(segments), [segments]);
 

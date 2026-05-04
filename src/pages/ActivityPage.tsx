@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PageHeader, OverflowBreadcrumbs } from "@diligentcorp/atlas-react-bundle";
 import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
-import { Box, Button, Stack, Tab, Tabs, useTheme } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Stack, Tab, Tabs, useTheme } from "@mui/material";
 import { DataGridPro, type GridColDef } from "@mui/x-data-grid-pro";
 import { NavLink, useLocation } from "react-router";
 
@@ -14,11 +14,6 @@ import LabelValue from "../components/LabelValue.js";
 import PageLayout from "../components/PageLayout.js";
 import ScoringInfo from "../components/ScoringInfo.js";
 import AIBanner from "../components/AIBanner.js";
-import AICard, {
-  AICardAggregationMethodRow,
-  AICardAssessmentPreset,
-  AICardScoringDescription,
-} from "../components/AICard.js";
 import RadioButtonArray from "../components/RadioButtonArray.js";
 import { ScopeCard } from "../components/ScopeCard.js";
 import { assets } from "../data/assets.js";
@@ -64,7 +59,7 @@ const activityTab3Columns: GridColDef<ActivityTab3Row>[] = [
 
 const AGGREGATION_METHOD_OPTIONS = [
   { value: "highest", label: "Highest" },
-  { value: "average", label: "Weighted average" },
+  { value: "average", label: "Average" },
   { value: "lowest", label: "Lowest" },
 ] as const;
 
@@ -78,7 +73,7 @@ export default function ActivityPage() {
   const [activityTab3ViewMode, setActivityTab3ViewMode] = useState("list");
   const [activityTab3Pairing, setActivityTab3Pairing] = useState("independent");
   const { presets } = useTheme();
-  const { TabsPresets } = presets;
+  const { TabsPresets, AccordionPresets } = presets;
   const CardHeaderIcon = presets.CardComponentsPresets?.components?.CardHeaderIcon;
   const scopeCardIcon = CardHeaderIcon ? (
     <CardHeaderIcon icon={<FolderIcon size="lg" aria-hidden />} />
@@ -214,40 +209,26 @@ export default function ActivityPage() {
                 cardActionAriaLabel="Filled variant: assets included (activity preview)"
               />
               <AIBanner onAction={() => {}} />
-              <AICard>
-                <AICardAssessmentPreset
-                  omitAssessmentType
-                  title="AI scoring"
-                  description={
-                    <>
-                      <AICardScoringDescription />
-                      <AICardAggregationMethodRow name="activity-tab2-ai-scoring" />
-                    </>
-                  }
-                  actionLabel="Start AI scoring"
-                  onAction={() => {}}
-                />
-              </AICard>
-              <AICard>
-                <AICardAssessmentPreset
-                  omitAssessmentType
-                  title="AI scoring completed"
-                  description={
-                    <>
-                      <AICardScoringDescription variant="after" />
-                      <AICardAggregationMethodRow name="activity-tab2-ai-scoring-completed" />
-                    </>
-                  }
-                />
-              </AICard>
-              <AICard>
-                <AICardAssessmentPreset
-                  title="Choose how AI helps"
-                  description="Pick an assessment type so we can tailor AI suggestions to your workflow."
-                  actionLabel="Generate with AI"
-                  onAction={() => {}}
-                />
-              </AICard>
+              <Accordion defaultExpanded={false}>
+                <AccordionSummary
+                  aria-controls="activity-tab2-accordion-content"
+                  id="activity-tab2-accordion-header"
+                >
+                  <AccordionPresets.components.Header
+                    titleTextProps={{
+                      text: "Accordion Title",
+                      variant: "h4",
+                      component: "h3",
+                    }}
+                    subtitleText="Expandable section for activity details"
+                  />
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ p: 2 }}>
+                    This is a placeholder text for the accordion content.
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
             </Stack>
           </Box>
         </TabPanel>

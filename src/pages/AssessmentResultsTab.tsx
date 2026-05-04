@@ -158,6 +158,7 @@ function AssetsResultsGrid({ rows }: { rows: AssetResultRow[] }) {
 export default function AssessmentResultsTab({
   includedAssetIds,
   excludedScopeCyberRiskIds,
+  excludedScopeScenarioIds = new Set(),
   onGoToScoring,
   assessmentName = "",
   returnToAssessmentPath = "",
@@ -167,6 +168,7 @@ export default function AssessmentResultsTab({
 }: {
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
+  excludedScopeScenarioIds?: Set<string>;
   onGoToScoring: () => void;
   /** Matches {@link AssessmentScoringTab} — used when navigating to scenario read-only rationale. */
   assessmentName?: string;
@@ -186,6 +188,9 @@ export default function AssessmentResultsTab({
           aiScoringPhase,
           returnToAssessmentPath: returnToAssessmentPath.trim() || undefined,
           craReturnToTabIndex: NEW_CRA_RESULTS_TAB_INDEX,
+          fromNewCraDraft: false,
+          scenarioCatalogScoresReleased: true,
+          scenarioManuallyRevealedScoreIds: [],
         },
       });
     },
@@ -195,12 +200,22 @@ export default function AssessmentResultsTab({
   const onScenarioRowClick =
     assessmentPhase === "assessmentApproved" ? goToScenarioReadOnly : undefined;
   const cyberResultRows = useMemo(
-    () => buildCyberResultsRowsForScope(includedAssetIds, excludedScopeCyberRiskIds),
-    [includedAssetIds, excludedScopeCyberRiskIds],
+    () =>
+      buildCyberResultsRowsForScope(
+        includedAssetIds,
+        excludedScopeCyberRiskIds,
+        excludedScopeScenarioIds,
+      ),
+    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
   );
   const assetResultRows = useMemo(
-    () => buildAssetResultRowsForScope(includedAssetIds, excludedScopeCyberRiskIds),
-    [includedAssetIds, excludedScopeCyberRiskIds],
+    () =>
+      buildAssetResultRowsForScope(
+        includedAssetIds,
+        excludedScopeCyberRiskIds,
+        excludedScopeScenarioIds,
+      ),
+    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
   );
   const relatedAssetNames = useMemo(
     () => assets.filter((a) => includedAssetIds.has(a.id)).map((a) => a.name),

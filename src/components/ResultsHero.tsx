@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Card, CardContent, Stack } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
+import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
 import AssetsByCyberRiskScoreDonut from "./AssetsByCyberRiskScoreDonut.js";
 import RisksMatrix, { type AssessmentMatrixMode, type MatrixSelectionPayload } from "./RisksMatrix.js";
 import type { MockCyberRisk } from "../data/types.js";
@@ -34,9 +35,10 @@ export default function ResultsHero({
   onMatrixSelection,
 }: ResultsHeroProps) {
   const { tokens: themeTokens } = useTheme();
+  const { cyberScoreBands, likelihoodBands } = useCyberRiskScoringConfig();
   const donutSegments = useMemo(
     () => buildAssetCyberRiskDonutSegmentsFromAssessmentAssetRows(assetResultRows),
-    [assetResultRows],
+    [assetResultRows, cyberScoreBands, likelihoodBands],
   );
 
   return (

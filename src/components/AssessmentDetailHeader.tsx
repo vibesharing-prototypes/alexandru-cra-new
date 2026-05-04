@@ -4,7 +4,9 @@ import {
 } from "@diligentcorp/atlas-react-bundle";
 import DownloadIcon from "@diligentcorp/atlas-react-bundle/icons/Download";
 import CloseIcon from "@diligentcorp/atlas-react-bundle/icons/Close";
+import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -12,6 +14,8 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
+  Menu,
+  MenuItem,
   Stack,
   Tab,
   Tabs,
@@ -28,7 +32,6 @@ import {
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
 import {
   assessmentPhaseToAssessmentStatus,
-  assessmentStatusToPhase,
   type AiScoringPhase,
   type AssessmentPhase,
 } from "../pages/craNewAssessmentDraftStorage.js";
@@ -36,13 +39,19 @@ import AssessmentStatus, {
   assessmentStatusDotBackground,
 } from "./AssessmentStatus.js";
 import MetaTag from "./MetaTag.js";
-import StatusDropdown from "./StatusDropdown.js";
+import StatusDropdown, { type LensTokens } from "./StatusDropdown.js";
+import {
+  mergeSavedChangesNavigateState,
+  type PendingSaveNavigationHandlers,
+} from "../context/SavedChangesToastContext.js";
 import {
   atlasPageHeaderNavigationTabsSx,
   atlasPageHeaderTabsSlotProps,
 } from "../utils/atlasNavigationTabsSx.js";
 
 const ASSESSMENTS_URL = "/cyber-risk/cyber-risk-assessments";
+
+export type ScopeDetailNavigateHandlers = PendingSaveNavigationHandlers;
 
 const SCOPE_TAB_INDEX = 1;
 const SCORING_TAB_INDEX = 2;
@@ -61,10 +70,7 @@ const STATUS_DROPDOWN_ORDER: readonly AssessmentStatusValue[] = [
 
 const STATUS_DROPDOWN_OPTIONS = STATUS_DROPDOWN_ORDER.map(assessmentStatusLabel);
 
-const NON_SELECTABLE_STATUS_LABELS: readonly string[] = [
-  assessmentStatusLabel("Approved"),
-  assessmentStatusLabel("Overdue"),
-];
+const ASSESSMENT_HEADER_MORE_MENU_ID = "cra-assessment-header-more-menu";
 
 /** Random system-style id `CRA-NNN` (001–999), stable for the lifetime of the header instance. */
 function randomCraStyleId(): string {
@@ -94,15 +100,19 @@ export type AssessmentDetailHeaderProps = {
   scopeDetail?: { title: string; subtitle: string; crumb: string };
   /** Called when the back button is pressed in scope-detail mode (return to scope overview). */
   onScopeSubViewBack: () => void;
-  /** Called when the "Done" CTA is pressed in scope-detail mode. */
+  /** Called when "Save changes" is pressed in scope-detail mode (returns to scope overview). */
   onScopeDetailDone: () => void;
+  /** When true, breadcrumb navigations out of the assessment prompt for unsaved scope edits. */
+  scopeDetailHasUnsavedChanges?: boolean;
+  /** Intercept breadcrumb navigation while scope detail has unsaved changes; run discard vs after-save navigation. */
+  onScopeDetailNavigateRequest?: (handlers: ScopeDetailNavigateHandlers) => void;
   /** Primary Save action (main header only; not shown in scope-detail mode). */
   onSave?: () => void;
   /** When the assessment is approved, called from the header "Export results" action. */
   onExportResults?: () => void;
   /** When scoring/overdue, controls when the header shows "Approve assessment" (after AI run completes). */
   aiScoringPhase?: AiScoringPhase;
-  /** After "Reset scores" (approved → scoring); e.g. reset scenario score aggregation to default. */
+  /** After "Revert to scoring" (approved → scoring); e.g. reset scenario score aggregation to default. */
   onResetScores?: () => void;
 };
 
@@ -121,6 +131,8 @@ export default function AssessmentDetailHeader({
   scopeDetail,
   onScopeSubViewBack,
   onScopeDetailDone,
+  scopeDetailHasUnsavedChanges = false,
+  onScopeDetailNavigateRequest,
   onSave,
   onExportResults,
   aiScoringPhase = "complete",
@@ -131,6 +143,8 @@ export default function AssessmentDetailHeader({
   const { TabsPresets } = presets;
 
   const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   const generatedSystemIdRef = useRef("");
   if (!generatedSystemIdRef.current) {
@@ -179,6 +193,35 @@ export default function AssessmentDetailHeader({
           <Typography component="span" variant="body1">
             {label}
           </Typography>
+        ) : scopeDetailHasUnsavedChanges && onScopeDetailNavigateRequest ? (
+          <Typography
+            component="button"
+            type="button"
+            variant="body1"
+            onClick={() =>
+              onScopeDetailNavigateRequest({
+                onDiscard: () => {
+                  void navigate(url);
+                },
+                onAfterSave: () => {
+                  void navigate(url, { state: mergeSavedChangesNavigateState(undefined) });
+                },
+              })
+            }
+            sx={({ tokens: t }) => ({
+              margin: 0,
+              padding: 0,
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              font: "inherit",
+              color: t.semantic.color.action.primary.default.value,
+              textDecoration: "underline",
+              textUnderlineOffset: "0.2em",
+            })}
+          >
+            {label}
+          </Typography>
         ) : (
           <NavLink to={url}>{label}</NavLink>
         )
@@ -203,36 +246,61 @@ export default function AssessmentDetailHeader({
     onActiveTabChange(RESULTS_TAB_INDEX);
   };
 
-  const primaryCta =
-    assessmentPhase === "assessmentApproved" ? (
-      <>
-        <Button
-          variant="text"
-          size="medium"
+  const handleCloseMoreMenu = () => {
+    setMoreMenuOpen(false);
+  };
+
+  const headerOverflowMenu = (
+    <>
+      <IconButton
+        ref={moreButtonRef}
+        aria-label="More actions"
+        aria-haspopup="true"
+        aria-expanded={moreMenuOpen}
+        aria-controls={moreMenuOpen ? ASSESSMENT_HEADER_MORE_MENU_ID : undefined}
+        size="medium"
+        color="inherit"
+        onClick={() => setMoreMenuOpen(true)}
+        sx={({ tokens: t }) => ({
+          color: t.semantic.color.type.default.value,
+          "&:hover": {
+            backgroundColor: t.semantic.color.action.secondary.hoverFill.value,
+          },
+        })}
+      >
+        <MoreIcon aria-hidden />
+      </IconButton>
+      <Menu
+        anchorEl={moreButtonRef.current}
+        open={moreMenuOpen}
+        onClose={handleCloseMoreMenu}
+        slotProps={{
+          list: {
+            id: ASSESSMENT_HEADER_MORE_MENU_ID,
+            role: "menu",
+            "aria-label": "More actions",
+          },
+        }}
+      >
+        <MenuItem
+          role="menuitem"
           onClick={() => {
-            onPhaseChange("inProgress");
-            onActiveTabChange(SCORING_TAB_INDEX);
-            onResetScores?.();
+            void navigator.clipboard?.writeText(window.location.href).finally(() => {
+              handleCloseMoreMenu();
+            });
           }}
         >
-          Reset scores
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          size="medium"
-          startIcon={<DownloadIcon aria-hidden />}
-          aria-label="Export assessment results"
-          onClick={() => {
-            onExportResults?.();
-          }}
-        >
-          Export results
-        </Button>
-      </>
-    ) : inProgressOrOverdue && aiScoringPhase !== "complete" ? null : (
+          Copy page link
+        </MenuItem>
+      </Menu>
+    </>
+  );
+
+  const singleWorkflowCta =
+    inProgressOrOverdue && aiScoringPhase !== "complete" ? null : (
       <Button
-        variant="text"
+        variant="contained"
+        color="primary"
         size="medium"
         onClick={() => {
           if (assessmentPhase === "draft") {
@@ -255,32 +323,87 @@ export default function AssessmentDetailHeader({
       </Button>
     );
 
-  const defaultMoreButton = (
-    <Stack
-      direction="row"
-      alignItems="center"
-      sx={({ tokens: t }) => ({
-        gap: t.core.spacing["2"].value,
-      })}
-    >
-      {primaryCta}
-      {onSave ? (
-        <Button variant="contained" size="medium" onClick={onSave}>
-          Save changes
+  const approvedActions =
+    assessmentPhase === "assessmentApproved" ? (
+      <>
+        <Button
+          variant="text"
+          color="primary"
+          size="medium"
+          startIcon={<DownloadIcon aria-hidden />}
+          aria-label="Export assessment results"
+          onClick={() => {
+            onExportResults?.();
+          }}
+        >
+          Export results
         </Button>
-      ) : null}
-    </Stack>
+        <Button
+          variant="contained"
+          color="primary"
+          size="medium"
+          onClick={() => {
+            onPhaseChange("inProgress");
+            onActiveTabChange(SCORING_TAB_INDEX);
+            onResetScores?.();
+          }}
+        >
+          Revert to scoring
+        </Button>
+        {headerOverflowMenu}
+      </>
+    ) : null;
+
+  const defaultMoreButton = (
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "flex-end",
+        width: "100%",
+        minWidth: 0,
+      }}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        sx={({ tokens: t }) => ({
+          gap: t.core.spacing["2"].value,
+          flexShrink: 0,
+        })}
+      >
+        {onSave ? (
+          <Button variant="text" size="medium" onClick={onSave}>
+            Save changes
+          </Button>
+        ) : null}
+        {approvedActions ?? (
+          <>
+            {singleWorkflowCta}
+            {headerOverflowMenu}
+          </>
+        )}
+      </Stack>
+    </Box>
   );
 
   const scopeDetailMoreButton = (
-    <Stack direction="row" alignItems="center" gap={1}>
-      <Button variant="text" size="medium" onClick={onScopeSubViewBack}>
-        Cancel
-      </Button>
-      <Button variant="contained" size="medium" onClick={onScopeDetailDone}>
-        Done
-      </Button>
-    </Stack>
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "flex-end",
+        width: "100%",
+        minWidth: 0,
+      }}
+    >
+      <Stack direction="row" alignItems="center" gap={1}>
+        <Button variant="text" size="medium" onClick={onScopeSubViewBack}>
+          Cancel
+        </Button>
+        <Button variant="text" size="medium" onClick={onScopeDetailDone}>
+          Save changes
+        </Button>
+      </Stack>
+    </Box>
   );
 
   return (
@@ -304,13 +427,8 @@ export default function AssessmentDetailHeader({
             <StatusDropdown
               value={phaseDisplayLabel}
               options={[...STATUS_DROPDOWN_OPTIONS]}
-              nonSelectableOptions={NON_SELECTABLE_STATUS_LABELS}
-              onChange={(label) => {
-                const status = assessmentStatusFromDisplayLabel(label);
-                if (status) onPhaseChange(assessmentStatusToPhase(status));
-              }}
               aria-label="Assessment status"
-              resolveDotFill={(label, t) =>
+              resolveDotFill={(label, t: LensTokens) =>
                 assessmentStatusDotBackground(
                   assessmentStatusFromDisplayLabel(label) ?? "Draft",
                   t,

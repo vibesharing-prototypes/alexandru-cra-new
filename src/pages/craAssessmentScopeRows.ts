@@ -104,10 +104,15 @@ function riskRowChips(
 export function buildCyberResultsRowsForScope(
   includedAssetIds: Set<string>,
   excludedScopeCyberRiskIds: Set<string>,
+  excludedScopeScenarioIds: Set<string> = new Set(),
 ): AssessmentCyberResultsRow[] {
   if (includedAssetIds.size === 0) return [];
   const risks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
-  const scenarioList = assessmentScopedScenarios(includedAssetIds, excludedScopeCyberRiskIds);
+  const scenarioList = assessmentScopedScenarios(
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+  );
   const byRisk = new Map<string, MockScenario[]>();
   for (const s of scenarioList) {
     const list = byRisk.get(s.cyberRiskId) ?? [];
@@ -163,9 +168,14 @@ function maxScenarioCyberRiskChip(scens: MockScenario[]): Chip {
 export function buildAssetResultRowsForScope(
   includedAssetIds: Set<string>,
   excludedScopeCyberRiskIds: Set<string>,
+  excludedScopeScenarioIds: Set<string> = new Set(),
 ): AssessmentAssetResultRow[] {
   if (includedAssetIds.size === 0) return [];
-  const scenarioList = assessmentScopedScenarios(includedAssetIds, excludedScopeCyberRiskIds);
+  const scenarioList = assessmentScopedScenarios(
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+  );
   const byAsset = new Map<string, MockScenario[]>();
   for (const s of scenarioList) {
     const list = byAsset.get(s.assetId) ?? [];

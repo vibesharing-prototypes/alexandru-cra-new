@@ -13,7 +13,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers-pro";
 import { AdapterDateFns } from "@mui/x-date-pickers-pro/AdapterDateFns";
 import { DesktopDatePicker } from "@mui/x-date-pickers";
 import { format, isValid, parseISO } from "date-fns";
-import { useLocation, useNavigate, useNavigationType, useParams } from "react-router";
+import { useBeforeUnload, useLocation, useNavigate, useNavigationType, useParams } from "react-router";
 
 import NewCyberRiskAssessmentMethodSection from "./NewCyberRiskAssessmentMethodSection.js";
 import AssessmentScoringTab from "./AssessmentScoringTab.js";
@@ -26,6 +26,7 @@ import {
   assessmentStatusToPhase,
   clearCraNewAssessmentDraft,
   loadCraNewAssessmentDraft,
+  NEW_CRA_RESULTS_TAB_INDEX,
   saveCraNewAssessmentDraft,
   type AiScoringPhase,
   type AssessmentPhase,
@@ -45,6 +46,11 @@ import {
   updateRiskAssessment,
 } from "../data/riskAssessments.js";
 import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
+import {
+  useSavedChangesToast,
+  type PendingSaveNavigationHandlers,
+} from "../context/SavedChangesToastContext.js";
+import UnsavedChangesDialog from "../components/UnsavedChangesDialog.js";
 import RadioButtonArray from "../components/RadioButtonArray.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
 
@@ -140,6 +146,49 @@ function TabPanel({
   );
 }
 
+type ScopeSetsSnapshot = {
+  includedScopeAssetIds: string[];
+  excludedScopeCyberRiskIds: string[];
+  excludedScopeThreatIds: string[];
+  excludedScopeVulnerabilityIds: string[];
+  excludedScopeControlIds: string[];
+};
+
+function captureScopeSnapshot(
+  included: Set<string>,
+  exCr: Set<string>,
+  exT: Set<string>,
+  exV: Set<string>,
+  exC: Set<string>,
+): ScopeSetsSnapshot {
+  return {
+    includedScopeAssetIds: [...included],
+    excludedScopeCyberRiskIds: [...exCr],
+    excludedScopeThreatIds: [...exT],
+    excludedScopeVulnerabilityIds: [...exV],
+    excludedScopeControlIds: [...exC],
+  };
+}
+
+function scopeSnapshotEqualsLive(
+  snap: ScopeSetsSnapshot,
+  included: Set<string>,
+  exCr: Set<string>,
+  exT: Set<string>,
+  exV: Set<string>,
+  exC: Set<string>,
+): boolean {
+  const same = (a: string[], b: Set<string>) =>
+    a.length === b.size && a.every((id) => b.has(id));
+  return (
+    same(snap.includedScopeAssetIds, included) &&
+    same(snap.excludedScopeCyberRiskIds, exCr) &&
+    same(snap.excludedScopeThreatIds, exT) &&
+    same(snap.excludedScopeVulnerabilityIds, exV) &&
+    same(snap.excludedScopeControlIds, exC)
+  );
+}
+
 export default function AssessmentDetailsTab() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -147,6 +196,7 @@ export default function AssessmentDetailsTab() {
   const { assessmentId: routeAssessmentId } = useParams();
   const { presets } = useTheme();
   const { AutocompletePresets } = presets;
+  const { notifySavedChanges } = useSavedChangesToast();
 
   const isReturningFromScenario = (() => {
     const st = location.state as
@@ -221,6 +271,12 @@ export default function AssessmentDetailsTab() {
     return new Set();
   });
 
+  const [excludedScopeScenarioIds, setExcludedScopeScenarioIds] = useState<Set<string>>(() => {
+    if (initialDraft) return new Set(initialDraft.excludedScopeScenarioIds ?? []);
+    if (mockFromRoute) return new Set(mockFromRoute.excludedScopeScenarioIds ?? []);
+    return new Set();
+  });
+
   const [excludedScopeThreatIds, setExcludedScopeThreatIds] = useState<Set<string>>(() => {
     if (initialDraft) return new Set(initialDraft.excludedScopeThreatIds ?? []);
     if (mockFromRoute) return new Set(mockFromRoute.excludedScopeThreatIds ?? []);
@@ -258,13 +314,151 @@ export default function AssessmentDetailsTab() {
       return "highest";
     });
 
-  const [scenarioNotApplicableIds] = useState<Set<string>>(() => {
+  const [scenarioNotApplicableIds, setScenarioNotApplicableIds] = useState<Set<string>>(() => {
     if (initialDraft?.scenarioNotApplicableIds?.length)
       return new Set(initialDraft.scenarioNotApplicableIds);
     return new Set();
   });
 
+  const isNewCraDraftFlow = useMemo(
+    () => !(routeAssessmentId != null && routeAssessmentId !== "") && mockFromRoute == null,
+    [routeAssessmentId, mockFromRoute],
+  );
+
+  const [scenarioCatalogScoresReleased, setScenarioCatalogScoresReleased] = useState(() => {
+    if (!isNewCraDraftFlow) return true;
+    if (initialDraft) return initialDraft.scenarioCatalogScoresReleased;
+    return false;
+  });
+
+  const [scenarioManuallyRevealedScoreIds, setScenarioManuallyRevealedScoreIds] = useState<
+    Set<string>
+  >(() => {
+    if (!isNewCraDraftFlow) return new Set<string>();
+    if (initialDraft?.scenarioManuallyRevealedScoreIds?.length) {
+      return new Set(initialDraft.scenarioManuallyRevealedScoreIds);
+    }
+    return new Set<string>();
+  });
+
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Detects newly included scope assets (vs initial snapshot) to move workflow back to Scoping. */
+  const prevIncludedScopeAssetIdsRef = useRef<Set<string> | null>(null);
+
+  const scopeDetailSnapshotRef = useRef<ScopeSetsSnapshot | null>(null);
+  const prevScopeSubViewForCaptureRef = useRef<ScopeSubView | null>(null);
+  const pendingAfterScopeUnsavedRef = useRef<PendingSaveNavigationHandlers | null>(null);
+  const [scopeUnsavedDialogOpen, setScopeUnsavedDialogOpen] = useState(false);
+
+  const isScopeDetailView = activeTab === SCOPE_TAB_INDEX && scopeSubView !== "overview";
+
+  useLayoutEffect(() => {
+    const prev = prevScopeSubViewForCaptureRef.current;
+    const enteredDetailFromOverview = prev === "overview" && scopeSubView !== "overview";
+    const initialLoadIntoDetail = prev === null && scopeSubView !== "overview";
+    if (enteredDetailFromOverview || initialLoadIntoDetail) {
+      scopeDetailSnapshotRef.current = captureScopeSnapshot(
+        includedScopeAssetIds,
+        excludedScopeCyberRiskIds,
+        excludedScopeThreatIds,
+        excludedScopeVulnerabilityIds,
+        excludedScopeControlIds,
+      );
+    }
+    prevScopeSubViewForCaptureRef.current = scopeSubView;
+  }, [
+    scopeSubView,
+    includedScopeAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeThreatIds,
+    excludedScopeVulnerabilityIds,
+    excludedScopeControlIds,
+  ]);
+
+  const scopeDetailDirty = useMemo(() => {
+    if (!isScopeDetailView) return false;
+    const snap = scopeDetailSnapshotRef.current;
+    if (!snap) return false;
+    return !scopeSnapshotEqualsLive(
+      snap,
+      includedScopeAssetIds,
+      excludedScopeCyberRiskIds,
+      excludedScopeThreatIds,
+      excludedScopeVulnerabilityIds,
+      excludedScopeControlIds,
+    );
+  }, [
+    isScopeDetailView,
+    includedScopeAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeThreatIds,
+    excludedScopeVulnerabilityIds,
+    excludedScopeControlIds,
+  ]);
+
+  const includedScopeAssetIdsForWorkflow = useMemo(() => {
+    if (isScopeDetailView && scopeDetailDirty && scopeDetailSnapshotRef.current) {
+      return new Set(scopeDetailSnapshotRef.current.includedScopeAssetIds);
+    }
+    return includedScopeAssetIds;
+  }, [isScopeDetailView, scopeDetailDirty, includedScopeAssetIds]);
+
+  useBeforeUnload(
+    useCallback(
+      (event: BeforeUnloadEvent) => {
+        if (scopeDetailDirty) {
+          event.preventDefault();
+        }
+      },
+      [scopeDetailDirty],
+    ),
+  );
+
+  const restoreScopeFromSnapshot = useCallback(() => {
+    const snap = scopeDetailSnapshotRef.current;
+    if (!snap) return;
+    setIncludedScopeAssetIds(new Set(snap.includedScopeAssetIds));
+    setExcludedScopeCyberRiskIds(new Set(snap.excludedScopeCyberRiskIds));
+    setExcludedScopeThreatIds(new Set(snap.excludedScopeThreatIds));
+    setExcludedScopeVulnerabilityIds(new Set(snap.excludedScopeVulnerabilityIds));
+    setExcludedScopeControlIds(new Set(snap.excludedScopeControlIds));
+  }, []);
+
+  const requestScopeDetailExit = useCallback(
+    (after?: () => void) => {
+      if (scopeDetailDirty) {
+        pendingAfterScopeUnsavedRef.current = null;
+        setScopeUnsavedDialogOpen(true);
+        return;
+      }
+      setScopeSubView("overview");
+      after?.();
+    },
+    [scopeDetailDirty],
+  );
+
+  const requestScopeNavigateAway = useCallback(
+    (handlers: PendingSaveNavigationHandlers) => {
+      if (scopeDetailDirty) {
+        pendingAfterScopeUnsavedRef.current = handlers;
+        setScopeUnsavedDialogOpen(true);
+        return;
+      }
+      handlers.onDiscard();
+    },
+    [scopeDetailDirty],
+  );
+
+  const handleScopeSubViewChange = useCallback(
+    (view: ScopeSubView) => {
+      if (view === "overview") {
+        requestScopeDetailExit();
+        return;
+      }
+      setScopeSubView(view);
+    },
+    [requestScopeDetailExit],
+  );
 
   /** Clear stale draft on fresh entry to `/new`, but not when the user pops back (browser-style back preserves remounted state + draft). */
   const needsInitialDraftClear =
@@ -375,6 +569,15 @@ export default function AssessmentDetailsTab() {
     });
   }, []);
 
+  const handleRemoveScenarioFromAssessment = useCallback((scenarioId: string) => {
+    setExcludedScopeScenarioIds((prev) => new Set([...prev, scenarioId]));
+    setScenarioNotApplicableIds((prev) => {
+      const next = new Set(prev);
+      next.delete(scenarioId);
+      return next;
+    });
+  }, []);
+
   const bulkSetCyberRisksScopeIncluded = useCallback((cyberRiskIds: string[], included: boolean) => {
     setExcludedScopeCyberRiskIds((prev) => {
       const next = new Set(prev);
@@ -469,10 +672,31 @@ export default function AssessmentDetailsTab() {
   /** Adding scope assets moves the workflow from Draft → Scoping (including on `/…/:assessmentId`). */
   useEffect(() => {
     if (assessmentPhase !== "draft") return;
-    if (includedScopeAssetIds.size === 0) return;
+    if (includedScopeAssetIdsForWorkflow.size === 0) return;
     setAssessmentPhase("scoping");
     setScenarioScoreAggregationMethod("highest");
-  }, [assessmentPhase, includedScopeAssetIds]);
+  }, [assessmentPhase, includedScopeAssetIdsForWorkflow]);
+
+  /** Any new asset added to scope moves the assessment back to Scoping (e.g. after In progress or Approved). */
+  useEffect(() => {
+    const prev = prevIncludedScopeAssetIdsRef.current;
+    const current = includedScopeAssetIdsForWorkflow;
+    if (prev === null) {
+      prevIncludedScopeAssetIdsRef.current = new Set(current);
+      return;
+    }
+    let addedNewAsset = false;
+    for (const id of current) {
+      if (!prev.has(id)) {
+        addedNewAsset = true;
+        break;
+      }
+    }
+    prevIncludedScopeAssetIdsRef.current = new Set(current);
+    if (!addedNewAsset) return;
+    setAssessmentPhase("scoping");
+    setScenarioScoreAggregationMethod("highest");
+  }, [includedScopeAssetIdsForWorkflow]);
 
   const handleAssessmentPhaseChange = useCallback((phase: AssessmentPhase) => {
     setAssessmentPhase(phase);
@@ -486,11 +710,15 @@ export default function AssessmentDetailsTab() {
     if (assessmentPhase === "scoping") {
       return (
         includedScopeAssetIds.size >= 1 &&
-        assessmentScopedScenarios(includedScopeAssetIds, excludedScopeCyberRiskIds).length >= 1
+        assessmentScopedScenarios(
+          includedScopeAssetIds,
+          excludedScopeCyberRiskIds,
+          excludedScopeScenarioIds,
+        ).length >= 1
       );
     }
     return false;
-  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds]);
+  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds]);
 
   const handleSaveDraft = useCallback(() => {
     const catalogAssessmentId =
@@ -500,15 +728,46 @@ export default function AssessmentDetailsTab() {
           ? assessmentId
           : undefined;
 
+    const snap = scopeDetailSnapshotRef.current;
+    const usePersistedSnapshot =
+      activeTab === SCOPE_TAB_INDEX &&
+      scopeSubView !== "overview" &&
+      snap != null &&
+      !scopeSnapshotEqualsLive(
+        snap,
+        includedScopeAssetIds,
+        excludedScopeCyberRiskIds,
+        excludedScopeThreatIds,
+        excludedScopeVulnerabilityIds,
+        excludedScopeControlIds,
+      );
+
+    const includedForPersist = usePersistedSnapshot
+      ? snap.includedScopeAssetIds
+      : [...includedScopeAssetIds];
+    const exCrForPersist = usePersistedSnapshot
+      ? snap.excludedScopeCyberRiskIds
+      : [...excludedScopeCyberRiskIds];
+    const exTForPersist = usePersistedSnapshot
+      ? snap.excludedScopeThreatIds
+      : [...excludedScopeThreatIds];
+    const exVForPersist = usePersistedSnapshot
+      ? snap.excludedScopeVulnerabilityIds
+      : [...excludedScopeVulnerabilityIds];
+    const exCForPersist = usePersistedSnapshot
+      ? snap.excludedScopeControlIds
+      : [...excludedScopeControlIds];
+
     if (catalogAssessmentId) {
       const row = getRiskAssessmentById(catalogAssessmentId);
       if (row) {
         const trimmedName = name.trim();
-        const rollup = computeAssessmentRollupForAssetIds([...includedScopeAssetIds], {
-          excludedScopeCyberRiskIds: [...excludedScopeCyberRiskIds],
-          excludedScopeThreatIds: [...excludedScopeThreatIds],
-          excludedScopeVulnerabilityIds: [...excludedScopeVulnerabilityIds],
-          excludedScopeControlIds: [...excludedScopeControlIds],
+        const rollup = computeAssessmentRollupForAssetIds(includedForPersist, {
+          excludedScopeCyberRiskIds: exCrForPersist,
+          excludedScopeThreatIds: exTForPersist,
+          excludedScopeVulnerabilityIds: exVForPersist,
+          excludedScopeControlIds: exCForPersist,
+          excludedScopeScenarioIds: [...excludedScopeScenarioIds],
         });
         updateRiskAssessment(catalogAssessmentId, {
           name: trimmedName || row.name,
@@ -533,15 +792,18 @@ export default function AssessmentDetailsTab() {
         dueDate,
         ownerIds,
         scopeSubView,
-        includedScopeAssetIds: [...includedScopeAssetIds],
-        excludedScopeCyberRiskIds: [...excludedScopeCyberRiskIds],
-        excludedScopeThreatIds: [...excludedScopeThreatIds],
-        excludedScopeVulnerabilityIds: [...excludedScopeVulnerabilityIds],
-        excludedScopeControlIds: [...excludedScopeControlIds],
+        includedScopeAssetIds: includedForPersist,
+        excludedScopeCyberRiskIds: exCrForPersist,
+        excludedScopeThreatIds: exTForPersist,
+        excludedScopeVulnerabilityIds: exVForPersist,
+        excludedScopeControlIds: exCForPersist,
         aiScoringPhase,
         scoringType,
         scenarioScoreAggregationMethod,
         scenarioNotApplicableIds: [...scenarioNotApplicableIds],
+        excludedScopeScenarioIds: [...excludedScopeScenarioIds],
+        scenarioCatalogScoresReleased,
+        scenarioManuallyRevealedScoreIds: [...scenarioManuallyRevealedScoreIds],
       });
     }
   }, [
@@ -559,17 +821,77 @@ export default function AssessmentDetailsTab() {
     excludedScopeThreatIds,
     excludedScopeVulnerabilityIds,
     excludedScopeControlIds,
+    excludedScopeScenarioIds,
     aiScoringPhase,
     scoringType,
     scenarioScoreAggregationMethod,
     scenarioNotApplicableIds,
+    scenarioCatalogScoresReleased,
+    scenarioManuallyRevealedScoreIds,
+  ]);
+
+  const handleSaveDraftWithToast = useCallback(() => {
+    handleSaveDraft();
+    notifySavedChanges();
+  }, [handleSaveDraft, notifySavedChanges]);
+
+  const handleSaveDraftRef = useRef(handleSaveDraft);
+  handleSaveDraftRef.current = handleSaveDraft;
+
+  const handleScopeUnsavedClose = useCallback(() => {
+    pendingAfterScopeUnsavedRef.current = null;
+    setScopeUnsavedDialogOpen(false);
+  }, []);
+
+  const handleScopeUnsavedDiscard = useCallback(() => {
+    restoreScopeFromSnapshot();
+    const pending = pendingAfterScopeUnsavedRef.current;
+    pendingAfterScopeUnsavedRef.current = null;
+    setScopeUnsavedDialogOpen(false);
+    setScopeSubView("overview");
+    if (pending) {
+      queueMicrotask(() => pending.onDiscard());
+    }
+  }, [restoreScopeFromSnapshot]);
+
+  const handleScopeUnsavedSave = useCallback(() => {
+    scopeDetailSnapshotRef.current = captureScopeSnapshot(
+      includedScopeAssetIds,
+      excludedScopeCyberRiskIds,
+      excludedScopeThreatIds,
+      excludedScopeVulnerabilityIds,
+      excludedScopeControlIds,
+    );
+    const pending = pendingAfterScopeUnsavedRef.current;
+    pendingAfterScopeUnsavedRef.current = null;
+    setScopeUnsavedDialogOpen(false);
+    setScopeSubView("overview");
+    queueMicrotask(() => {
+      handleSaveDraftRef.current();
+      if (pending) {
+        pending.onAfterSave();
+      } else {
+        notifySavedChanges();
+      }
+    });
+  }, [
+    includedScopeAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeThreatIds,
+    excludedScopeVulnerabilityIds,
+    excludedScopeControlIds,
+    notifySavedChanges,
   ]);
 
   const handleAiScoringClick = useCallback(() => {
     if (assessmentPhase === "scoping") {
       if (
         includedScopeAssetIds.size < 1 ||
-        assessmentScopedScenarios(includedScopeAssetIds, excludedScopeCyberRiskIds).length < 1
+        assessmentScopedScenarios(
+          includedScopeAssetIds,
+          excludedScopeCyberRiskIds,
+          excludedScopeScenarioIds,
+        ).length < 1
       ) {
         return;
       }
@@ -582,11 +904,12 @@ export default function AssessmentDetailsTab() {
       }
       aiScoringTimerRef.current = setTimeout(() => {
         aiScoringTimerRef.current = null;
+        setScenarioCatalogScoresReleased(true);
         setAiScoringPhase("complete");
       }, 3000);
       return "processing";
     });
-  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds]);
+  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds]);
 
   useEffect(() => {
     return () => {
@@ -612,6 +935,15 @@ export default function AssessmentDetailsTab() {
     const st = location.state as
       | { craReturnToScoring?: boolean; craReturnToTabIndex?: number }
       | null;
+    if (st?.craReturnToTabIndex != null || st?.craReturnToScoring) {
+      if (!(routeAssessmentId != null && routeAssessmentId !== "") && mockFromRoute == null) {
+        const d = loadCraNewAssessmentDraft();
+        if (d) {
+          setScenarioCatalogScoresReleased(d.scenarioCatalogScoresReleased);
+          setScenarioManuallyRevealedScoreIds(new Set(d.scenarioManuallyRevealedScoreIds ?? []));
+        }
+      }
+    }
     if (st?.craReturnToTabIndex != null) {
       setActiveTab(st.craReturnToTabIndex);
       navigate(location.pathname, { replace: true, state: null });
@@ -619,10 +951,7 @@ export default function AssessmentDetailsTab() {
       setActiveTab(SCORING_TAB_INDEX);
       navigate(location.pathname, { replace: true, state: null });
     }
-  }, [location.state, location.pathname, navigate]);
-
-  const isScopeDetailView =
-    activeTab === SCOPE_TAB_INDEX && scopeSubView !== "overview";
+  }, [location.state, location.pathname, navigate, routeAssessmentId, mockFromRoute]);
 
   const scopeDetail =
     isScopeDetailView
@@ -630,12 +959,15 @@ export default function AssessmentDetailsTab() {
       : undefined;
 
   useEffect(() => {
-    if (activeTab !== SCOPE_TAB_INDEX) {
-      setScopeSubView("overview");
+    if (activeTab === SCOPE_TAB_INDEX) return;
+    if (scopeSubView !== "overview" && scopeDetailDirty && scopeDetailSnapshotRef.current) {
+      restoreScopeFromSnapshot();
     }
-  }, [activeTab]);
+    setScopeSubView("overview");
+  }, [activeTab, scopeSubView, scopeDetailDirty, restoreScopeFromSnapshot]);
 
   const isApproved = assessmentPhase === "assessmentApproved";
+  const isScoringStatus = assessmentPhaseToAssessmentStatus(assessmentPhase) === "Scoring";
 
   return (
     <Container sx={{ py: 2 }}>
@@ -655,11 +987,35 @@ export default function AssessmentDetailsTab() {
           activeTab={activeTab}
           onActiveTabChange={setActiveTab}
           scopeDetail={scopeDetail}
-          onScopeSubViewBack={() => setScopeSubView("overview")}
-          onScopeDetailDone={() => setScopeSubView("overview")}
-          onSave={isApproved ? undefined : handleSaveDraft}
+          scopeDetailHasUnsavedChanges={scopeDetailDirty}
+          onScopeDetailNavigateRequest={requestScopeNavigateAway}
+          onScopeSubViewBack={() => requestScopeDetailExit()}
+          onScopeDetailDone={() => {
+            scopeDetailSnapshotRef.current = captureScopeSnapshot(
+              includedScopeAssetIds,
+              excludedScopeCyberRiskIds,
+              excludedScopeThreatIds,
+              excludedScopeVulnerabilityIds,
+              excludedScopeControlIds,
+            );
+            setScopeSubView("overview");
+            queueMicrotask(() => {
+              handleSaveDraftRef.current();
+              notifySavedChanges();
+            });
+          }}
+          onSave={
+            isApproved || activeTab === NEW_CRA_RESULTS_TAB_INDEX ? undefined : handleSaveDraftWithToast
+          }
           aiScoringPhase={aiScoringPhase}
           onResetScores={() => setScenarioScoreAggregationMethod("highest")}
+        />
+
+        <UnsavedChangesDialog
+          open={scopeUnsavedDialogOpen}
+          onClose={handleScopeUnsavedClose}
+          onDiscard={handleScopeUnsavedDiscard}
+          onSave={handleScopeUnsavedSave}
         />
 
         <TabPanel value={activeTab} index={0}>
@@ -781,7 +1137,7 @@ export default function AssessmentDetailsTab() {
                   showActionText
                   actionTextPlain
                   actionText="Select whether assessment scores contribute to the inherent or residual risk score."
-                  disabled={isApproved}
+                  disabled={isApproved || isScoringStatus}
                 />
               }
             />
@@ -791,7 +1147,7 @@ export default function AssessmentDetailsTab() {
         <TabPanel value={activeTab} index={1}>
           <AssessmentScopeTab
             scopeSubView={scopeSubView}
-            onScopeSubViewChange={setScopeSubView}
+            onScopeSubViewChange={handleScopeSubViewChange}
             includedAssetIds={includedScopeAssetIds}
             excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
             onSetCyberRiskScopeIncluded={setCyberRiskScopeIncluded}
@@ -826,6 +1182,7 @@ export default function AssessmentDetailsTab() {
             onAggregationMethodChange={setScenarioScoreAggregationMethod}
             includedAssetIds={includedScopeAssetIds}
             excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
+            excludedScopeScenarioIds={excludedScopeScenarioIds}
             assessmentPhase={assessmentPhase}
             aiScoringPhase={aiScoringPhase}
             scoringType={scoringType}
@@ -833,12 +1190,22 @@ export default function AssessmentDetailsTab() {
             onAiScoringClick={handleAiScoringClick}
             onGoToScope={() => setActiveTab(SCOPE_TAB_INDEX)}
             scenarioNotApplicableIds={scenarioNotApplicableIds}
+            isNewCraDraftFlow={isNewCraDraftFlow}
+            scenarioCatalogScoresReleased={scenarioCatalogScoresReleased}
+            scenarioManuallyRevealedScoreIds={scenarioManuallyRevealedScoreIds}
+            scenarioNavFromNewCraDraft={isNewCraDraftFlow}
+            scenarioNavCatalogScoresReleased={scenarioCatalogScoresReleased}
+            scenarioNavManuallyRevealedScoreIds={scenarioManuallyRevealedScoreIds}
+            onRemoveCyberRiskFromAssessment={(id) => setCyberRiskScopeIncluded(id, false)}
+            onRemoveScenarioFromAssessment={handleRemoveScenarioFromAssessment}
+            rowActionsDisabled={isApproved}
           />
         </TabPanel>
         <TabPanel value={activeTab} index={3}>
           <AssessmentResultsTab
             includedAssetIds={includedScopeAssetIds}
             excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
+            excludedScopeScenarioIds={excludedScopeScenarioIds}
             onGoToScoring={() => setActiveTab(SCORING_TAB_INDEX)}
             assessmentName={name}
             returnToAssessmentPath={location.pathname}

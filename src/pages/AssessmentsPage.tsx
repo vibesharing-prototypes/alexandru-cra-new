@@ -45,6 +45,7 @@ import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
 import AssessmentStatus, {
   assessmentStatusColorForCanvas,
 } from "../components/AssessmentStatus.js";
+import { assessmentStatusLabel } from "../data/assessmentStatusLabels.js";
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
 import {
   addRiskAssessment,
@@ -156,13 +157,13 @@ function AssessmentsByStatusCard({ statusData }: { statusData: AssessmentStatusC
     statusData.overdue;
 
   const legendItems = STATUS_CHART_ORDER.map((status) => ({
-    label: status,
+    label: assessmentStatusLabel(status),
     value: countForAssessmentStatus(status, statusData),
     color: assessmentStatusColorForCanvas(status, tokens),
   }));
 
   const chartData = {
-    labels: [...STATUS_CHART_ORDER],
+    labels: STATUS_CHART_ORDER.map((status) => assessmentStatusLabel(status)),
     datasets: [
       {
         data: legendItems.map((item) => item.value),

@@ -116,7 +116,6 @@ export default function ThreatDetailHeader({
           <StatusDropdown
             value={status}
             options={THREAT_STATUSES}
-            onChange={(v) => onStatusChange(v as ThreatStatus)}
             aria-label="Threat status"
           />
         }

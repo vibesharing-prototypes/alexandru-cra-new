@@ -27,6 +27,7 @@ import VulnerabilitiesPage from "./pages/VulnerabilitiesPage.js";
 import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
 import ScrollToTop from "./components/ScrollToTop.js";
 import { CyberRiskScoringConfigProvider } from "./context/CyberRiskScoringConfigContext.js";
+import { SavedChangesToastProvider } from "./context/SavedChangesToastContext.js";
 
 export default function App() {
   return (
@@ -36,8 +37,10 @@ export default function App() {
         element={
           <AppLayout navigation={<Navigation />}>
             <CyberRiskScoringConfigProvider>
-              <ScrollToTop />
-              <Outlet />
+              <SavedChangesToastProvider>
+                <ScrollToTop />
+                <Outlet />
+              </SavedChangesToastProvider>
             </CyberRiskScoringConfigProvider>
           </AppLayout>
         }

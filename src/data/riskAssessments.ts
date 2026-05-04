@@ -27,6 +27,7 @@ export type ComputeAssessmentRollupOptions = {
   excludedScopeThreatIds?: readonly string[];
   excludedScopeVulnerabilityIds?: readonly string[];
   excludedScopeControlIds?: readonly string[];
+  excludedScopeScenarioIds?: readonly string[];
 };
 
 /**
@@ -47,11 +48,13 @@ export function computeAssessmentRollupForAssetIds(
   | "excludedScopeThreatIds"
   | "excludedScopeVulnerabilityIds"
   | "excludedScopeControlIds"
+  | "excludedScopeScenarioIds"
 > {
   const excludedCr = new Set(options?.excludedScopeCyberRiskIds ?? []);
   const excludedThreat = new Set(options?.excludedScopeThreatIds ?? []);
   const excludedVuln = new Set(options?.excludedScopeVulnerabilityIds ?? []);
   const excludedControl = new Set(options?.excludedScopeControlIds ?? []);
+  const excludedScenario = new Set(options?.excludedScopeScenarioIds ?? []);
   const sortedAssetIds = dedupeIdsPreserveOrder([...assetIds]);
   if (sortedAssetIds.length === 0) {
     return {
@@ -64,6 +67,7 @@ export function computeAssessmentRollupForAssetIds(
       excludedScopeThreatIds: dedupeIdsPreserveOrder([...excludedThreat]),
       excludedScopeVulnerabilityIds: dedupeIdsPreserveOrder([...excludedVuln]),
       excludedScopeControlIds: dedupeIdsPreserveOrder([...excludedControl]),
+      excludedScopeScenarioIds: dedupeIdsPreserveOrder([...excludedScenario]),
     };
   }
   const assetSet = new Set(sortedAssetIds);
@@ -77,7 +81,7 @@ export function computeAssessmentRollupForAssetIds(
     assessmentScopedVulnerabilities(assetSet, excludedVuln).map((v) => v.id),
   );
   const scenarioIds = dedupeIdsPreserveOrder(
-    assessmentScopedScenarios(assetSet, excludedCr).map((s) => s.id),
+    assessmentScopedScenarios(assetSet, excludedCr, excludedScenario).map((s) => s.id),
   );
   return {
     assetIds: sortedAssetIds,
@@ -89,6 +93,7 @@ export function computeAssessmentRollupForAssetIds(
     excludedScopeThreatIds: dedupeIdsPreserveOrder([...excludedThreat]),
     excludedScopeVulnerabilityIds: dedupeIdsPreserveOrder([...excludedVuln]),
     excludedScopeControlIds: dedupeIdsPreserveOrder([...excludedControl]),
+    excludedScopeScenarioIds: dedupeIdsPreserveOrder([...excludedScenario]),
   };
 }
 
@@ -173,6 +178,7 @@ function buildAssessmentRow(meta: Meta, index: number): MockCyberRiskAssessment 
     excludedScopeThreatIds: [],
     excludedScopeVulnerabilityIds: [],
     excludedScopeControlIds: [],
+    excludedScopeScenarioIds: [],
   };
 }
 
@@ -264,6 +270,7 @@ export function addRiskAssessment(): MockCyberRiskAssessment {
     excludedScopeThreatIds: [],
     excludedScopeVulnerabilityIds: [],
     excludedScopeControlIds: [],
+    excludedScopeScenarioIds: [],
   };
   riskAssessments.unshift(newRow);
   assessmentById.set(newRow.id, newRow);

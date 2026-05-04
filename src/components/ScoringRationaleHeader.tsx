@@ -38,7 +38,7 @@ export default function ScoringRationaleHeader({
         moreButton={
           onSave ? (
             <Button variant="contained" size="medium" onClick={onSave}>
-              Save
+              Save changes
             </Button>
           ) : undefined
         }

@@ -3,12 +3,14 @@ import { Box } from "@mui/material";
 import AggregationMethodRadio, {
   type AggregationMethodRadioProps,
 } from "./AggregationMethodRadio.js";
-import ShowFormula, { type ShowFormulaProps } from "./ShowFormula.js";
+import ShowScoringAggregation, {
+  type ShowScoringAggregationProps,
+} from "./ShowScoringAggregation.js";
 import ShowScale, { type ShowScaleProps } from "./ShowScale.js";
 
 export type ScoringInfoProps = {
   aggregationMethodRadio?: AggregationMethodRadioProps;
-  showFormula?: ShowFormulaProps;
+  showScoringAggregation?: ShowScoringAggregationProps;
   showScale?: ShowScaleProps;
 };
 
@@ -17,7 +19,7 @@ export type ScoringInfoProps = {
  */
 export default function ScoringInfo({
   aggregationMethodRadio,
-  showFormula,
+  showScoringAggregation,
   showScale,
 }: ScoringInfoProps = {}) {
   return (
@@ -50,7 +52,7 @@ export default function ScoringInfo({
           maxWidth: "100%",
         }}
       >
-        <ShowFormula {...{ shrinkToContent: true, ...showFormula }} />
+        <ShowScoringAggregation {...{ shrinkToContent: true, ...showScoringAggregation }} />
       </Box>
       <Box
         sx={{

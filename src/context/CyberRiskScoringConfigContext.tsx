@@ -12,13 +12,14 @@ import {
 import {
   bandsFullyValid,
   deepCloneBands,
-  DEFAULT_CYBER_RISK_SCORE_BANDS,
-  DEFAULT_LIKELIHOOD_BANDS,
+  getActiveCyberRiskScoreBands,
+  getActiveLikelihoodBands,
   setActiveCyberRiskScoreBands,
   setActiveLikelihoodBands,
   type ScoringBandRow,
 } from "../data/cyberRiskScoringScales.js";
 import { refreshAllCyberRiskScaleLabelsFromConfig } from "../data/cyberRisks.js";
+import { markCatalogDirty } from "../data/persistence/catalogStore.js";
 import { refreshScenarioScaleLabelsFromConfig } from "../data/scenarios.js";
 
 export type CyberRiskScoringConfigContextValue = {
@@ -34,10 +35,10 @@ const CyberRiskScoringConfigContext = createContext<CyberRiskScoringConfigContex
 
 export function CyberRiskScoringConfigProvider({ children }: { children: ReactNode }) {
   const [cyberScoreBands, setCyberScoreBands] = useState<ScoringBandRow[]>(() =>
-    deepCloneBands(DEFAULT_CYBER_RISK_SCORE_BANDS),
+    deepCloneBands([...getActiveCyberRiskScoreBands()]),
   );
   const [likelihoodBands, setLikelihoodBands] = useState<ScoringBandRow[]>(() =>
-    deepCloneBands(DEFAULT_LIKELIHOOD_BANDS),
+    deepCloneBands([...getActiveLikelihoodBands()]),
   );
 
   const value = useMemo(
@@ -55,6 +56,7 @@ export function CyberRiskScoringConfigProvider({ children }: { children: ReactNo
     setActiveCyberRiskScoreBands(cyberScoreBands);
     refreshAllCyberRiskScaleLabelsFromConfig();
     refreshScenarioScaleLabelsFromConfig();
+    markCatalogDirty();
   }, [cyberScoreBands]);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export function CyberRiskScoringConfigProvider({ children }: { children: ReactNo
     setActiveLikelihoodBands(likelihoodBands);
     refreshAllCyberRiskScaleLabelsFromConfig();
     refreshScenarioScaleLabelsFromConfig();
+    markCatalogDirty();
   }, [likelihoodBands]);
 
   return (

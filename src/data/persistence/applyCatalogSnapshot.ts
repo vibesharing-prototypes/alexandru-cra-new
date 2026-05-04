@@ -13,17 +13,45 @@ import {
 import { replaceRiskAssessmentsFromPersistence } from "../riskAssessments.js";
 import {
   rebuildScenariosFromGraph,
+  refreshScenarioScaleLabelsFromConfig,
   setScenarioOverridesFromPersistence,
 } from "../scenarios.js";
 import { replaceThreatsFromPersistence } from "../threats.js";
+import {
+  bandsFullyValid,
+  setActiveCyberRiskScoreBands,
+  setActiveLikelihoodBands,
+  type ScoringBandRow,
+} from "../cyberRiskScoringScales.js";
+import { refreshAllCyberRiskScaleLabelsFromConfig } from "../cyberRisks.js";
 import { replaceUsersFromPersistence } from "../users.js";
 import { replaceVulnerabilitiesFromPersistence } from "../vulnerabilities.js";
 
 import type { PersistedCatalogV1 } from "./catalogTypes.js";
 
+function applyPersistedScoringBands(catalog: PersistedCatalogV1): void {
+  const { cyberScoreBands, likelihoodBands } = catalog;
+  if (
+    Array.isArray(cyberScoreBands) &&
+    cyberScoreBands.length === 5 &&
+    bandsFullyValid(cyberScoreBands as ScoringBandRow[])
+  ) {
+    setActiveCyberRiskScoreBands(cyberScoreBands as ScoringBandRow[]);
+  }
+  if (
+    Array.isArray(likelihoodBands) &&
+    likelihoodBands.length === 5 &&
+    bandsFullyValid(likelihoodBands as ScoringBandRow[])
+  ) {
+    setActiveLikelihoodBands(likelihoodBands as ScoringBandRow[]);
+  }
+}
+
 export function applyPersistedCatalog(catalog: PersistedCatalogV1): void {
   if (!catalog || catalog.schemaVersion !== 2) return;
   if (!Array.isArray(catalog.users) || !Array.isArray(catalog.threats)) return;
+
+  applyPersistedScoringBands(catalog);
 
   replaceUsersFromPersistence(catalog.users);
   replaceOrgUnitsFromPersistence(catalog.orgUnits);
@@ -39,6 +67,9 @@ export function applyPersistedCatalog(catalog: PersistedCatalogV1): void {
   hydratePersistedCraDraft(
     catalog.craDraft != null ? sanitizeCraNewAssessmentDraft(catalog.craDraft) : null,
   );
+
+  refreshAllCyberRiskScaleLabelsFromConfig();
+  refreshScenarioScaleLabelsFromConfig();
 }
 
 

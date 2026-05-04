@@ -419,6 +419,8 @@ export interface MockCyberRiskAssessment {
   excludedScopeThreatIds?: string[];
   excludedScopeVulnerabilityIds?: string[];
   excludedScopeControlIds?: string[];
+  /** Scenario library ids explicitly removed from this assessment. */
+  excludedScopeScenarioIds?: string[];
 }
 
 export interface MockMitigationPlan {

@@ -63,17 +63,19 @@ function FormulaRow({ children }: { children: ReactNode }) {
   );
 }
 
-export type ShowFormulaProps = {
+export type ShowScoringAggregationProps = {
   /** When true, the section width follows formula content (for horizontal flex rows). */
   shrinkToContent?: boolean;
 };
 
 /** CRA scoring formula reference for activity / assessment surfaces. */
-export default function ShowFormula({ shrinkToContent = false }: ShowFormulaProps = {}) {
+export default function ShowScoringAggregation({
+  shrinkToContent = false,
+}: ShowScoringAggregationProps = {}) {
   return (
     <Box
       component="section"
-      aria-labelledby="show-formula-heading"
+      aria-labelledby="show-scoring-aggregation-heading"
       sx={({ tokens: t }) => ({
         display: "flex",
         flexDirection: "column",
@@ -85,7 +87,7 @@ export default function ShowFormula({ shrinkToContent = false }: ShowFormulaProp
       })}
     >
       <Typography
-        id="show-formula-heading"
+        id="show-scoring-aggregation-heading"
         component="h2"
         variant="caption"
         sx={({ tokens: t }) => ({
@@ -98,7 +100,7 @@ export default function ShowFormula({ shrinkToContent = false }: ShowFormulaProp
           color: t.semantic.color.type.default.value,
         })}
       >
-        Formulas
+        Scoring formulas
       </Typography>
 
       <Stack

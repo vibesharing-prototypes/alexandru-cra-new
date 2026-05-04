@@ -1,4 +1,5 @@
 import type { CraNewAssessmentPersistedDraft } from "../craAssessmentDraftTypes.js";
+import type { ScoringBandRow } from "../cyberRiskScoringScales.js";
 import type {
   MockAsset,
   MockOrgUnit,
@@ -28,6 +29,10 @@ export type PersistedCatalogV1 = {
   scenarioOverrides: Record<string, Partial<MockScenario>>;
   /** New-assessment draft (replaces sessionStorage-only persistence). */
   craDraft: CraNewAssessmentPersistedDraft | null;
+  /** Cyber risk score bands (1–125 → five labels); omitted in older snapshots → defaults. */
+  cyberScoreBands?: ScoringBandRow[];
+  /** Likelihood product bands (1–25); omitted in older snapshots → defaults. */
+  likelihoodBands?: ScoringBandRow[];
 };
 
 export const CATALOG_STORAGE_KEY = "cra_proto_catalog_v2";
