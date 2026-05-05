@@ -219,6 +219,17 @@ export function updateRiskAssessment(id: string, patch: Partial<MockCyberRiskAss
   markCatalogDirty();
 }
 
+/** Removes a catalog row by id (session store). Returns whether a row was removed. */
+export function removeRiskAssessmentById(id: string): boolean {
+  const idx = riskAssessments.findIndex((a) => a.id === id);
+  if (idx === -1) return false;
+  riskAssessments.splice(idx, 1);
+  rebuildAssessmentIndex();
+  notifyRiskAssessmentListeners();
+  markCatalogDirty();
+  return true;
+}
+
 const riskAssessmentListeners = new Set<() => void>();
 let riskAssessmentsSnapshotVersion = 0;
 

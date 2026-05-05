@@ -3,6 +3,7 @@ import {
   OverflowBreadcrumbs,
 } from "@diligentcorp/atlas-react-bundle";
 import {
+  Alert,
   Avatar,
   Box,
   Button,
@@ -12,11 +13,13 @@ import {
   Container,
   InputAdornment,
   Link,
+  Snackbar,
   Stack,
   TextField,
   Typography,
   useTheme,
 } from "@mui/material";
+import type { SnackbarCloseReason } from "@mui/material/Snackbar";
 import {
   DataGridPro,
   type GridColDef,
@@ -27,8 +30,8 @@ import {
   QuickFilterControl,
   Toolbar,
 } from "@mui/x-data-grid-pro";
-import { NavLink, useNavigate } from "react-router";
-import { useMemo, useSyncExternalStore } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -48,11 +51,13 @@ import AssessmentStatus, {
 import { assessmentStatusLabel } from "../data/assessmentStatusLabels.js";
 import type { AssessmentStatus as AssessmentStatusValue } from "../data/types.js";
 import {
+  addRiskAssessment,
   getRiskAssessmentsSnapshotVersion,
   riskAssessments,
   subscribeRiskAssessments,
 } from "../data/riskAssessments.js";
 import { getUserById } from "../data/users.js";
+import { ASSESSMENT_DELETED_TOAST_STATE_KEY } from "../constants/assessmentNavigationState.js";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -74,6 +79,7 @@ type AssessmentStatusCounts = {
   draft: number;
   scoping: number;
   inProgress: number;
+  review: number;
   approved: number;
   overdue: number;
 };
@@ -102,6 +108,7 @@ function buildAssessmentStatusCounts(rows: AssessmentRow[]): AssessmentStatusCou
     draft: rows.filter((r) => r.status === "Draft").length,
     scoping: rows.filter((r) => r.status === "Scoping").length,
     inProgress: rows.filter((r) => r.status === "Scoring").length,
+    review: rows.filter((r) => r.status === "Review").length,
     approved: rows.filter((r) => r.status === "Approved").length,
     overdue: rows.filter((r) => r.status === "Overdue").length,
   };
@@ -111,8 +118,9 @@ const STATUS_CHART_ORDER: AssessmentStatusValue[] = [
   "Draft",
   "Scoping",
   "Scoring",
-  "Approved",
+  "Review",
   "Overdue",
+  "Approved",
 ];
 
 function countForAssessmentStatus(
@@ -126,10 +134,12 @@ function countForAssessmentStatus(
       return statusData.scoping;
     case "Scoring":
       return statusData.inProgress;
-    case "Approved":
-      return statusData.approved;
+    case "Review":
+      return statusData.review;
     case "Overdue":
       return statusData.overdue;
+    case "Approved":
+      return statusData.approved;
   }
 }
 
@@ -152,6 +162,7 @@ function AssessmentsByStatusCard({ statusData }: { statusData: AssessmentStatusC
     statusData.draft +
     statusData.scoping +
     statusData.inProgress +
+    statusData.review +
     statusData.approved +
     statusData.overdue;
 
@@ -635,10 +646,36 @@ function AssessmentsDataGrid({ rows }: { rows: AssessmentRow[] }) {
 
 export default function AssessmentsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [assessmentDeletedToastOpen, setAssessmentDeletedToastOpen] = useState(false);
+
   const catalogVersion = useSyncExternalStore(
     subscribeRiskAssessments,
     getRiskAssessmentsSnapshotVersion,
     () => 0,
+  );
+
+  useEffect(() => {
+    const raw = location.state;
+    if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return;
+    const record = raw as Record<string, unknown>;
+    if (!record[ASSESSMENT_DELETED_TOAST_STATE_KEY]) return;
+
+    setAssessmentDeletedToastOpen(true);
+    const { [ASSESSMENT_DELETED_TOAST_STATE_KEY]: _removed, ...rest } = record;
+    const nextState = Object.keys(rest).length ? rest : undefined;
+    void navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: nextState },
+    );
+  }, [location.pathname, location.search, location.hash, location.state, navigate]);
+
+  const handleAssessmentDeletedToastClose = useCallback(
+    (_event: unknown, reason: SnackbarCloseReason) => {
+      if (reason === "clickaway") return;
+      setAssessmentDeletedToastOpen(false);
+    },
+    [],
   );
 
   const { assessmentRows, statusData } = useMemo(() => {
@@ -650,7 +687,8 @@ export default function AssessmentsPage() {
   }, [catalogVersion]);
 
   const handleNewAssessment = () => {
-    navigate("/cyber-risk/cyber-risk-assessments/new");
+    const created = addRiskAssessment();
+    navigate(`/cyber-risk/cyber-risk-assessments/${created.id}`);
   };
 
   return (
@@ -696,6 +734,16 @@ export default function AssessmentsPage() {
 
         <AssessmentsDataGrid rows={assessmentRows} />
       </Stack>
+
+      <Snackbar
+        open={assessmentDeletedToastOpen}
+        autoHideDuration={5000}
+        onClose={handleAssessmentDeletedToastClose}
+      >
+        <Alert severity="success" aria-live="polite">
+          Assessment deleted
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

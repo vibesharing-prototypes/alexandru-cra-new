@@ -8,8 +8,9 @@ export const ASSESSMENT_STATUS_LABELS: Record<AssessmentStatus, string> = {
   Draft: "Draft",
   Scoping: "Scoping",
   Scoring: "Scoring",
-  Approved: "Approved",
+  Review: "Review",
   Overdue: "Overdue",
+  Approved: "Approved",
 };
 
 export function assessmentStatusLabel(status: AssessmentStatus): string {

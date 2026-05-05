@@ -12,12 +12,12 @@ import ScopedRiskSS from "../components/ScopedRiskSS.js";
 import LabelScoreLegend from "../components/LabelScoreLegend.js";
 import LabelValue from "../components/LabelValue.js";
 import PageLayout from "../components/PageLayout.js";
-import ScoringInfo from "../components/ScoringInfo.js";
+import ScoringInfoCard from "../components/ScoringInfoCard.js";
 import ScoringWide from "../components/ScoringWide.js";
 import AIBanner from "../components/AIBanner.js";
 import RadioButtonArray from "../components/RadioButtonArray.js";
 import { ScopeCard } from "../components/ScopeCard.js";
-import ShowScoringScale from "../components/ShowScoringScale.js";
+import ScoringScaleInfo from "../components/ScoringScaleInfo.js";
 import ScoringFormulas from "../components/ScoringFormulas.js";
 import { assets } from "../data/assets.js";
 import { cyberRisks } from "../data/cyberRisks.js";
@@ -161,8 +161,9 @@ export default function ActivityPage() {
                   Scoped risk details
                 </Button>
               </Stack>
-              <ScoringInfo
+              <ScoringInfoCard
                 aggregationMethodRadio={{ name: "activity-tab1-aggregation" }}
+                onAction={() => {}}
               />
               <ScoringWide />
             </Stack>
@@ -213,7 +214,7 @@ export default function ActivityPage() {
                 cardActionAriaLabel="Filled variant: assets included (activity preview)"
               />
               <AIBanner onAction={() => {}} />
-              <ShowScoringScale />
+              <ScoringScaleInfo />
               <ScoringFormulas />
               <Accordion defaultExpanded={false}>
                 <AccordionSummary

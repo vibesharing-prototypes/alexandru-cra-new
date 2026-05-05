@@ -63,7 +63,7 @@ export default function ScopedRiskSS({
           sx={({ tokens: t }) => ({
             width: "100%",
             alignItems: "stretch",
-            gap: t.core.spacing["3"].value,
+            gap: t.core.spacing["1_5"].value,
           })}
         >
           {cyberRisks.length === 0 ? (
@@ -78,7 +78,7 @@ export default function ScopedRiskSS({
             </Typography>
           ) : (
             cyberRisks.map((cr) => (
-              <Box key={cr.id}>
+              <Box key={cr.id} sx={{ display: "flex" }}>
                 <Stack
                   sx={({ tokens: t }) => ({
                     alignItems: "flex-start",

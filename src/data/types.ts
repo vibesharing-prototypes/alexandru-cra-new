@@ -35,8 +35,9 @@ export type AssessmentStatus =
   | "Draft"
   | "Scoping"
   | "Scoring"
-  | "Approved"
-  | "Overdue";
+  | "Review"
+  | "Overdue"
+  | "Approved";
 
 export type ControlStatus = "Draft" | "Active" | "Archived";
 

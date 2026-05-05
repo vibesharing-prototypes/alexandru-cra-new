@@ -81,7 +81,8 @@ export default function ScoringFormulas({
         flexDirection: "column",
         alignItems: "flex-start",
         gap: t.core.spacing["1_5"].value,
-        width: shrinkToContent ? "100%" : t.component.sideSheet.medium.width.value,
+        width: shrinkToContent ? "fit-content" : "100%",
+        height: "fit-content",
         maxWidth: "100%",
         boxSizing: "border-box",
       })}
@@ -92,6 +93,7 @@ export default function ScoringFormulas({
         variant="caption"
         sx={({ tokens: t }) => ({
           m: 0,
+          width: "fit-content",
           fontFamily: t.semantic.font.label.sm.fontFamily.value,
           fontSize: t.semantic.font.label.sm.fontSize.value,
           lineHeight: t.semantic.font.label.sm.lineHeight.value,
@@ -104,9 +106,14 @@ export default function ScoringFormulas({
       </Typography>
 
       <Stack
+        direction="row"
+        flexWrap="wrap"
+        useFlexGap
         sx={({ tokens: t }) => ({
-          width: "100%",
-          alignItems: "flex-start",
+          width: shrinkToContent ? "fit-content" : "100%",
+          alignItems: "center",
+          minHeight: 24,
+          height: "fit-content",
           gap: t.core.spacing["1_5"].value,
         })}
       >
@@ -117,19 +124,19 @@ export default function ScoringFormulas({
         </FormulaRow>
 
         <FormulaRow>
-          <FormulaTag variant="label">Likelihood</FormulaTag>
-          <FormulaTag variant="operator">=</FormulaTag>
-          <FormulaTag variant="value">Threat severity</FormulaTag>
-          <FormulaTag variant="operator">x</FormulaTag>
-          <FormulaTag variant="value">Vulnerability severity</FormulaTag>
-        </FormulaRow>
-
-        <FormulaRow>
           <FormulaTag variant="label">Cyber risk score</FormulaTag>
           <FormulaTag variant="operator">=</FormulaTag>
           <FormulaTag variant="value">Impact</FormulaTag>
           <FormulaTag variant="operator">x</FormulaTag>
           <FormulaTag variant="value">Likelihood</FormulaTag>
+        </FormulaRow>
+
+        <FormulaRow>
+          <FormulaTag variant="label">Likelihood</FormulaTag>
+          <FormulaTag variant="operator">=</FormulaTag>
+          <FormulaTag variant="value">Threat severity</FormulaTag>
+          <FormulaTag variant="operator">x</FormulaTag>
+          <FormulaTag variant="value">Vulnerability severity</FormulaTag>
         </FormulaRow>
       </Stack>
     </Box>

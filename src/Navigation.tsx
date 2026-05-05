@@ -9,12 +9,16 @@ import FolderIcon from "@diligentcorp/atlas-react-bundle/icons/Folder";
 import CertCyberRiskStrategyIcon from "@diligentcorp/atlas-react-bundle/icons/CertCyberRiskStrategy";
 import HistoryIcon from "@diligentcorp/atlas-react-bundle/icons/History";
 import SettingsIcon from "@diligentcorp/atlas-react-bundle/icons/Settings";
+import ColumnsIcon from "@diligentcorp/atlas-react-bundle/icons/Columns";
+
+import { SHOWCASE_COMPONENTS } from "./pages/dev/showcaseDefinitions.js";
 
 export default function Navigation() {
   const [assetTypesOpen, setAssetTypesOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [cyberRiskOpen, setCyberRiskOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [devOpen, setDevOpen] = useState(false);
 
   return (
     <>
@@ -101,6 +105,25 @@ export default function Navigation() {
           label="Vulnerability settings"
         />
       </NavSection>
+
+      {import.meta.env.DEV ? (
+        <NavSection
+          label="Dev"
+          isOpen={devOpen}
+          isHighlighted={devOpen}
+          onOpen={() => setDevOpen(true)}
+          onClose={() => setDevOpen(false)}
+        >
+          <ColumnsIcon slot="icon" />
+          {SHOWCASE_COMPONENTS.map(({ slug, name }) => (
+            <RoutedNavLink
+              key={slug}
+              to={`/dev/components/${slug}`}
+              label={name}
+            />
+          ))}
+        </NavSection>
+      ) : null}
     </>
   );
 }

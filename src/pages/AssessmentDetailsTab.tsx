@@ -43,6 +43,7 @@ import {
 import {
   computeAssessmentRollupForAssetIds,
   getRiskAssessmentById,
+  removeRiskAssessmentById,
   updateRiskAssessment,
 } from "../data/riskAssessments.js";
 import AssessmentDetailHeader from "../components/AssessmentDetailHeader.js";
@@ -50,6 +51,7 @@ import {
   useSavedChangesToast,
   type PendingSaveNavigationHandlers,
 } from "../context/SavedChangesToastContext.js";
+import { ASSESSMENT_DELETED_TOAST_STATE_KEY } from "../constants/assessmentNavigationState.js";
 import UnsavedChangesDialog from "../components/UnsavedChangesDialog.js";
 import RadioButtonArray from "../components/RadioButtonArray.js";
 import { joinUserFullNames, mockUserEmail, users } from "../data/users.js";
@@ -237,6 +239,10 @@ export default function AssessmentDetailsTab() {
     if (mockFromRoute) return assessmentStatusToPhase(mockFromRoute.status);
     return "draft";
   });
+  const assessmentPhaseRef = useRef<AssessmentPhase>(assessmentPhase);
+  useEffect(() => {
+    assessmentPhaseRef.current = assessmentPhase;
+  }, [assessmentPhase]);
   const [name, setName] = useState(() => {
     if (initialDraft) return initialDraft.name;
     if (mockFromRoute) return mockFromRoute.name;
@@ -453,6 +459,14 @@ export default function AssessmentDetailsTab() {
     },
     [scopeDetailDirty],
   );
+
+  const handleDeletePersistedAssessment = useCallback(() => {
+    if (!routeAssessmentId) return;
+    removeRiskAssessmentById(routeAssessmentId);
+    navigate("/cyber-risk/cyber-risk-assessments", {
+      state: { [ASSESSMENT_DELETED_TOAST_STATE_KEY]: true },
+    });
+  }, [routeAssessmentId, navigate]);
 
   const handleScopeSubViewChange = useCallback(
     (view: ScopeSubView) => {
@@ -676,7 +690,7 @@ export default function AssessmentDetailsTab() {
     setScenarioScoreAggregationMethod("highest");
   }, [assessmentPhase, includedScopeAssetIdsForWorkflow]);
 
-  /** Any new asset added to scope moves the assessment back to Scoping (e.g. after In progress or Approved). */
+  /** Any new asset added to scope moves the assessment back to Scoping (except while in Scoring or Review). */
   useEffect(() => {
     const prev = prevIncludedScopeAssetIdsRef.current;
     const current = includedScopeAssetIdsForWorkflow;
@@ -693,6 +707,12 @@ export default function AssessmentDetailsTab() {
     }
     prevIncludedScopeAssetIdsRef.current = new Set(current);
     if (!addedNewAsset) return;
+    if (
+      assessmentPhaseRef.current === "inProgress" ||
+      assessmentPhaseRef.current === "review"
+    ) {
+      return;
+    }
     setAssessmentPhase("scoping");
     setScenarioScoreAggregationMethod("highest");
   }, [includedScopeAssetIdsForWorkflow]);
@@ -705,7 +725,12 @@ export default function AssessmentDetailsTab() {
   }, []);
 
   const showAiScoringAction = useMemo(() => {
-    if (assessmentPhase === "inProgress" || assessmentPhase === "overdue") return true;
+    if (
+      assessmentPhase === "inProgress" ||
+      assessmentPhase === "review" ||
+      assessmentPhase === "overdue"
+    )
+      return true;
     if (assessmentPhase === "scoping") {
       return (
         includedScopeAssetIds.size >= 1 &&
@@ -966,7 +991,9 @@ export default function AssessmentDetailsTab() {
   }, [activeTab, scopeSubView, scopeDetailDirty, restoreScopeFromSnapshot]);
 
   const isApproved = assessmentPhase === "assessmentApproved";
-  const isScoringStatus = assessmentPhaseToAssessmentStatus(assessmentPhase) === "Scoring";
+  const isScoringStatus =
+    assessmentPhaseToAssessmentStatus(assessmentPhase) === "Scoring" ||
+    assessmentPhaseToAssessmentStatus(assessmentPhase) === "Review";
 
   return (
     <Container sx={{ py: 2 }}>
@@ -1008,6 +1035,10 @@ export default function AssessmentDetailsTab() {
           }
           aiScoringPhase={aiScoringPhase}
           onResetScores={() => setScenarioScoreAggregationMethod("highest")}
+          onReassess={() => {}}
+          onDeletePersistedAssessment={
+            mockFromRoute && routeAssessmentId ? handleDeletePersistedAssessment : undefined
+          }
         />
 
         <UnsavedChangesDialog

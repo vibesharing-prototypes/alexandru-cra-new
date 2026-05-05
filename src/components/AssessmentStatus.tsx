@@ -23,6 +23,7 @@ const STATUS_BACKGROUND: Record<AssessmentStatusValue, TokenPick> = {
   Draft: (t) => t.semantic.color.status.neutral.backgroundVariant.value,
   Scoping: (t) => t.semantic.color.status.notification.default.value,
   Scoring: (t) => t.core.color.purple["70"].value,
+  Review: (t) => t.semantic.color.status.warning.default.value,
   Approved: (t) => t.semantic.color.status.success.default.value,
   Overdue: (t) => t.semantic.color.status.error.default.value,
 };
@@ -43,6 +44,7 @@ const ASSESSMENT_STATUS_CANVAS_FALLBACK: Record<AssessmentStatusValue, string> =
   Draft: "#e8e9ea",
   Scoping: "#1DD9F9",
   Scoring: "#db8bff",
+  Review: "#ffb300",
   Approved: "#8EE400",
   Overdue: "#d32f2f",
 };
@@ -61,6 +63,7 @@ const STATUS_FOREGROUND: Record<AssessmentStatusValue, TokenPick> = {
   Draft: neutralStatusContentVariant,
   Scoping: neutralStatusContentVariant,
   Scoring: neutralStatusContentVariant,
+  Review: neutralStatusContentVariant,
   Approved: neutralStatusContentVariant,
   Overdue: (t) => t.semantic.color.type.inverse.value,
 };

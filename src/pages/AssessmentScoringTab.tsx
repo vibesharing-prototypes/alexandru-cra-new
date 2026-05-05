@@ -22,9 +22,8 @@ import { useNavigate } from "react-router";
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 import MoreIcon from "@diligentcorp/atlas-react-bundle/icons/More";
 
-import AIBanner from "../components/AIBanner.js";
 import AssessmentScopeEmptyState from "../components/AssessmentScopeEmptyState.js";
-import ScoringInfo from "../components/ScoringInfo.js";
+import ScoringInfoCard from "../components/ScoringInfoCard.js";
 
 import { ragDataVizColor, type RagDataVizKey } from "../data/ragDataVisualization.js";
 import {
@@ -816,14 +815,13 @@ export default function AssessmentScoringTab({
         pb: t.core.spacing["4"].value,
       })}
     >
-      {showAiScoringAction ? (
-        <AIBanner
-          title={aiScoringPhase === "complete" ? "AI scoring completed" : "AI scoring"}
-          onAction={aiScoringPhase === "complete" ? undefined : onAiScoringClick}
-          actionLoading={aiScoringPhase === "processing"}
-        />
-      ) : null}
-      <ScoringInfo
+      <ScoringInfoCard
+        omitHeader={!showAiScoringAction}
+        title={aiScoringPhase === "complete" ? "AI scoring completed" : "AI scoring"}
+        onAction={
+          showAiScoringAction && aiScoringPhase !== "complete" ? onAiScoringClick : undefined
+        }
+        actionLoading={aiScoringPhase === "processing"}
         aggregationMethodRadio={{
           name: "cra-scoring-tab-aggregation",
           value: aggregationMethod,

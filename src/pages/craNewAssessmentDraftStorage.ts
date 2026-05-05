@@ -61,6 +61,7 @@ function isAssessmentPhase(v: unknown): v is AssessmentPhase {
     v === "draft" ||
     v === "scoping" ||
     v === "inProgress" ||
+    v === "review" ||
     v === "overdue" ||
     v === "assessmentApproved"
   );
@@ -112,6 +113,7 @@ export function sanitizeCraNewAssessmentDraft(
   const scopingStarted = assessmentPhase !== "draft";
   const assessmentStarted =
     assessmentPhase === "inProgress" ||
+    assessmentPhase === "review" ||
     assessmentPhase === "overdue" ||
     assessmentPhase === "assessmentApproved";
   if (!scopingStarted && activeTab === SCOPE_TAB_INDEX) {
@@ -274,6 +276,8 @@ export function assessmentStatusToPhase(status: AssessmentStatus): AssessmentPha
       return "scoping";
     case "Scoring":
       return "inProgress";
+    case "Review":
+      return "review";
     case "Approved":
       return "assessmentApproved";
     case "Overdue":
@@ -292,6 +296,8 @@ export function assessmentPhaseToAssessmentStatus(phase: AssessmentPhase): Asses
       return "Scoping";
     case "inProgress":
       return "Scoring";
+    case "review":
+      return "Review";
     case "overdue":
       return "Overdue";
     case "assessmentApproved":

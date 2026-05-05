@@ -59,13 +59,14 @@ const RESULTS_TAB_INDEX = 3;
 
 const TAB_LABELS = ["Details", "Scope", "Scoring", "Results"] as const;
 
-/** Menu order for the status dropdown; Overdue is last. Approved and Overdue are informational only. */
+/** Menu order for the status dropdown; Approved is last. */
 const STATUS_DROPDOWN_ORDER: readonly AssessmentStatusValue[] = [
   "Draft",
   "Scoping",
   "Scoring",
-  "Approved",
+  "Review",
   "Overdue",
+  "Approved",
 ];
 
 const STATUS_DROPDOWN_OPTIONS = STATUS_DROPDOWN_ORDER.map(assessmentStatusLabel);
@@ -114,6 +115,10 @@ export type AssessmentDetailHeaderProps = {
   aiScoringPhase?: AiScoringPhase;
   /** After "Revert to scoring" (approved → scoring); e.g. reset scenario score aggregation to default. */
   onResetScores?: () => void;
+  /** Overflow menu: Reassess (optional no-op hook). */
+  onReassess?: () => void;
+  /** When set, overflow menu shows Delete (destructive); parent removes catalog row and navigates. */
+  onDeletePersistedAssessment?: () => void;
 };
 
 export default function AssessmentDetailHeader({
@@ -137,6 +142,8 @@ export default function AssessmentDetailHeader({
   onExportResults,
   aiScoringPhase = "complete",
   onResetScores,
+  onReassess,
+  onDeletePersistedAssessment,
 }: AssessmentDetailHeaderProps) {
   const navigate = useNavigate();
   const { presets, tokens } = useTheme();
@@ -235,11 +242,14 @@ export default function AssessmentDetailHeader({
       : assessmentPhase === "scoping"
         ? "Move to scoring"
         : assessmentPhase === "inProgress" || assessmentPhase === "overdue"
-          ? "Approve assessment"
-          : "Done";
+          ? "Review results"
+          : assessmentPhase === "review"
+            ? "Approve assessment"
+            : "Done";
 
-  const inProgressOrOverdue =
-    assessmentPhase === "inProgress" || assessmentPhase === "overdue";
+  const hideCta =
+    (assessmentPhase === "inProgress" || assessmentPhase === "overdue") &&
+    aiScoringPhase !== "complete";
 
   const approveAssessmentClick = () => {
     onPhaseChange("assessmentApproved");
@@ -285,19 +295,31 @@ export default function AssessmentDetailHeader({
         <MenuItem
           role="menuitem"
           onClick={() => {
-            void navigator.clipboard?.writeText(window.location.href).finally(() => {
-              handleCloseMoreMenu();
-            });
+            onReassess?.();
+            handleCloseMoreMenu();
           }}
         >
-          Copy page link
+          Reassess
         </MenuItem>
+        {onDeletePersistedAssessment ? (
+          <MenuItem
+            role="menuitem"
+            onClick={() => {
+              onDeletePersistedAssessment();
+              handleCloseMoreMenu();
+            }}
+            sx={({ tokens: t }) => ({
+              color: t.semantic.color.action.destructive.default.value,
+            })}
+          >
+            Delete
+          </MenuItem>
+        ) : null}
       </Menu>
     </>
   );
 
-  const singleWorkflowCta =
-    inProgressOrOverdue && aiScoringPhase !== "complete" ? null : (
+  const singleWorkflowCta = hideCta ? null : (
       <Button
         variant="contained"
         color="primary"
@@ -313,7 +335,12 @@ export default function AssessmentDetailHeader({
             onActiveTabChange(SCORING_TAB_INDEX);
             return;
           }
-          if (inProgressOrOverdue) {
+          if (assessmentPhase === "inProgress" || assessmentPhase === "overdue") {
+            onPhaseChange("review");
+            onActiveTabChange(RESULTS_TAB_INDEX);
+            return;
+          }
+          if (assessmentPhase === "review") {
             setApproveConfirmOpen(true);
             return;
           }

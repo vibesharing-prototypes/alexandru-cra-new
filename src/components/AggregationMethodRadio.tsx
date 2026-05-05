@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Box } from "@mui/material";
 
 import RadioButtonArray from "./RadioButtonArray.js";
 
@@ -40,27 +39,19 @@ export default function AggregationMethodRadio({
   };
 
   return (
-    <Box
-      sx={{
-        maxWidth: 200,
-        width: "100%",
-        minWidth: 0,
-        boxSizing: "border-box",
-      }}
-    >
-      <RadioButtonArray
-        label="Aggregation method"
-        options={[
-          { value: "highest", label: "Highest" },
-          { value: "average", label: "Average" },
-        ]}
-        name={radioName}
-        value={aggregationMethod}
-        onChange={handleChange}
-        disabled={disabled}
-        showAction={false}
-        row={false}
-      />
-    </Box>
+    <RadioButtonArray
+      label="Aggregation method"
+      options={[
+        { value: "highest", label: "Highest" },
+        { value: "average", label: "Average" },
+      ]}
+      name={radioName}
+      value={aggregationMethod}
+      onChange={handleChange}
+      disabled={disabled}
+      showAction={false}
+      row
+      shrinkToContent
+    />
   );
 }

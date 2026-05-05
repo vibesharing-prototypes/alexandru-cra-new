@@ -4,6 +4,7 @@ export type AssessmentPhase =
   | "draft"
   | "scoping"
   | "inProgress"
+  | "review"
   | "overdue"
   | "assessmentApproved";
 

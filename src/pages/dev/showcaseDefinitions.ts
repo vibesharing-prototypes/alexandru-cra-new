@@ -1,0 +1,83 @@
+/**
+ * Alphabetical list of every showcaseable component under `src/components/`
+ * (including `scoringScales/`). Slugs are stable URLs for `/dev/components/:slug`.
+ */
+export const SHOWCASE_COMPONENTS = [
+  { slug: "ai-banner", name: "AIBanner" },
+  { slug: "ai-card", name: "AICard" },
+  { slug: "aggregation-method-radio", name: "AggregationMethodRadio" },
+  { slug: "assessment-detail-header", name: "AssessmentDetailHeader" },
+  { slug: "assessment-scope-empty-state", name: "AssessmentScopeEmptyState" },
+  { slug: "assessment-status", name: "AssessmentStatus" },
+  { slug: "assessment-wysiwyg-editor", name: "AssessmentWysiwygEditor" },
+  { slug: "assets-by-cyber-risk-score-donut", name: "AssetsByCyberRiskScoreDonut" },
+  { slug: "cra-scenario-emphasis-title", name: "CraScenarioEmphasisTitle" },
+  { slug: "cyber-risk-scoring-scales-content", name: "CyberRiskScoringScalesContent" },
+  { slug: "dropdown-button", name: "DropdownButton" },
+  { slug: "filter-assets", name: "FilterAssets" },
+  { slug: "filter-results", name: "FilterResults" },
+  { slug: "filter-risks", name: "FilterRisks" },
+  { slug: "filter-side-sheet", name: "FilterSideSheet" },
+  { slug: "filter-threats", name: "FilterThreats" },
+  { slug: "history-accordion", name: "HistoryAccordion" },
+  { slug: "label-score-legend", name: "LabelScoreLegend" },
+  { slug: "label-value", name: "LabelValue" },
+  { slug: "label-value-md", name: "LabelValueMd" },
+  { slug: "meta-tag", name: "MetaTag" },
+  { slug: "mitigation-plan-page-side-sheet", name: "MitigationPlanPageSideSheet" },
+  { slug: "mitigation-plan-status-chip", name: "MitigationPlanStatusChip" },
+  { slug: "new-toolbar", name: "NewToolbar" },
+  { slug: "org-unit-dropdown", name: "OrgUnitDropdown" },
+  { slug: "overview-hero", name: "OverviewHero" },
+  { slug: "page-layout", name: "PageLayout" },
+  { slug: "placeholder", name: "Placeholder" },
+  { slug: "radio-button-array", name: "RadioButtonArray" },
+  { slug: "read-only-scoring-legends-row", name: "ReadOnlyScoringLegendsRow" },
+  { slug: "relation-card", name: "RelationCard" },
+  { slug: "relation-linked-object-row", name: "RelationLinkedObjectRow" },
+  { slug: "results-hero", name: "ResultsHero" },
+  { slug: "results-tree-data", name: "ResultsTreeData" },
+  { slug: "risk-detail-header", name: "RiskDetailHeader" },
+  { slug: "risk-settings-header", name: "RiskSettingsHeader" },
+  { slug: "risk-status", name: "RiskStatus" },
+  { slug: "risk-status-donut", name: "RiskStatusDonut" },
+  { slug: "risks-hero-section", name: "RisksHeroSection" },
+  { slug: "risks-matrix", name: "RisksMatrix" },
+  { slug: "risks-table", name: "RisksTable" },
+  { slug: "scoped-risk-ss", name: "ScopedRiskSS" },
+  { slug: "scenario-history-read-only-panel", name: "ScenarioHistoryReadOnlyPanel" },
+  { slug: "scenario-history-section", name: "ScenarioHistorySection" },
+  { slug: "scenario-scoring-dropdowns-block", name: "ScenarioScoringDropdownsBlock" },
+  { slug: "scope-card", name: "ScopeCard" },
+  { slug: "scope-toolbar", name: "ScopeToolbar" },
+  { slug: "scroll-to-top", name: "ScrollToTop" },
+  { slug: "scoring-formulas", name: "ScoringFormulas" },
+  { slug: "scoring-formulas-wide", name: "ScoringFormulasWide" },
+  { slug: "scoring-info", name: "ScoringInfo" },
+  { slug: "scoring-info-card", name: "ScoringInfoCard" },
+  { slug: "scoring-metric-field", name: "ScoringMetricField" },
+  { slug: "scoring-rationale-dropdowns", name: "ScoringRationaleDropdowns" },
+  { slug: "scoring-rationale-formatted-body", name: "ScoringRationaleFormattedBody" },
+  { slug: "scoring-rationale-header", name: "ScoringRationaleHeader" },
+  { slug: "scoring-scale-bar", name: "ScoringScaleBar" },
+  { slug: "scoring-scale-card", name: "ScoringScaleCard" },
+  { slug: "scoring-scale-info", name: "ScoringScaleInfo" },
+  { slug: "scoring-scale-section", name: "ScoringScaleSection" },
+  { slug: "scoring-scale-wide", name: "ScoringScaleWide" },
+  { slug: "scoring-wide", name: "ScoringWide" },
+  { slug: "status-dropdown", name: "StatusDropdown" },
+  { slug: "threat-detail-assessments-tab", name: "ThreatDetailAssessmentsTab" },
+  { slug: "threat-detail-header", name: "ThreatDetailHeader" },
+  { slug: "unsaved-changes-dialog", name: "UnsavedChangesDialog" },
+  { slug: "vulnerability-detail-header", name: "VulnerabilityDetailHeader" },
+] as const;
+
+export type ShowcaseSlug = (typeof SHOWCASE_COMPONENTS)[number]["slug"];
+
+/** PascalCase component name → kebab-case slug for nested-component links. */
+export function nameToSlug(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
+    .toLowerCase();
+}

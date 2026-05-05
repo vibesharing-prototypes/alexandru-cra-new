@@ -98,14 +98,18 @@ export default function RationaleReadOnly() {
         items={[
           { id: "crm", label: "Cyber risk management", url: ASSESSMENTS_PATH },
           { id: "cra", label: "Cyber risk analysis", url: ASSESSMENTS_PATH },
-          { id: "assessment", label: assessmentTitle, url: NEW_CRA_PATH },
+          {
+            id: "assessment",
+            label: assessmentTitle,
+            url: nav?.returnToAssessmentPath?.trim() || NEW_CRA_PATH,
+          },
         ]}
         aria-label="Breadcrumbs"
       >
         {({ label, url }) => <NavLink to={url}>{label}</NavLink>}
       </OverflowBreadcrumbs>
     ),
-    [assessmentTitle],
+    [assessmentTitle, nav?.returnToAssessmentPath],
   );
 
   const goBackToAssessment = useCallback(() => {

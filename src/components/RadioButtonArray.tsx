@@ -2,7 +2,6 @@ import { useId, type MouseEvent, type ReactNode } from "react";
 import { Link as RouterLink } from "react-router";
 import {
   Box,
-  FormControl,
   FormControlLabel,
   Link,
   Radio,
@@ -30,6 +29,8 @@ export type RadioButtonArrayProps = {
   showIcon?: boolean;
   /** When true, radios are laid out in a row (default). When false, options stack vertically. */
   row?: boolean;
+  /** When true, label + group shrink to content width/height (e.g. aggregation picker in a toolbar row). */
+  shrinkToContent?: boolean;
   /** When false, the default action link is not shown (no icon-only state; the action region is omitted unless `actionSlot` is set) */
   showActionText?: boolean;
   /** Link destination for the default action (use `"#"` for inert hash; click is prevented) */
@@ -85,6 +86,7 @@ export default function RadioButtonArray({
   actionSlot,
   disabled = false,
   row = true,
+  shrinkToContent = false,
 }: RadioButtonArrayProps) {
   if (import.meta.env.DEV && options.length < 2) {
     // eslint-disable-next-line no-console
@@ -105,15 +107,86 @@ export default function RadioButtonArray({
     opacity: disabled ? 0.72 : undefined,
   };
 
+  const radioGroup = (
+    <RadioGroup
+      {...(row ? { row: true } : {})}
+      name={groupName}
+      value={value}
+      onChange={(_e, v) => onChange(v)}
+      aria-labelledby={labelId}
+      sx={{
+        m: 0,
+        ...(row
+          ? {
+              flexWrap: shrinkToContent ? "nowrap" : "wrap",
+              gap: 2,
+              ...(shrinkToContent
+                ? {
+                    width: "fit-content",
+                    maxWidth: "fit-content",
+                    justifyContent: "flex-start",
+                    alignItems: "center",
+                    minHeight: 28,
+                  }
+                : {
+                    columnGap: 2,
+                    rowGap: 1,
+                    minHeight: 28,
+                  }),
+            }
+          : {
+              flexWrap: "nowrap",
+              gap: 2,
+              flexDirection: "column",
+              alignItems: "flex-start",
+              justifyContent: "center",
+              height: "100%",
+              width: shrinkToContent ? "fit-content" : "100%",
+              maxWidth: shrinkToContent ? "fit-content" : undefined,
+            }),
+      }}
+    >
+      {options.map((opt) => (
+        <FormControlLabel
+          key={opt.value}
+          value={opt.value}
+          disabled={disabled}
+          control={<Radio disabled={disabled} />}
+          label={opt.label}
+          sx={{
+            height: 28,
+            mr: 0,
+            ml: 0,
+            "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
+              fontSize: t.semantic.font.text.md.fontSize.value,
+              lineHeight: t.semantic.font.text.md.lineHeight.value,
+              letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+              color: t.semantic.color.type.default.value,
+            }),
+          }}
+        />
+      ))}
+    </RadioGroup>
+  );
+
   return (
     <Stack
       sx={({ tokens: t }) => ({
-        alignItems: "stretch",
+        alignItems: shrinkToContent ? "flex-start" : "stretch",
         gap: t.core.spacing["1_5"].value,
-        width: "100%",
-        minWidth: 0,
-        maxWidth: "100%",
-        boxSizing: "border-box",
+        ...(shrinkToContent
+          ? {
+              width: "fit-content",
+              height: "fit-content",
+              maxWidth: "fit-content",
+              boxSizing: "border-box",
+            }
+          : {
+              width: "100%",
+              minWidth: 0,
+              maxWidth: "100%",
+              boxSizing: "border-box",
+            }),
       })}
     >
       <Typography
@@ -129,58 +202,24 @@ export default function RadioButtonArray({
         {label}
       </Typography>
 
-      <FormControl
-        sx={{
-          width: "100%",
-          m: 0,
-          ...(row ? { height: 28 } : { height: "auto", alignSelf: "stretch" }),
-        }}
-        disabled={disabled}
-      >
-        <RadioGroup
-          {...(row ? { row: true } : {})}
-          name={groupName}
-          value={value}
-          onChange={(_e, v) => onChange(v)}
-          aria-labelledby={labelId}
+      {row ? (
+        radioGroup
+      ) : (
+        <Box
           sx={{
-            ...(row
-              ? {
-                  flexWrap: "wrap",
-                  gap: 2,
-                  columnGap: 2,
-                  rowGap: 1,
-                }
-              : {
-                  flexWrap: "nowrap",
-                  gap: 2,
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  height: "100%",
-                }),
+            width: shrinkToContent ? "fit-content" : "100%",
+            m: 0,
+            height: "84px",
+            alignSelf: shrinkToContent ? "flex-start" : "stretch",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "flex-start",
           }}
         >
-          {options.map((opt) => (
-            <FormControlLabel
-              key={opt.value}
-              value={opt.value}
-              control={<Radio disabled={disabled} />}
-              label={opt.label}
-              sx={{
-                height: 28,
-                mr: 0,
-                ml: 0,
-                "& .MuiFormControlLabel-label": ({ tokens: t }) => ({
-                  fontSize: t.semantic.font.text.md.fontSize.value,
-                  lineHeight: t.semantic.font.text.md.lineHeight.value,
-                  letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                  color: t.semantic.color.type.default.value,
-                }),
-              }}
-            />
-          ))}
-        </RadioGroup>
-      </FormControl>
+          {radioGroup}
+        </Box>
+      )}
 
       {showActionRegion ? (
         <Box

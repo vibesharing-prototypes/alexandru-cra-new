@@ -106,11 +106,14 @@ export default function ScoringFormulasWide({
       <Stack
         direction="row"
         flexWrap="wrap"
+        useFlexGap
         sx={({ tokens: t }) => ({
           width: shrinkToContent ? "fit-content" : "100%",
           maxWidth: shrinkToContent ? "100%" : undefined,
-          alignItems: "flex-start",
-          gap: t.core.spacing["3"].value,
+          alignItems: "center",
+          minHeight: 24,
+          height: "fit-content",
+          gap: t.core.spacing["1_5"].value,
         })}
       >
         <FormulaRow>
@@ -120,19 +123,19 @@ export default function ScoringFormulasWide({
         </FormulaRow>
 
         <FormulaRow>
-          <FormulaTag variant="label">Likelihood</FormulaTag>
-          <FormulaTag variant="operator">=</FormulaTag>
-          <FormulaTag variant="value">Threat severity</FormulaTag>
-          <FormulaTag variant="operator">x</FormulaTag>
-          <FormulaTag variant="value">Vulnerability severity</FormulaTag>
-        </FormulaRow>
-
-        <FormulaRow>
           <FormulaTag variant="label">Cyber risk score</FormulaTag>
           <FormulaTag variant="operator">=</FormulaTag>
           <FormulaTag variant="value">Impact</FormulaTag>
           <FormulaTag variant="operator">x</FormulaTag>
           <FormulaTag variant="value">Likelihood</FormulaTag>
+        </FormulaRow>
+
+        <FormulaRow>
+          <FormulaTag variant="label">Likelihood</FormulaTag>
+          <FormulaTag variant="operator">=</FormulaTag>
+          <FormulaTag variant="value">Threat severity</FormulaTag>
+          <FormulaTag variant="operator">x</FormulaTag>
+          <FormulaTag variant="value">Vulnerability severity</FormulaTag>
         </FormulaRow>
       </Stack>
     </Box>

@@ -4,43 +4,41 @@ import AggregationMethodRadio, {
   type AggregationMethodRadioProps,
 } from "./AggregationMethodRadio.js";
 import ScoringFormulas, { type ScoringFormulasProps } from "./ScoringFormulas.js";
-import ShowScoringScale, { type ShowScoringScaleProps } from "./ShowScoringScale.js";
+import ScoringScaleInfo, { type ScoringScaleInfoProps } from "./ScoringScaleInfo.js";
 
 export type ScoringInfoProps = {
   aggregationMethodRadio?: AggregationMethodRadioProps;
   scoringFormulas?: ScoringFormulasProps;
-  showScoringScale?: ShowScoringScaleProps;
+  scoringScaleInfo?: ScoringScaleInfoProps;
 };
 
 /**
- * Horizontal row: aggregation method, scoring formulas, and scoring scale (activity / assessment previews).
+ * Horizontal row matching Figma (ITRM — AI scoring content): aggregation method, scoring scale, scoring formulas.
  */
 export default function ScoringInfo({
   aggregationMethodRadio,
   scoringFormulas,
-  showScoringScale,
+  scoringScaleInfo,
 }: ScoringInfoProps = {}) {
   return (
     <Box
-      sx={({ tokens: t }) => ({
+      sx={{
         display: "flex",
         flexDirection: "row",
         alignItems: "flex-start",
+        justifyContent: "space-between",
         width: "100%",
-        gap: t.core.spacing["7"].value,
         flexWrap: "nowrap",
         minWidth: 0,
-        paddingLeft: t.core.spacing["3"].value,
-        paddingRight: t.core.spacing["3"].value,
-      })}
+      }}
     >
       <Box
         sx={{
           flex: "0 0 auto",
-          width: "100%",
-          maxWidth: 200,
+          width: "fit-content",
           minWidth: 0,
-          alignSelf: "stretch",
+          maxWidth: "100%",
+          alignSelf: "flex-start",
         }}
       >
         <AggregationMethodRadio {...aggregationMethodRadio} />
@@ -48,23 +46,24 @@ export default function ScoringInfo({
       <Box
         sx={{
           flex: "0 0 auto",
-          width: "100%",
+          width: "fit-content",
           minWidth: 0,
           maxWidth: "100%",
+          alignSelf: "flex-start",
         }}
       >
-        <ScoringFormulas {...{ shrinkToContent: true, ...scoringFormulas }} />
+        <ScoringScaleInfo {...scoringScaleInfo} />
       </Box>
       <Box
         sx={{
-          flex: "0 0 200px",
-          width: 200,
-          minWidth: 200,
-          maxWidth: 200,
-          boxSizing: "border-box",
+          flex: "0 0 auto",
+          width: "fit-content",
+          minWidth: 0,
+          maxWidth: "100%",
+          alignSelf: "flex-start",
         }}
       >
-        <ShowScoringScale {...showScoringScale} />
+        <ScoringFormulas {...{ shrinkToContent: true, ...scoringFormulas }} />
       </Box>
     </Box>
   );

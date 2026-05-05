@@ -28,6 +28,7 @@ import VulnerabilityDetailPage from "./pages/VulnerabilityDetailPage.js";
 import ScrollToTop from "./components/ScrollToTop.js";
 import { CyberRiskScoringConfigProvider } from "./context/CyberRiskScoringConfigContext.js";
 import { SavedChangesToastProvider } from "./context/SavedChangesToastContext.js";
+import ComponentShowcasePage from "./pages/dev/ComponentShowcasePage.js";
 
 export default function App() {
   return (
@@ -174,6 +175,8 @@ export default function App() {
         />
 
         <Route path="activity" element={<ActivityPage />} />
+
+        <Route path="dev/components/:slug" element={<ComponentShowcasePage />} />
 
         <Route path="settings" element={<SettingsPage />} />
         <Route
