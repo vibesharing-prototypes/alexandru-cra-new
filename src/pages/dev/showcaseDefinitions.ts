@@ -55,6 +55,7 @@ export const SHOWCASE_COMPONENTS = [
   { slug: "scoring-formulas-wide", name: "ScoringFormulasWide" },
   { slug: "scoring-info", name: "ScoringInfo" },
   { slug: "scoring-info-card", name: "ScoringInfoCard" },
+  { slug: "scoring-info-card-read", name: "ScoringInfoCardRead" },
   { slug: "scoring-metric-field", name: "ScoringMetricField" },
   { slug: "scoring-rationale-dropdowns", name: "ScoringRationaleDropdowns" },
   { slug: "scoring-rationale-formatted-body", name: "ScoringRationaleFormattedBody" },

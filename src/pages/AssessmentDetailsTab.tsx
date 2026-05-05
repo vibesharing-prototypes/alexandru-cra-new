@@ -1242,6 +1242,7 @@ export default function AssessmentDetailsTab() {
             assessmentPhase={assessmentPhase}
             scoringType={scoringType}
             aiScoringPhase={aiScoringPhase}
+            aggregationMethod={scenarioScoreAggregationMethod}
           />
         </TabPanel>
       </Stack>

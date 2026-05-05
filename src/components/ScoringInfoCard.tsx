@@ -20,8 +20,11 @@ export type ScoringInfoCardProps = ScoringInfoProps & {
   omitHeader?: boolean;
   /** Primary heading (Figma: AI scoring). Ignored when `omitHeader` is true. */
   title?: string;
-  /** Supporting copy below the title. Ignored when `omitHeader` is true. */
-  description?: ReactNode;
+  /**
+   * Supporting copy below the title. Ignored when `omitHeader` is true.
+   * Pass `null` to hide the subtitle while keeping the title (for example after AI scoring completes).
+   */
+  description?: ReactNode | null;
   /** Button label (Figma: Start AI scoring). Ignored when `omitHeader` is true. */
   actionLabel?: string;
   /** Invoked when the primary action is activated. Omit to hide the button. */
@@ -109,39 +112,41 @@ export default function ScoringInfoCard({
             >
               {title}
             </Typography>
-            {typeof description === "string" ? (
-              <Typography
-                component="p"
-                variant="textMd"
-                sx={({ tokens: t }) => ({
-                  m: 0,
-                  width: "100%",
-                  fontFamily: t.semantic.font.text.md.fontFamily.value,
-                  fontSize: t.semantic.font.text.md.fontSize.value,
-                  lineHeight: t.semantic.font.text.md.lineHeight.value,
-                  letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                  fontWeight: t.core.fontWeight.regular.value,
-                  color: t.semantic.color.type.default.value,
-                })}
-              >
-                {description}
-              </Typography>
-            ) : (
-              <Box
-                sx={({ tokens: t }) => ({
-                  width: "100%",
-                  minWidth: 0,
-                  fontFamily: t.semantic.font.text.md.fontFamily.value,
-                  fontSize: t.semantic.font.text.md.fontSize.value,
-                  lineHeight: t.semantic.font.text.md.lineHeight.value,
-                  letterSpacing: t.semantic.font.text.md.letterSpacing.value,
-                  fontWeight: t.core.fontWeight.regular.value,
-                  color: t.semantic.color.type.default.value,
-                })}
-              >
-                {description}
-              </Box>
-            )}
+            {description != null ? (
+              typeof description === "string" ? (
+                <Typography
+                  component="p"
+                  variant="textMd"
+                  sx={({ tokens: t }) => ({
+                    m: 0,
+                    width: "100%",
+                    fontFamily: t.semantic.font.text.md.fontFamily.value,
+                    fontSize: t.semantic.font.text.md.fontSize.value,
+                    lineHeight: t.semantic.font.text.md.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                    fontWeight: t.core.fontWeight.regular.value,
+                    color: t.semantic.color.type.default.value,
+                  })}
+                >
+                  {description}
+                </Typography>
+              ) : (
+                <Box
+                  sx={({ tokens: t }) => ({
+                    width: "100%",
+                    minWidth: 0,
+                    fontFamily: t.semantic.font.text.md.fontFamily.value,
+                    fontSize: t.semantic.font.text.md.fontSize.value,
+                    lineHeight: t.semantic.font.text.md.lineHeight.value,
+                    letterSpacing: t.semantic.font.text.md.letterSpacing.value,
+                    fontWeight: t.core.fontWeight.regular.value,
+                    color: t.semantic.color.type.default.value,
+                  })}
+                >
+                  {description}
+                </Box>
+              )
+            ) : null}
           </Stack>
 
           {onAction ? (

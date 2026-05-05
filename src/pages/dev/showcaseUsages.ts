@@ -233,6 +233,10 @@ export const SHOWCASE_USAGES: Record<string, ShowcaseUsage> = {
     ],
     usedInComponents: ["ScoringInfo"],
   },
+  "scoring-info-card-read": {
+    usedInPages: [],
+    usedInComponents: ["ScoringInfoCardRead"],
+  },
   "scoring-metric-field": {
     usedInPages: [{ label: "Scoring rationale", path: "/cyber-risk/cyber-risk-assessments/new/scenario/SCE-001" }],
     usedInComponents: ["ScenarioScoringDropdownsBlock"],

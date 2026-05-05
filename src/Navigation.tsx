@@ -16,7 +16,7 @@ import { SHOWCASE_COMPONENTS } from "./pages/dev/showcaseDefinitions.js";
 export default function Navigation() {
   const [assetTypesOpen, setAssetTypesOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
-  const [cyberRiskOpen, setCyberRiskOpen] = useState(false);
+  const [cyberRiskOpen, setCyberRiskOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
 

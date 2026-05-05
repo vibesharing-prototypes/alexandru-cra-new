@@ -1,5 +1,5 @@
 import { AppLayout } from "@diligentcorp/atlas-react-bundle";
-import { Outlet, Route, Routes } from "react-router";
+import { Navigate, Outlet, Route, Routes } from "react-router";
 import "./styles.css";
 
 import Navigation from "./Navigation.js";
@@ -46,7 +46,7 @@ export default function App() {
           </AppLayout>
         }
       >
-        <Route index element={<OverviewPage />} />
+        <Route index element={<Navigate to="cyber-risk/overview" replace />} />
         <Route path="dashboard" element={<IndexPage />} />
 
         <Route

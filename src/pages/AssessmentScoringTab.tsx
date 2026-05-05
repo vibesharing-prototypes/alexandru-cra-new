@@ -818,6 +818,7 @@ export default function AssessmentScoringTab({
       <ScoringInfoCard
         omitHeader={!showAiScoringAction}
         title={aiScoringPhase === "complete" ? "AI scoring completed" : "AI scoring"}
+        description={aiScoringPhase === "complete" ? null : undefined}
         onAction={
           showAiScoringAction && aiScoringPhase !== "complete" ? onAiScoringClick : undefined
         }

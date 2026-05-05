@@ -14,7 +14,7 @@ import FilterResults, {
 import FilterSideSheet from "../components/FilterSideSheet.js";
 import MitigationPlanPageSideSheet from "../components/MitigationPlanPageSideSheet.js";
 import ResultsHero from "../components/ResultsHero.js";
-import ScoringWide from "../components/ScoringWide.js";
+import ScoringInfoCardRead from "../components/ScoringInfoCardRead.js";
 import { ResultsRiskChip, ResultsTreeData } from "../components/ResultsTreeData.js";
 import type { MatrixSelectionPayload } from "../components/RisksMatrix.js";
 import { Box, Link, Stack } from "@mui/material";
@@ -34,6 +34,7 @@ import {
   type AssessmentPhase,
   type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
+import type { CraScenarioScoreAggregationMethod } from "../data/craAssessmentDraftTypes.js";
 import { filterAssessmentCyberResultsByMatrixFilter } from "../utils/assessmentResultsMatrixFilter.js";
 import type { CyberRiskMatrixTableFilter } from "../utils/cyberRiskTableRows.js";
 
@@ -165,6 +166,7 @@ export default function AssessmentResultsTab({
   assessmentPhase,
   scoringType,
   aiScoringPhase,
+  aggregationMethod,
 }: {
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
@@ -176,6 +178,8 @@ export default function AssessmentResultsTab({
   assessmentPhase: AssessmentPhase;
   scoringType: CraScoringTypeChoice;
   aiScoringPhase: AiScoringPhase;
+  /** Same source as {@link AssessmentScoringTab} aggregation radios (read-only display on Results). */
+  aggregationMethod: CraScenarioScoreAggregationMethod;
 }) {
   const navigate = useNavigate();
 
@@ -322,7 +326,10 @@ export default function AssessmentResultsTab({
 
   return (
     <Stack gap={6} sx={{ pt: 3, pb: 4, width: "100%" }}>
-      <ScoringWide />
+      <ScoringInfoCardRead
+        aggregationMethod={aggregationMethod}
+        aggregationMethodRadio={{ name: "cra-results-tab-aggregation" }}
+      />
       <ResultsHero
         scopedRisks={scopedCyberRisks}
         assetResultRows={assetResultRows}

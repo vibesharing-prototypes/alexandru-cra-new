@@ -57,6 +57,7 @@ import ScoringFormulas from "../../components/ScoringFormulas.js";
 import ScoringFormulasWide from "../../components/ScoringFormulasWide.js";
 import ScoringInfo from "../../components/ScoringInfo.js";
 import ScoringInfoCard from "../../components/ScoringInfoCard.js";
+import ScoringInfoCardRead from "../../components/ScoringInfoCardRead.js";
 import ScoringMetricField from "../../components/ScoringMetricField.js";
 import ScoringRationaleDropdowns from "../../components/ScoringRationaleDropdowns.js";
 import ScoringRationaleFormattedBody from "../../components/ScoringRationaleFormattedBody.js";
@@ -591,6 +592,12 @@ export function renderShowcaseComponent(slug: string): ReactNode {
         <ScoringInfoCard
           onAction={() => {}}
           aggregationMethodRadio={{ name: "showcase-scoring-info-card-aggregation" }}
+        />
+      );
+    case "scoring-info-card-read":
+      return (
+        <ScoringInfoCardRead
+          aggregationMethodRadio={{ name: "showcase-scoring-info-card-read-aggregation" }}
         />
       );
     case "scoring-metric-field":
