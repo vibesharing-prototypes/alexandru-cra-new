@@ -1,5 +1,6 @@
 import type { RiskHeatmapLevel } from "../data/ragDataVisualization.js";
 import { cyberRisks } from "../data/cyberRisks.js";
+import { riskAssessments } from "../data/riskAssessments.js";
 import { getUserById } from "../data/users.js";
 import type {
   CyberRiskStatus,
@@ -39,6 +40,8 @@ export type CyberRiskRow = {
   residualLikelihoodLabel: FivePointScaleLabel;
   residualCyberRiskScoreLabel: FivePointScaleLabel;
   assetIds: string[];
+  /** Distinct cyber risk assessments whose scope includes this risk. */
+  assessmentCount: number;
 };
 
 export type CyberRiskMatrixTableFilter =
@@ -96,7 +99,27 @@ export const EMPTY_CYBER_RISK_TABLE_FILTERS: CyberRiskTableFilters = {
   orgUnitId: null,
 };
 
+function buildCyberRiskIdAssessmentCounts(): Map<string, number> {
+  const byRiskId = new Map<string, Set<string>>();
+  for (const a of riskAssessments) {
+    for (const crId of a.cyberRiskIds) {
+      let ids = byRiskId.get(crId);
+      if (!ids) {
+        ids = new Set();
+        byRiskId.set(crId, ids);
+      }
+      ids.add(a.id);
+    }
+  }
+  const out = new Map<string, number>();
+  for (const [crId, ids] of byRiskId) {
+    out.set(crId, ids.size);
+  }
+  return out;
+}
+
 export function buildCyberRiskRows(): CyberRiskRow[] {
+  const assessmentCountByRiskId = buildCyberRiskIdAssessmentCounts();
   return cyberRisks.map((r) => {
     const owner = getUserById(r.ownerId);
     return {
@@ -117,6 +140,7 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
       residualLikelihoodLabel: r.residualLikelihoodLabel,
       residualCyberRiskScoreLabel: r.residualCyberRiskScoreLabel,
       assetIds: [...r.assetIds],
+      assessmentCount: assessmentCountByRiskId.get(r.id) ?? 0,
     };
   });
 }
