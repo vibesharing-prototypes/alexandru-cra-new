@@ -192,9 +192,6 @@ export default function AssessmentResultsTab({
           aiScoringPhase,
           returnToAssessmentPath: returnToAssessmentPath.trim() || undefined,
           craReturnToTabIndex: NEW_CRA_RESULTS_TAB_INDEX,
-          fromNewCraDraft: false,
-          scenarioCatalogScoresReleased: true,
-          scenarioManuallyRevealedScoreIds: [],
         },
       });
     },

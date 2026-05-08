@@ -27,6 +27,7 @@ import {
   clearCraNewAssessmentDraft,
   loadCraNewAssessmentDraft,
   NEW_CRA_RESULTS_TAB_INDEX,
+  regenerateAssessmentScenarios,
   saveCraNewAssessmentDraft,
   type AiScoringPhase,
   type AssessmentPhase,
@@ -34,7 +35,6 @@ import {
   type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
 import {
-  assessmentScopedScenarios,
   candidateScopedCyberRisks,
   candidateScopedControls,
   candidateScopedThreats,
@@ -219,9 +219,6 @@ export default function AssessmentDetailsTab() {
     !isReturningFromScenario &&
     navigationType !== "POP";
 
-  const isNewCraDraftFlow =
-    !(routeAssessmentId != null && routeAssessmentId !== "") && mockFromRoute == null;
-
   const [initialDraft] = useState(() => {
     if (routeAssessmentId != null && routeAssessmentId !== "") return null;
     if (mockFromRoute != null) return null;
@@ -336,20 +333,18 @@ export default function AssessmentDetailsTab() {
     return new Set();
   });
 
-  const [scenarioCatalogScoresReleased, setScenarioCatalogScoresReleased] = useState(() => {
-    if (!isNewCraDraftFlow || needsInitialDraftClear) return !isNewCraDraftFlow;
-    if (initialDraft) return initialDraft.scenarioCatalogScoresReleased;
-    return false;
-  });
-
-  const [scenarioManuallyRevealedScoreIds, setScenarioManuallyRevealedScoreIds] = useState<
-    Set<string>
-  >(() => {
-    if (!isNewCraDraftFlow || needsInitialDraftClear) return new Set<string>();
-    if (initialDraft?.scenarioManuallyRevealedScoreIds?.length) {
-      return new Set(initialDraft.scenarioManuallyRevealedScoreIds);
+  const [assessmentScenarios, setAssessmentScenarios] = useState(() => {
+    if (initialDraft?.assessmentScenarios) return initialDraft.assessmentScenarios;
+    if (mockFromRoute) {
+      return regenerateAssessmentScenarios({
+        assessmentId: mockFromRoute.id,
+        includedScopeAssetIds: mockFromRoute.assetIds,
+        excludedScopeCyberRiskIds: mockFromRoute.excludedScopeCyberRiskIds ?? [],
+        excludedScopeScenarioIds: mockFromRoute.excludedScopeScenarioIds ?? [],
+        assessmentScenarios: [],
+      });
     }
-    return new Set<string>();
+    return [];
   });
 
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -732,17 +727,10 @@ export default function AssessmentDetailsTab() {
     )
       return true;
     if (assessmentPhase === "scoping") {
-      return (
-        includedScopeAssetIds.size >= 1 &&
-        assessmentScopedScenarios(
-          includedScopeAssetIds,
-          excludedScopeCyberRiskIds,
-          excludedScopeScenarioIds,
-        ).length >= 1
-      );
+      return assessmentScenarios.length >= 1;
     }
     return false;
-  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds]);
+  }, [assessmentPhase, assessmentScenarios]);
 
   const handleSaveDraft = useCallback(() => {
     const catalogAssessmentId =
@@ -781,6 +769,15 @@ export default function AssessmentDetailsTab() {
     const exCForPersist = usePersistedSnapshot
       ? snap.excludedScopeControlIds
       : [...excludedScopeControlIds];
+
+    const nextScenarios = regenerateAssessmentScenarios({
+      assessmentId,
+      includedScopeAssetIds: includedForPersist,
+      excludedScopeCyberRiskIds: exCrForPersist,
+      excludedScopeScenarioIds: [...excludedScopeScenarioIds],
+      assessmentScenarios,
+    });
+    setAssessmentScenarios(nextScenarios);
 
     if (catalogAssessmentId) {
       const row = getRiskAssessmentById(catalogAssessmentId);
@@ -826,8 +823,7 @@ export default function AssessmentDetailsTab() {
         scenarioScoreAggregationMethod,
         scenarioNotApplicableIds: [...scenarioNotApplicableIds],
         excludedScopeScenarioIds: [...excludedScopeScenarioIds],
-        scenarioCatalogScoresReleased,
-        scenarioManuallyRevealedScoreIds: [...scenarioManuallyRevealedScoreIds],
+        assessmentScenarios: nextScenarios,
       });
     }
   }, [
@@ -850,8 +846,7 @@ export default function AssessmentDetailsTab() {
     scoringType,
     scenarioScoreAggregationMethod,
     scenarioNotApplicableIds,
-    scenarioCatalogScoresReleased,
-    scenarioManuallyRevealedScoreIds,
+    assessmentScenarios,
   ]);
 
   const handleSaveDraftWithToast = useCallback(() => {
@@ -909,14 +904,7 @@ export default function AssessmentDetailsTab() {
 
   const handleAiScoringClick = useCallback(() => {
     if (assessmentPhase === "scoping") {
-      if (
-        includedScopeAssetIds.size < 1 ||
-        assessmentScopedScenarios(
-          includedScopeAssetIds,
-          excludedScopeCyberRiskIds,
-          excludedScopeScenarioIds,
-        ).length < 1
-      ) {
+      if (assessmentScenarios.length < 1) {
         return;
       }
       setAssessmentPhase("inProgress");
@@ -928,12 +916,13 @@ export default function AssessmentDetailsTab() {
       }
       aiScoringTimerRef.current = setTimeout(() => {
         aiScoringTimerRef.current = null;
-        setScenarioCatalogScoresReleased(true);
+        // TODO: Populate assessment scenario scores from AI scoring
+        // For now, this is a placeholder that mimics the old behavior
         setAiScoringPhase("complete");
       }, 3000);
       return "processing";
     });
-  }, [assessmentPhase, includedScopeAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds]);
+  }, [assessmentPhase, assessmentScenarios]);
 
   useEffect(() => {
     return () => {
@@ -962,9 +951,8 @@ export default function AssessmentDetailsTab() {
     if (st?.craReturnToTabIndex != null || st?.craReturnToScoring) {
       if (!(routeAssessmentId != null && routeAssessmentId !== "") && mockFromRoute == null) {
         const d = loadCraNewAssessmentDraft();
-        if (d) {
-          setScenarioCatalogScoresReleased(d.scenarioCatalogScoresReleased);
-          setScenarioManuallyRevealedScoreIds(new Set(d.scenarioManuallyRevealedScoreIds ?? []));
+        if (d?.assessmentScenarios) {
+          setAssessmentScenarios(d.assessmentScenarios);
         }
       }
     }
@@ -1210,9 +1198,7 @@ export default function AssessmentDetailsTab() {
             returnToAssessmentPath={location.pathname}
             aggregationMethod={scenarioScoreAggregationMethod}
             onAggregationMethodChange={setScenarioScoreAggregationMethod}
-            includedAssetIds={includedScopeAssetIds}
-            excludedScopeCyberRiskIds={excludedScopeCyberRiskIds}
-            excludedScopeScenarioIds={excludedScopeScenarioIds}
+            assessmentScenarios={assessmentScenarios}
             assessmentPhase={assessmentPhase}
             aiScoringPhase={aiScoringPhase}
             scoringType={scoringType}
@@ -1220,12 +1206,6 @@ export default function AssessmentDetailsTab() {
             onAiScoringClick={handleAiScoringClick}
             onGoToScope={() => setActiveTab(SCOPE_TAB_INDEX)}
             scenarioNotApplicableIds={scenarioNotApplicableIds}
-            isNewCraDraftFlow={isNewCraDraftFlow}
-            scenarioCatalogScoresReleased={scenarioCatalogScoresReleased}
-            scenarioManuallyRevealedScoreIds={scenarioManuallyRevealedScoreIds}
-            scenarioNavFromNewCraDraft={isNewCraDraftFlow}
-            scenarioNavCatalogScoresReleased={scenarioCatalogScoresReleased}
-            scenarioNavManuallyRevealedScoreIds={scenarioManuallyRevealedScoreIds}
             onRemoveCyberRiskFromAssessment={(id) => setCyberRiskScopeIncluded(id, false)}
             onRemoveScenarioFromAssessment={handleRemoveScenarioFromAssessment}
             rowActionsDisabled={isApproved}

@@ -14,6 +14,8 @@ import {
   setPersistedCraDraft,
 } from "../data/persistence/catalogStore.js";
 import { assessmentScopedScenarios } from "../data/assessmentScopeRollup.js";
+import { buildAssessmentScenarios } from "../data/assessmentScenarioBuilder.js";
+import type { AssessmentScenario } from "../data/craAssessmentDraftTypes.js";
 
 export type {
   AiScoringPhase,
@@ -36,12 +38,6 @@ export type CraScenarioDetailLocationState = {
    * {@link NEW_CRA_SCORING_TAB_INDEX} = Scoring, {@link NEW_CRA_RESULTS_TAB_INDEX} = Results.
    */
   craReturnToTabIndex?: number;
-  /** True when navigating from new CRA scoring tab (not catalog-backed assessment row). */
-  fromNewCraDraft?: boolean;
-  /** Snapshot: AI completed for assessment; all scenario catalog scores visible. */
-  scenarioCatalogScoresReleased?: boolean;
-  /** Snapshot: scenario ids with visible catalog scores after manual rationale save. */
-  scenarioManuallyRevealedScoreIds?: string[];
   /** When present (e.g. after save + navigate), destination shows a one-time “Changes were saved.” toast. */
   showSavedChangesToast?: boolean;
 };
@@ -157,11 +153,17 @@ export function sanitizeCraNewAssessmentDraft(
   const excludedScopeScenarioIds = Array.isArray(raw.excludedScopeScenarioIds)
     ? (raw.excludedScopeScenarioIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
-  const scenarioCatalogScoresReleased = raw.scenarioCatalogScoresReleased === true;
-  const scenarioManuallyRevealedScoreIdsRaw = Array.isArray(raw.scenarioManuallyRevealedScoreIds)
-    ? (raw.scenarioManuallyRevealedScoreIds as unknown[]).filter((x): x is string => typeof x === "string")
+
+  // Sanitize assessmentScenarios array
+  const assessmentScenarios = Array.isArray(raw.assessmentScenarios)
+    ? (raw.assessmentScenarios as unknown[]).filter(
+        (x): x is AssessmentScenario =>
+          x != null &&
+          typeof x === "object" &&
+          typeof (x as Record<string, unknown>).id === "string",
+      )
     : [];
-  const scenarioManuallyRevealedScoreIds = [...new Set(scenarioManuallyRevealedScoreIdsRaw)];
+
   return {
     activeTab,
     assessmentPhase,
@@ -182,8 +184,7 @@ export function sanitizeCraNewAssessmentDraft(
     scenarioScoreAggregationMethod,
     scenarioNotApplicableIds,
     excludedScopeScenarioIds,
-    scenarioCatalogScoresReleased,
-    scenarioManuallyRevealedScoreIds,
+    assessmentScenarios,
   };
 }
 
@@ -218,8 +219,7 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
         | undefined,
       scenarioNotApplicableIds: o.scenarioNotApplicableIds as string[] | undefined,
       excludedScopeScenarioIds: o.excludedScopeScenarioIds as string[] | undefined,
-      scenarioCatalogScoresReleased: o.scenarioCatalogScoresReleased as boolean | undefined,
-      scenarioManuallyRevealedScoreIds: o.scenarioManuallyRevealedScoreIds as string[] | undefined,
+      assessmentScenarios: o.assessmentScenarios as AssessmentScenario[] | undefined,
     });
     setPersistedCraDraft(migrated);
     try {
@@ -233,8 +233,66 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
   }
 }
 
+/** Inputs needed to rebuild assessment scenario rows from catalog + scope (scores preserved when possible). */
+export type RegenerateAssessmentScenariosInput = Pick<
+  CraNewAssessmentPersistedDraft,
+  | "assessmentId"
+  | "includedScopeAssetIds"
+  | "excludedScopeCyberRiskIds"
+  | "excludedScopeScenarioIds"
+> & {
+  assessmentScenarios?: AssessmentScenario[];
+};
+
+/**
+ * Regenerate assessment scenarios based on current scope.
+ * Called when scope changes (assets added/removed, risks excluded) or when first entering scoring.
+ */
+export function regenerateAssessmentScenarios(
+  draft: RegenerateAssessmentScenariosInput,
+): AssessmentScenario[] {
+  const assessmentId = draft.assessmentId;
+  const includedAssetIds = new Set(draft.includedScopeAssetIds);
+  const excludedCyberRiskIds = new Set(draft.excludedScopeCyberRiskIds);
+  const excludedScenarioIds = new Set(draft.excludedScopeScenarioIds);
+
+  // If we already have assessment scenarios, try to preserve scores
+  const existingById = new Map(
+    (draft.assessmentScenarios ?? []).map((s) => [s.sourceCatalogScenarioId, s]),
+  );
+
+  const newScenarios = buildAssessmentScenarios(
+    assessmentId,
+    includedAssetIds,
+    excludedCyberRiskIds,
+    excludedScenarioIds,
+  );
+
+  // Preserve scores from existing scenarios if they match by sourceCatalogScenarioId
+  for (const newScenario of newScenarios) {
+    const existing = existingById.get(newScenario.sourceCatalogScenarioId);
+    if (existing) {
+      // Preserve scores
+      newScenario.threatSeverity = existing.threatSeverity;
+      newScenario.threatSeverityLabel = existing.threatSeverityLabel;
+      newScenario.vulnerabilitySeverity = existing.vulnerabilitySeverity;
+      newScenario.vulnerabilitySeverityLabel = existing.vulnerabilitySeverityLabel;
+      newScenario.likelihood = existing.likelihood;
+      newScenario.likelihoodLabel = existing.likelihoodLabel;
+      newScenario.cyberRiskScore = existing.cyberRiskScore;
+      newScenario.cyberRiskScoreLabel = existing.cyberRiskScoreLabel;
+      newScenario.scoringRationale = existing.scoringRationale;
+    }
+  }
+
+  return newScenarios;
+}
+
 export function saveCraNewAssessmentDraft(draft: CraNewAssessmentPersistedDraft): void {
-  setPersistedCraDraft(sanitizeCraNewAssessmentDraft(draft));
+  const sanitized = sanitizeCraNewAssessmentDraft(draft);
+  // Regenerate assessment scenarios on every save to keep them in sync with scope
+  sanitized.assessmentScenarios = regenerateAssessmentScenarios(sanitized);
+  setPersistedCraDraft(sanitized);
 }
 
 /**

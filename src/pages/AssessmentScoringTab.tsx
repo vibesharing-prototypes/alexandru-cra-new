@@ -46,14 +46,10 @@ import {
   type CraScenarioScoreAggregationMethod,
   type CraScoringTypeChoice,
 } from "./craNewAssessmentDraftStorage.js";
-import {
-  assessmentScopedCyberRisks,
-  assessmentScopedScenarios,
-} from "../data/assessmentScopeRollup.js";
+import type { AssessmentScenario } from "../data/craAssessmentDraftTypes.js";
+import { cyberRisks } from "../data/cyberRisks.js";
 
 const EMPTY_SCENARIO_NOT_APPLICABLE_IDS = new Set<string>();
-
-const EMPTY_MANUAL_REVEAL_IDS: ReadonlySet<string> = new Set<string>();
 
 type ScoreValue = {
   numeric: string;
@@ -244,24 +240,22 @@ function toCyberRiskScoreValue(value: number): ScoreValue {
 }
 
 function buildScoringRowsForScope(
-  includedAssetIds: Set<string>,
-  excludedScopeCyberRiskIds: Set<string>,
-  excludedScopeScenarioIds: ReadonlySet<string>,
+  assessmentScenarios: AssessmentScenario[],
   scenarioNotApplicableIds: ReadonlySet<string> = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
 ): ScoringRow[] {
-  if (includedAssetIds.size === 0) return [];
-  const risks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
-  const scenarioList = assessmentScopedScenarios(
-    includedAssetIds,
-    excludedScopeCyberRiskIds,
-    excludedScopeScenarioIds,
-  );
-  const byRisk = new Map<string, (typeof scenarioList)[number][]>();
-  for (const s of scenarioList) {
+  if (assessmentScenarios.length === 0) return [];
+
+  // Group scenarios by cyber risk
+  const byRisk = new Map<string, AssessmentScenario[]>();
+  for (const s of assessmentScenarios) {
     const list = byRisk.get(s.cyberRiskId) ?? [];
     list.push(s);
     byRisk.set(s.cyberRiskId, list);
   }
+
+  // Get unique cyber risks (in order of first appearance)
+  const riskIds = [...new Set(assessmentScenarios.map((s) => s.cyberRiskId))];
+  const risks = riskIds.map((id) => cyberRisks.find((r) => r.id === id)).filter(Boolean) as typeof cyberRisks;
 
   return risks.flatMap((cr) => {
     const riskRow: ScoringRow = {
@@ -313,10 +307,16 @@ function buildScoringRowsForScope(
           </Typography>
         ),
         impact: na ? null : toFivePointScore(s.impact, s.impactLabel),
-        threat: na ? null : toFivePointScore(s.threatSeverity, s.threatSeverityLabel),
-        vulnerability: na ? null : toFivePointScore(s.vulnerabilitySeverity, s.vulnerabilitySeverityLabel),
-        likelihood: na ? null : toLikelihoodScore(s.likelihood),
-        cyberRiskScore: na ? null : toCyberRiskScoreValue(s.cyberRiskScore),
+        threat: s.threatSeverity != null && !na
+          ? toFivePointScore(s.threatSeverity, s.threatSeverityLabel!)
+          : null,
+        vulnerability: s.vulnerabilitySeverity != null && !na
+          ? toFivePointScore(s.vulnerabilitySeverity, s.vulnerabilitySeverityLabel!)
+          : null,
+        likelihood: s.likelihood != null && !na ? toLikelihoodScore(s.likelihood) : null,
+        cyberRiskScore: s.cyberRiskScore != null && !na
+          ? toCyberRiskScoreValue(s.cyberRiskScore)
+          : null,
       };
     });
 
@@ -556,8 +556,8 @@ type AssessmentScoringTabProps = {
   /** Parent-controlled aggregation for cyber-risk parent rows (persisted on the CRA draft). */
   aggregationMethod: CraScenarioScoreAggregationMethod;
   onAggregationMethodChange: (method: CraScenarioScoreAggregationMethod) => void;
-  includedAssetIds: Set<string>;
-  excludedScopeCyberRiskIds: Set<string>;
+  /** Assessment-scoped scenario instances (replace catalog scenario references) */
+  assessmentScenarios: AssessmentScenario[];
   assessmentPhase: AssessmentPhase;
   aiScoringPhase: AiScoringPhase;
   scoringType: CraScoringTypeChoice;
@@ -566,18 +566,8 @@ type AssessmentScoringTabProps = {
   onAiScoringClick: () => void;
   /** Empty state: navigate to Scope tab. */
   onGoToScope: () => void;
-  /** Scenario library ids marked N/A for scoring (scores not masked for these rows). */
+  /** Scenario ids marked N/A for scoring (scores not included in aggregation). */
   scenarioNotApplicableIds?: ReadonlySet<string>;
-  /** New CRA draft: per-scenario masking of catalog scores until AI completes or that scenario is saved on rationale. */
-  isNewCraDraftFlow?: boolean;
-  scenarioCatalogScoresReleased?: boolean;
-  scenarioManuallyRevealedScoreIds?: ReadonlySet<string>;
-  /** Pass-through to scenario rationale navigation state. */
-  scenarioNavFromNewCraDraft?: boolean;
-  scenarioNavCatalogScoresReleased?: boolean;
-  scenarioNavManuallyRevealedScoreIds?: ReadonlySet<string>;
-  /** Scenario library ids removed from this assessment (hidden from the scoring table). */
-  excludedScopeScenarioIds?: ReadonlySet<string>;
   /** Remove a cyber risk from the assessment scope (same as Scope tab exclude). */
   onRemoveCyberRiskFromAssessment: (cyberRiskId: string) => void;
   /** Remove a scenario from the assessment scope. */
@@ -591,8 +581,7 @@ export default function AssessmentScoringTab({
   returnToAssessmentPath,
   aggregationMethod,
   onAggregationMethodChange,
-  includedAssetIds,
-  excludedScopeCyberRiskIds,
+  assessmentScenarios,
   assessmentPhase,
   aiScoringPhase,
   scoringType,
@@ -600,13 +589,6 @@ export default function AssessmentScoringTab({
   onAiScoringClick,
   onGoToScope,
   scenarioNotApplicableIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
-  excludedScopeScenarioIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
-  isNewCraDraftFlow = false,
-  scenarioCatalogScoresReleased = true,
-  scenarioManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
-  scenarioNavFromNewCraDraft = false,
-  scenarioNavCatalogScoresReleased = true,
-  scenarioNavManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
   onRemoveCyberRiskFromAssessment,
   onRemoveScenarioFromAssessment,
   rowActionsDisabled = false,
@@ -618,37 +600,12 @@ export default function AssessmentScoringTab({
     getCatalogSnapshotVersion,
   );
   const scoringRows = useMemo(
-    () =>
-      buildScoringRowsForScope(
-        includedAssetIds,
-        excludedScopeCyberRiskIds,
-        excludedScopeScenarioIds,
-        scenarioNotApplicableIds,
-      ),
-    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds, scenarioNotApplicableIds, catalogVersion],
+    () => buildScoringRowsForScope(assessmentScenarios, scenarioNotApplicableIds),
+    [assessmentScenarios, scenarioNotApplicableIds, catalogVersion],
   );
 
-  const rowsForDisplay = useMemo(() => {
-    if (!isNewCraDraftFlow) return scoringRows;
-    return scoringRows.map((r) => {
-      if (r.kind !== "scenario") return r;
-      if (scenarioNotApplicableIds.has(r.id)) return r;
-      if (scenarioCatalogScoresReleased || scenarioManuallyRevealedScoreIds.has(r.id)) return r;
-      return {
-        ...r,
-        threat: null,
-        vulnerability: null,
-        likelihood: null,
-        cyberRiskScore: null,
-      };
-    });
-  }, [
-    isNewCraDraftFlow,
-    scenarioCatalogScoresReleased,
-    scenarioManuallyRevealedScoreIds,
-    scoringRows,
-    scenarioNotApplicableIds,
-  ]);
+  // No masking needed — assessment scenarios accurately represent unscored state
+  const rowsForDisplay = scoringRows;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [rowActionsMenu, setRowActionsMenu] = useState<
     null | { anchor: HTMLElement; rowKind: "cyberRisk" | "scenario"; rowId: string }
@@ -672,27 +629,10 @@ export default function AssessmentScoringTab({
           aiScoringPhase,
           returnToAssessmentPath,
           craReturnToTabIndex: NEW_CRA_SCORING_TAB_INDEX,
-          ...(assessmentPhase === "assessmentApproved"
-            ? {}
-            : {
-                fromNewCraDraft: scenarioNavFromNewCraDraft,
-                scenarioCatalogScoresReleased: scenarioNavCatalogScoresReleased,
-                scenarioManuallyRevealedScoreIds: [...scenarioNavManuallyRevealedScoreIds],
-              }),
         },
       });
     },
-    [
-      navigate,
-      assessmentName,
-      scoringType,
-      aiScoringPhase,
-      returnToAssessmentPath,
-      assessmentPhase,
-      scenarioNavFromNewCraDraft,
-      scenarioNavCatalogScoresReleased,
-      scenarioNavManuallyRevealedScoreIds,
-    ],
+    [navigate, assessmentName, scoringType, aiScoringPhase, returnToAssessmentPath, assessmentPhase],
   );
 
   const toggleGroup = useCallback((groupId: string) => {
@@ -787,7 +727,7 @@ export default function AssessmentScoringTab({
     return out;
   }, [expanded, rowsForDisplay]);
 
-  if (includedAssetIds.size === 0) {
+  if (assessmentScenarios.length === 0) {
     return (
       <Stack
         sx={({ tokens: t }) => ({

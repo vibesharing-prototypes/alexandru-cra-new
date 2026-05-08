@@ -1,5 +1,70 @@
 /** Shared CRA new-assessment draft model (used by page storage + catalog persistence). */
 
+import type { FivePointScaleValue, FivePointScaleLabel } from "./types.js";
+
+/**
+ * Assessment-scoped scenario instance created when an assessment is started.
+ * Derived from a catalog scenario but has independent scoring lifecycle.
+ */
+export type AssessmentScenario = {
+  /** Unique ID for this assessment scenario (format: "ASC-{assessmentId}-{seq}") */
+  id: string;
+
+  /** Reference back to the catalog scenario this was derived from */
+  sourceCatalogScenarioId: string;
+
+  /** Display name (copied from catalog scenario at creation time) */
+  name: string;
+
+  /** Owner ID (copied from catalog scenario's asset owner) */
+  ownerId: string;
+
+  /** Cyber risk this scenario belongs to */
+  cyberRiskId: string;
+
+  /** Asset being assessed */
+  assetId: string;
+
+  /** Impact score (pre-filled from asset criticality) */
+  impact: FivePointScaleValue;
+  impactLabel: FivePointScaleLabel;
+
+  /** Threat severity (initially null, scored during assessment) */
+  threatSeverity: FivePointScaleValue | null;
+  threatSeverityLabel: FivePointScaleLabel | null;
+
+  /** Vulnerability severity (initially null, scored during assessment) */
+  vulnerabilitySeverity: FivePointScaleValue | null;
+  vulnerabilitySeverityLabel: FivePointScaleLabel | null;
+
+  /** Likelihood (derived: threat × vulnerability, initially null) */
+  likelihood: number | null;
+  likelihoodLabel: FivePointScaleLabel | null;
+
+  /** Cyber risk score (derived: impact × likelihood, initially null) */
+  cyberRiskScore: number | null;
+  cyberRiskScoreLabel: FivePointScaleLabel | null;
+
+  /** Threat IDs linked to this scenario */
+  threatIds: string[];
+
+  /** Vulnerability IDs linked to this scenario */
+  vulnerabilityIds: string[];
+
+  /** Scoring rationale text (copied from catalog scenario, can be edited) */
+  scoringRationale: string;
+
+  /** Relationships (control IDs, mitigation plan IDs) */
+  relationships: {
+    cyberRiskId: string;
+    assetId: string;
+    threatIds: string[];
+    vulnerabilityIds: string[];
+    controlIds: string[];
+    mitigationPlanIds: string[];
+  };
+};
+
 export type AssessmentPhase =
   | "draft"
   | "scoping"
@@ -48,13 +113,9 @@ export type CraNewAssessmentPersistedDraft = {
   /** Scenario library ids explicitly removed from this assessment (hidden from scoring/results). */
   excludedScopeScenarioIds: string[];
   /**
-   * When true (new CRA draft only), AI scoring has completed; show catalog scores for every in-scope scenario.
-   * Not inferred from `aiScoringPhase`; set explicitly when the AI run finishes.
+   * Assessment-scoped scenario instances created for this assessment.
+   * These are derived from catalog scenarios but have independent scoring lifecycle.
+   * Created when assessment scope is finalized.
    */
-  scenarioCatalogScoresReleased: boolean;
-  /**
-   * Scenario library ids for which the user saved scores on the rationale page before AI completed.
-   * Those rows show catalog scores in the scoring table while others stay masked.
-   */
-  scenarioManuallyRevealedScoreIds: string[];
+  assessmentScenarios?: AssessmentScenario[];
 };

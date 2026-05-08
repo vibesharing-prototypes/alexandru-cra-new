@@ -29,7 +29,6 @@ import {
   saveCraNewAssessmentDraft,
   type CraScenarioDetailLocationState,
 } from "./craNewAssessmentDraftStorage.js";
-import { SCENARIO_RATIONALE_READ_ONLY_SEGMENT } from "./craScenarioRoutes.js";
 import {
   getCyberRiskScoreLabel,
   getFivePointLabel,
@@ -37,6 +36,8 @@ import {
   type FivePointScaleValue,
 } from "../data/types.js";
 import { getScenarioById, patchScenario } from "../data/scenarios.js";
+import type { AssessmentScenario } from "../data/craAssessmentDraftTypes.js";
+import type { MockScenario } from "../data/types.js";
 import { users } from "../data/users.js";
 import { getCatalogSnapshotVersion, subscribeCatalog } from "../data/persistence/catalogStore.js";
 import {
@@ -47,45 +48,46 @@ import {
 
 const NEW_CRA_PATH = "/cyber-risk/cyber-risk-assessments/new";
 
-/** Prototype “current user” for save / scoring-override history rows. */
+/** Prototype "current user" for save / scoring-override history rows. */
 const SCENARIO_HISTORY_CURRENT_USER_NAME = users[0]!.fullName;
 /** Example names for seeded baseline history entries. */
 const SCENARIO_HISTORY_BASELINE_LATEST_OWNER = users[1]!.fullName;
 const SCENARIO_HISTORY_BASELINE_PRIOR_OWNER = users[2]!.fullName;
 const ASSESSMENTS_PATH = "/cyber-risk/cyber-risk-assessments";
 
-const NEW_CRA_SCENARIO_ROUTE_SNIPPET = "/cyber-risk-assessments/new/scenario/";
+// No longer needed - assessment scenarios accurately represent scored/unscored state
 
-function computeShowCatalogScoresInUi(params: {
-  scenarioId: string | undefined;
-  nav: CraScenarioDetailLocationState | null;
-  draft: ReturnType<typeof loadCraNewAssessmentDraft>;
-  pathname: string;
-  catalogUiReleased: boolean;
-}): boolean {
-  const { scenarioId, nav, draft, pathname, catalogUiReleased } = params;
-  if (catalogUiReleased) return true;
-  if (!scenarioId) return false;
-  const onNewCraEditableScenarioRoute =
-    pathname.includes(NEW_CRA_SCENARIO_ROUTE_SNIPPET) &&
-    !pathname.includes(`/${SCENARIO_RATIONALE_READ_ONLY_SEGMENT}`);
+/**
+ * Find an assessment scenario in the draft by its ID.
+ * Assessment scenario IDs have format "ASC-{assessmentId}-{seq}".
+ */
+function getAssessmentScenarioFromDraft(
+  draft: ReturnType<typeof loadCraNewAssessmentDraft>,
+  scenarioId: string,
+): AssessmentScenario | undefined {
+  if (!draft?.assessmentScenarios) return undefined;
+  return draft.assessmentScenarios.find((s) => s.id === scenarioId);
+}
 
-  if (nav?.fromNewCraDraft === true) {
-    return (
-      nav.scenarioCatalogScoresReleased === true ||
-      (nav.scenarioManuallyRevealedScoreIds?.includes(scenarioId) ?? false)
-    );
-  }
-  if (nav?.fromNewCraDraft === false) return true;
+/**
+ * Update an assessment scenario in the draft and save.
+ */
+function patchAssessmentScenario(
+  scenarioId: string,
+  patch: Partial<AssessmentScenario>,
+): void {
+  const draft = loadCraNewAssessmentDraft();
+  if (!draft?.assessmentScenarios) return;
 
-  if (onNewCraEditableScenarioRoute) {
-    if (!draft) return false;
-    return (
-      draft.scenarioCatalogScoresReleased === true ||
-      draft.scenarioManuallyRevealedScoreIds.includes(scenarioId)
-    );
-  }
-  return true;
+  const index = draft.assessmentScenarios.findIndex((s) => s.id === scenarioId);
+  if (index === -1) return;
+
+  draft.assessmentScenarios[index] = {
+    ...draft.assessmentScenarios[index],
+    ...patch,
+  };
+
+  saveCraNewAssessmentDraft(draft);
 }
 
 function scenarioScoresEqual(
@@ -117,11 +119,6 @@ export default function ScoringRationalePage() {
   const nav = location.state as CraScenarioDetailLocationState | null;
   const assessmentNameFromNav = nav?.assessmentName;
 
-  const scenario = scenarioId ? getScenarioById(scenarioId) : undefined;
-  const assessmentTitle = (assessmentNameFromNav ?? "").trim() || "New cyber risk assessment";
-
-  const [catalogUiReleased, setCatalogUiReleased] = useState(false);
-
   const catalogVersion = useSyncExternalStore(
     subscribeCatalog,
     getCatalogSnapshotVersion,
@@ -129,20 +126,19 @@ export default function ScoringRationalePage() {
   );
   const persistedDraft = useMemo(() => loadCraNewAssessmentDraft(), [catalogVersion]);
 
-  const showCatalogInUi = useMemo(
-    () =>
-      computeShowCatalogScoresInUi({
-        scenarioId,
-        nav,
-        draft: persistedDraft,
-        pathname: location.pathname,
-        catalogUiReleased,
-      }),
-    [scenarioId, nav, persistedDraft, location.pathname, catalogUiReleased],
+  // Try to load assessment scenario first (if this is from an assessment), else fall back to catalog scenario
+  const assessmentScenario = useMemo(
+    () => (scenarioId && persistedDraft ? getAssessmentScenarioFromDraft(persistedDraft, scenarioId) : undefined),
+    [scenarioId, persistedDraft],
   );
+  const catalogScenario = scenarioId ? getScenarioById(scenarioId) : undefined;
+  const scenario = assessmentScenario || catalogScenario;
+  const isAssessmentScenario = assessmentScenario != null;
+
+  const assessmentTitle = (assessmentNameFromNav ?? "").trim() || "New cyber risk assessment";
 
   const initialScores = useMemo((): ScenarioScoringInitialScores => {
-    if (!scenario || !showCatalogInUi) {
+    if (!scenario) {
       return {
         impact: null,
         threat: null,
@@ -151,17 +147,20 @@ export default function ScoringRationalePage() {
         cyberRiskScore: null,
       };
     }
+    // Assessment scenarios have nullable score fields
+    const threatValue = scenario.threatSeverity != null ? SCORE_OPTIONS[scenario.threatSeverity - 1] : null;
+    const vulnValue = scenario.vulnerabilitySeverity != null ? SCORE_OPTIONS[scenario.vulnerabilitySeverity - 1] : null;
     return {
       impact: SCORE_OPTIONS[scenario.impact - 1] ?? null,
-      threat: SCORE_OPTIONS[scenario.threatSeverity - 1] ?? null,
-      vulnerability: SCORE_OPTIONS[scenario.vulnerabilitySeverity - 1] ?? null,
-      likelihood: likelihoodFromProduct(scenario.likelihood),
-      cyberRiskScore: cyberRiskFromProduct(scenario.cyberRiskScore),
+      threat: threatValue ?? null,
+      vulnerability: vulnValue ?? null,
+      likelihood: scenario.likelihood != null ? likelihoodFromProduct(scenario.likelihood) : null,
+      cyberRiskScore: scenario.cyberRiskScore != null ? cyberRiskFromProduct(scenario.cyberRiskScore) : null,
     };
-  }, [scenario, showCatalogInUi]);
+  }, [scenario]);
 
   const [scoringRationale, setScoringRationale] = useState(
-    () => (showCatalogInUi ? scenario?.scoringRationale ?? "" : ""),
+    () => scenario?.scoringRationale ?? "",
   );
 
   const [preEditHistoryEntries, setPreEditHistoryEntries] = useState<ScenarioHistoryEntry[]>([]);
@@ -169,11 +168,11 @@ export default function ScoringRationalePage() {
   const [liveScores, setLiveScores] = useState<ScenarioScoringInitialScores | null>(null);
 
   const scoringPageDirty = useMemo(() => {
-    if (!scenario || !showCatalogInUi) return false;
+    if (!scenario) return false;
     if (scoringRationale !== scenario.scoringRationale) return true;
     if (liveScores !== null && !scenarioScoresEqual(liveScores, initialScores)) return true;
     return false;
-  }, [scenario, showCatalogInUi, scoringRationale, liveScores, initialScores]);
+  }, [scenario, scoringRationale, liveScores, initialScores]);
 
   const pendingScoringNavigateRef = useRef<PendingSaveNavigationHandlers | null>(null);
   const [scoringUnsavedDialogOpen, setScoringUnsavedDialogOpen] = useState(false);
@@ -207,7 +206,7 @@ export default function ScoringRationalePage() {
       const id = `score-edit-${
         globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
       }`;
-      const snapshotBeforeEdit = buildScenarioHistorySnapshot(scenario, context.previousScores, {
+      const snapshotBeforeEdit = buildScenarioHistorySnapshot(scenario as MockScenario, context.previousScores, {
         rationaleBody: scoringRationale,
       });
       setPreEditHistoryEntries((prev) => [
@@ -226,8 +225,8 @@ export default function ScoringRationalePage() {
 
   const baselineHistoryEntries = useMemo((): ScenarioHistoryEntry[] => {
     if (!scenario) return [];
-    const latest = buildScenarioHistorySnapshot(scenario, initialScores);
-    const prior = buildScenarioHistorySnapshot(scenario, initialScores, {
+    const latest = buildScenarioHistorySnapshot(scenario as MockScenario, initialScores);
+    const prior = buildScenarioHistorySnapshot(scenario as MockScenario, initialScores, {
       rationaleBody: scenario.scoringRationale.split(/\n\n/).slice(0, 3).join("\n\n"),
     });
     return [
@@ -338,7 +337,7 @@ export default function ScoringRationalePage() {
     const id = `save-${
       globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
     }`;
-    const snapshot = buildScenarioHistorySnapshot(scenario, scores, {
+    const snapshot = buildScenarioHistorySnapshot(scenario as MockScenario, scores, {
       rationaleBody: scoringRationale,
     });
     setPreEditHistoryEntries((prev) => [
@@ -352,13 +351,14 @@ export default function ScoringRationalePage() {
     ]);
 
     const impact = (scores.impact ? numericOf(scores.impact) : scenario.impact) as FivePointScaleValue;
-    const threatSeverity = (scores.threat ? numericOf(scores.threat) : scenario.threatSeverity) as FivePointScaleValue;
+    const threatSeverity = (scores.threat ? numericOf(scores.threat) : (scenario.threatSeverity ?? scenario.impact)) as FivePointScaleValue;
     const vulnerabilitySeverity = (scores.vulnerability
       ? numericOf(scores.vulnerability)
-      : scenario.vulnerabilitySeverity) as FivePointScaleValue;
+      : (scenario.vulnerabilitySeverity ?? scenario.impact)) as FivePointScaleValue;
     const likelihood = threatSeverity * vulnerabilitySeverity;
     const cyberRiskScore = impact * likelihood;
-    patchScenario(scenario.id, {
+
+    const patch = {
       impact,
       impactLabel: getFivePointLabel(impact),
       threatSeverity,
@@ -370,32 +370,26 @@ export default function ScoringRationalePage() {
       cyberRiskScore,
       cyberRiskScoreLabel: getCyberRiskScoreLabel(cyberRiskScore),
       scoringRationale: scoringRationale.trim(),
-    });
-    const updated = getScenarioById(scenario.id);
-    if (updated) {
-      setScoringRationale(updated.scoringRationale);
-    }
-    setLiveScores(null);
-    const onNewCraEditableScenarioRoute =
-      location.pathname.includes(NEW_CRA_SCENARIO_ROUTE_SNIPPET) &&
-      !location.pathname.includes(`/${SCENARIO_RATIONALE_READ_ONLY_SEGMENT}`);
-    const shouldPersistManualRevealToDraft =
-      nav?.fromNewCraDraft === true || onNewCraEditableScenarioRoute;
-    if (shouldPersistManualRevealToDraft) {
+    };
+
+    if (isAssessmentScenario) {
+      // Update assessment scenario in draft
+      patchAssessmentScenario(scenario.id, patch);
       const d = loadCraNewAssessmentDraft();
-      if (d) {
-        const next = new Set(d.scenarioManuallyRevealedScoreIds ?? []);
-        next.add(scenario.id);
-        saveCraNewAssessmentDraft({
-          ...d,
-          scenarioManuallyRevealedScoreIds: [...next],
-        });
-        setCatalogUiReleased(true);
-      } else if (nav?.fromNewCraDraft === true) {
-        setCatalogUiReleased(true);
+      const updated = getAssessmentScenarioFromDraft(d, scenario.id);
+      if (updated) {
+        setScoringRationale(updated.scoringRationale);
+      }
+    } else {
+      // Update catalog scenario (old flow)
+      patchScenario(scenario.id, patch);
+      const updated = getScenarioById(scenario.id);
+      if (updated) {
+        setScoringRationale(updated.scoringRationale);
       }
     }
-  }, [scenario, liveScores, initialScores, scoringRationale, nav?.fromNewCraDraft, location.pathname]);
+    setLiveScores(null);
+  }, [scenario, liveScores, initialScores, scoringRationale, isAssessmentScenario, location.pathname]);
 
   const handleSave = useCallback(() => {
     persistScenarioChanges();
@@ -437,7 +431,7 @@ export default function ScoringRationalePage() {
 
   const scoringBlocks = scenario ? (
     <ScenarioScoringDropdownsBlock
-      key={`${scenario.id}-${showCatalogInUi}`}
+      key={scenario.id}
       title={scenarioScoresBlockTitle}
       showBlockTitle
       initialScores={initialScores}
@@ -485,7 +479,7 @@ export default function ScoringRationalePage() {
         />
 
         <Stack gap={3} sx={{ pt: 3, pb: 6, width: "100%", maxWidth: "none" }}>
-          {showCatalogInUi ? (
+          {scenario.threatSeverity != null && scenario.vulnerabilitySeverity != null ? (
             <Alert
               severity="info"
               icon={<AiSparkleIcon />}
