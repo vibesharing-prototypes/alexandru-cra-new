@@ -40,6 +40,7 @@ import {
   candidateScopedThreats,
   candidateScopedVulnerabilities,
 } from "../data/assessmentScopeRollup.js";
+import { globalScenarioCatalogScoresShouldMask } from "../utils/assessmentScenarioCatalogScoreVisibility.js";
 import {
   computeAssessmentRollupForAssetIds,
   getRiskAssessmentById,
@@ -337,7 +338,12 @@ export default function AssessmentDetailsTab() {
   });
 
   const [scenarioCatalogScoresReleased, setScenarioCatalogScoresReleased] = useState(() => {
-    if (!isNewCraDraftFlow || needsInitialDraftClear) return !isNewCraDraftFlow;
+    if (!isNewCraDraftFlow || needsInitialDraftClear) {
+      if (mockFromRoute) {
+        return mockFromRoute.status !== "Draft" && mockFromRoute.status !== "Scoping";
+      }
+      return !isNewCraDraftFlow;
+    }
     if (initialDraft) return initialDraft.scenarioCatalogScoresReleased;
     return false;
   });
@@ -351,6 +357,16 @@ export default function AssessmentDetailsTab() {
     }
     return new Set<string>();
   });
+
+  const applyScenarioCatalogScoreMask = useMemo(
+    () =>
+      globalScenarioCatalogScoresShouldMask({
+        isNewCraDraftFlow,
+        catalogAssessmentStatus: mockFromRoute?.status,
+        scenarioCatalogScoresReleased,
+      }),
+    [isNewCraDraftFlow, mockFromRoute?.status, scenarioCatalogScoresReleased],
+  );
 
   const aiScoringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Detects newly included scope assets (vs initial snapshot) to move workflow back to Scoping. */
@@ -1221,6 +1237,7 @@ export default function AssessmentDetailsTab() {
             onGoToScope={() => setActiveTab(SCOPE_TAB_INDEX)}
             scenarioNotApplicableIds={scenarioNotApplicableIds}
             isNewCraDraftFlow={isNewCraDraftFlow}
+            applyScenarioCatalogScoreMask={applyScenarioCatalogScoreMask}
             scenarioCatalogScoresReleased={scenarioCatalogScoresReleased}
             scenarioManuallyRevealedScoreIds={scenarioManuallyRevealedScoreIds}
             scenarioNavFromNewCraDraft={isNewCraDraftFlow}
@@ -1243,6 +1260,11 @@ export default function AssessmentDetailsTab() {
             scoringType={scoringType}
             aiScoringPhase={aiScoringPhase}
             aggregationMethod={scenarioScoreAggregationMethod}
+            applyScenarioCatalogScoreMask={applyScenarioCatalogScoreMask}
+            scenarioCatalogScoresReleased={scenarioCatalogScoresReleased}
+            scenarioManuallyRevealedScoreIds={scenarioManuallyRevealedScoreIds}
+            scenarioNotApplicableIds={scenarioNotApplicableIds}
+            isNewCraDraftFlow={isNewCraDraftFlow}
           />
         </TabPanel>
       </Stack>

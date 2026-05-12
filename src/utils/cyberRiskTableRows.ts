@@ -1,5 +1,6 @@
 import type { RiskHeatmapLevel } from "../data/ragDataVisualization.js";
 import { cyberRisks } from "../data/cyberRisks.js";
+import { riskAssessments } from "../data/riskAssessments.js";
 import { getUserById } from "../data/users.js";
 import type {
   CyberRiskStatus,
@@ -31,6 +32,8 @@ export type CyberRiskRow = {
   ownerName: string;
   ownerInitials: string;
   assets: number;
+  /** CRA count whose in-scope `cyberRiskIds` includes this library risk. */
+  assessmentCount: number;
   workflowStatus: CyberRiskStatus;
   cyberRiskScoreLabel: FivePointScaleLabel;
   /** Inherent 1–5 impact (matrix column). */
@@ -96,7 +99,18 @@ export const EMPTY_CYBER_RISK_TABLE_FILTERS: CyberRiskTableFilters = {
   orgUnitId: null,
 };
 
+function cyberRiskAssessmentCountById(): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const a of riskAssessments) {
+    for (const crid of a.cyberRiskIds) {
+      counts.set(crid, (counts.get(crid) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 export function buildCyberRiskRows(): CyberRiskRow[] {
+  const assessmentCountByRiskId = cyberRiskAssessmentCountById();
   return cyberRisks.map((r) => {
     const owner = getUserById(r.ownerId);
     return {
@@ -110,6 +124,7 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
       ownerName: owner?.fullName ?? "Unassigned",
       ownerInitials: owner?.initials ?? "",
       assets: r.assetIds.length,
+      assessmentCount: assessmentCountByRiskId.get(r.id) ?? 0,
       workflowStatus: r.status,
       cyberRiskScoreLabel: r.cyberRiskScoreLabel,
       impact: r.impact,

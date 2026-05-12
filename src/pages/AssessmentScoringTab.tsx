@@ -568,8 +568,10 @@ type AssessmentScoringTabProps = {
   onGoToScope: () => void;
   /** Scenario library ids marked N/A for scoring (scores not masked for these rows). */
   scenarioNotApplicableIds?: ReadonlySet<string>;
-  /** New CRA draft: per-scenario masking of catalog scores until AI completes or that scenario is saved on rationale. */
+  /** New CRA or catalog Draft/Scoping: per-scenario masking of catalog scores until AI completes or manual reveal. */
   isNewCraDraftFlow?: boolean;
+  /** When true, hide T/V/L/CRS on scenario rows (impact visible) per draft/catalog rules. */
+  applyScenarioCatalogScoreMask?: boolean;
   scenarioCatalogScoresReleased?: boolean;
   scenarioManuallyRevealedScoreIds?: ReadonlySet<string>;
   /** Pass-through to scenario rationale navigation state. */
@@ -602,6 +604,7 @@ export default function AssessmentScoringTab({
   scenarioNotApplicableIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
   excludedScopeScenarioIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
   isNewCraDraftFlow = false,
+  applyScenarioCatalogScoreMask = false,
   scenarioCatalogScoresReleased = true,
   scenarioManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
   scenarioNavFromNewCraDraft = false,
@@ -629,7 +632,7 @@ export default function AssessmentScoringTab({
   );
 
   const rowsForDisplay = useMemo(() => {
-    if (!isNewCraDraftFlow) return scoringRows;
+    if (!applyScenarioCatalogScoreMask) return scoringRows;
     return scoringRows.map((r) => {
       if (r.kind !== "scenario") return r;
       if (scenarioNotApplicableIds.has(r.id)) return r;
@@ -643,7 +646,7 @@ export default function AssessmentScoringTab({
       };
     });
   }, [
-    isNewCraDraftFlow,
+    applyScenarioCatalogScoreMask,
     scenarioCatalogScoresReleased,
     scenarioManuallyRevealedScoreIds,
     scoringRows,

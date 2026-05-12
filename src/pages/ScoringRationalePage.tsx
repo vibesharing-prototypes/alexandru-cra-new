@@ -44,6 +44,7 @@ import {
   useSavedChangesToast,
   type PendingSaveNavigationHandlers,
 } from "../context/SavedChangesToastContext.js";
+import { catalogScoresVisibleFromAssessmentNavState } from "../utils/assessmentScenarioCatalogScoreVisibility.js";
 
 const NEW_CRA_PATH = "/cyber-risk/cyber-risk-assessments/new";
 
@@ -70,13 +71,8 @@ function computeShowCatalogScoresInUi(params: {
     pathname.includes(NEW_CRA_SCENARIO_ROUTE_SNIPPET) &&
     !pathname.includes(`/${SCENARIO_RATIONALE_READ_ONLY_SEGMENT}`);
 
-  if (nav?.fromNewCraDraft === true) {
-    return (
-      nav.scenarioCatalogScoresReleased === true ||
-      (nav.scenarioManuallyRevealedScoreIds?.includes(scenarioId) ?? false)
-    );
-  }
-  if (nav?.fromNewCraDraft === false) return true;
+  const fromAssessmentNav = catalogScoresVisibleFromAssessmentNavState(scenarioId, nav);
+  if (fromAssessmentNav !== null) return fromAssessmentNav;
 
   if (onNewCraEditableScenarioRoute) {
     if (!draft) return false;

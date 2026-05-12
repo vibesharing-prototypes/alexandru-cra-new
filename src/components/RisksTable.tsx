@@ -159,6 +159,12 @@ export default function RisksTable({
       type: "number",
     },
     {
+      field: "assessmentCount",
+      headerName: "Assessments",
+      width: 120,
+      type: "number",
+    },
+    {
       field: "workflowStatus",
       headerName: "Workflow status",
       width: 160,
