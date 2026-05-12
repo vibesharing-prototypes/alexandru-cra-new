@@ -19,6 +19,7 @@ import {
   SCORE_OPTIONS,
 } from "../components/ScoringMetricField.js";
 import { NEW_CRA_SCORING_TAB_INDEX, type CraScenarioDetailLocationState } from "./craNewAssessmentDraftStorage.js";
+import { catalogScoresVisibleFromAssessmentNavState } from "../utils/assessmentScenarioCatalogScoreVisibility.js";
 import { getScenarioById } from "../data/scenarios.js";
 import { users } from "../data/users.js";
 
@@ -42,10 +43,23 @@ export default function RationaleReadOnly() {
   const scenario = scenarioId ? getScenarioById(scenarioId) : undefined;
   const assessmentTitle = (assessmentNameFromNav ?? "").trim() || "New cyber risk assessment";
 
+  const showFullCatalogScores = useMemo(() => {
+    return catalogScoresVisibleFromAssessmentNavState(scenarioId, nav) ?? true;
+  }, [nav, scenarioId]);
+
   const initialScores = useMemo((): ScenarioScoringInitialScores => {
     if (!scenario) {
       return {
         impact: null,
+        threat: null,
+        vulnerability: null,
+        likelihood: null,
+        cyberRiskScore: null,
+      };
+    }
+    if (!showFullCatalogScores) {
+      return {
+        impact: SCORE_OPTIONS[scenario.impact - 1] ?? null,
         threat: null,
         vulnerability: null,
         likelihood: null,
@@ -59,7 +73,7 @@ export default function RationaleReadOnly() {
       likelihood: likelihoodFromProduct(scenario.likelihood),
       cyberRiskScore: cyberRiskFromProduct(scenario.cyberRiskScore),
     };
-  }, [scenario]);
+  }, [scenario, showFullCatalogScores]);
 
   const historyEntries = useMemo((): ScenarioHistoryEntry[] => {
     if (!scenario) return [];

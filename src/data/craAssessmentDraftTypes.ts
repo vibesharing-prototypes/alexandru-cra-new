@@ -118,4 +118,8 @@ export type CraNewAssessmentPersistedDraft = {
    * Created when assessment scope is finalized.
    */
   assessmentScenarios?: AssessmentScenario[];
+  /** When true, mock AI scoring has released catalog T/V/L/CRS for scenario rows (new CRA draft). */
+  scenarioCatalogScoresReleased: boolean;
+  /** Scenario ids for which the user revealed catalog scores before AI completion. */
+  scenarioManuallyRevealedScoreIds: string[];
 };

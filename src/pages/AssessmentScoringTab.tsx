@@ -50,6 +50,7 @@ import type { AssessmentScenario } from "../data/craAssessmentDraftTypes.js";
 import { cyberRisks } from "../data/cyberRisks.js";
 
 const EMPTY_SCENARIO_NOT_APPLICABLE_IDS = new Set<string>();
+const EMPTY_MANUAL_REVEAL_IDS: ReadonlySet<string> = new Set<string>();
 
 type ScoreValue = {
   numeric: string;
@@ -568,6 +569,16 @@ type AssessmentScoringTabProps = {
   onGoToScope: () => void;
   /** Scenario ids marked N/A for scoring (scores not included in aggregation). */
   scenarioNotApplicableIds?: ReadonlySet<string>;
+  /** New CRA or catalog Draft/Scoping: per-scenario masking of catalog scores until AI completes or manual reveal. */
+  isNewCraDraftFlow?: boolean;
+  /** When true, hide T/V/L/CRS on scenario rows (impact visible) per draft/catalog rules. */
+  applyScenarioCatalogScoreMask?: boolean;
+  scenarioCatalogScoresReleased?: boolean;
+  scenarioManuallyRevealedScoreIds?: ReadonlySet<string>;
+  /** Pass-through to scenario rationale navigation state. */
+  scenarioNavFromNewCraDraft?: boolean;
+  scenarioNavCatalogScoresReleased?: boolean;
+  scenarioNavManuallyRevealedScoreIds?: ReadonlySet<string>;
   /** Remove a cyber risk from the assessment scope (same as Scope tab exclude). */
   onRemoveCyberRiskFromAssessment: (cyberRiskId: string) => void;
   /** Remove a scenario from the assessment scope. */
@@ -589,6 +600,13 @@ export default function AssessmentScoringTab({
   onAiScoringClick,
   onGoToScope,
   scenarioNotApplicableIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
+  isNewCraDraftFlow: _isNewCraDraftFlow = false,
+  applyScenarioCatalogScoreMask = false,
+  scenarioCatalogScoresReleased = true,
+  scenarioManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
+  scenarioNavFromNewCraDraft = false,
+  scenarioNavCatalogScoresReleased = true,
+  scenarioNavManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
   onRemoveCyberRiskFromAssessment,
   onRemoveScenarioFromAssessment,
   rowActionsDisabled = false,
@@ -604,8 +622,27 @@ export default function AssessmentScoringTab({
     [assessmentScenarios, scenarioNotApplicableIds, catalogVersion],
   );
 
-  // No masking needed — assessment scenarios accurately represent unscored state
-  const rowsForDisplay = scoringRows;
+  const rowsForDisplay = useMemo(() => {
+    if (!applyScenarioCatalogScoreMask) return scoringRows;
+    return scoringRows.map((r) => {
+      if (r.kind !== "scenario") return r;
+      if (scenarioNotApplicableIds.has(r.id)) return r;
+      if (scenarioCatalogScoresReleased || scenarioManuallyRevealedScoreIds.has(r.id)) return r;
+      return {
+        ...r,
+        threat: null,
+        vulnerability: null,
+        likelihood: null,
+        cyberRiskScore: null,
+      };
+    });
+  }, [
+    applyScenarioCatalogScoreMask,
+    scenarioCatalogScoresReleased,
+    scenarioManuallyRevealedScoreIds,
+    scoringRows,
+    scenarioNotApplicableIds,
+  ]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [rowActionsMenu, setRowActionsMenu] = useState<
     null | { anchor: HTMLElement; rowKind: "cyberRisk" | "scenario"; rowId: string }
@@ -629,10 +666,27 @@ export default function AssessmentScoringTab({
           aiScoringPhase,
           returnToAssessmentPath,
           craReturnToTabIndex: NEW_CRA_SCORING_TAB_INDEX,
+          ...(assessmentPhase === "assessmentApproved"
+            ? {}
+            : {
+                fromNewCraDraft: scenarioNavFromNewCraDraft,
+                scenarioCatalogScoresReleased: scenarioNavCatalogScoresReleased,
+                scenarioManuallyRevealedScoreIds: [...scenarioNavManuallyRevealedScoreIds],
+              }),
         },
       });
     },
-    [navigate, assessmentName, scoringType, aiScoringPhase, returnToAssessmentPath, assessmentPhase],
+    [
+      navigate,
+      assessmentName,
+      scoringType,
+      aiScoringPhase,
+      returnToAssessmentPath,
+      assessmentPhase,
+      scenarioNavFromNewCraDraft,
+      scenarioNavCatalogScoresReleased,
+      scenarioNavManuallyRevealedScoreIds,
+    ],
   );
 
   const toggleGroup = useCallback((groupId: string) => {

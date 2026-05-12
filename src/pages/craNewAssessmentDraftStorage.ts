@@ -40,6 +40,10 @@ export type CraScenarioDetailLocationState = {
   craReturnToTabIndex?: number;
   /** When present (e.g. after save + navigate), destination shows a one-time “Changes were saved.” toast. */
   showSavedChangesToast?: boolean;
+  /** New CRA draft: navigation carries whether catalog scores were released or manually revealed. */
+  fromNewCraDraft?: boolean;
+  scenarioCatalogScoresReleased?: boolean;
+  scenarioManuallyRevealedScoreIds?: readonly string[];
 };
 
 const STORAGE_KEY = "cra_new_assessment_draft_v1";
@@ -164,6 +168,12 @@ export function sanitizeCraNewAssessmentDraft(
       )
     : [];
 
+  const scenarioCatalogScoresReleased =
+    typeof raw.scenarioCatalogScoresReleased === "boolean" ? raw.scenarioCatalogScoresReleased : false;
+  const scenarioManuallyRevealedScoreIds = Array.isArray(raw.scenarioManuallyRevealedScoreIds)
+    ? (raw.scenarioManuallyRevealedScoreIds as unknown[]).filter((x): x is string => typeof x === "string")
+    : [];
+
   return {
     activeTab,
     assessmentPhase,
@@ -185,6 +195,8 @@ export function sanitizeCraNewAssessmentDraft(
     scenarioNotApplicableIds,
     excludedScopeScenarioIds,
     assessmentScenarios,
+    scenarioCatalogScoresReleased,
+    scenarioManuallyRevealedScoreIds,
   };
 }
 
@@ -220,6 +232,8 @@ export function loadCraNewAssessmentDraft(): CraNewAssessmentPersistedDraft | nu
       scenarioNotApplicableIds: o.scenarioNotApplicableIds as string[] | undefined,
       excludedScopeScenarioIds: o.excludedScopeScenarioIds as string[] | undefined,
       assessmentScenarios: o.assessmentScenarios as AssessmentScenario[] | undefined,
+      scenarioCatalogScoresReleased: o.scenarioCatalogScoresReleased as boolean | undefined,
+      scenarioManuallyRevealedScoreIds: o.scenarioManuallyRevealedScoreIds as string[] | undefined,
     });
     setPersistedCraDraft(migrated);
     try {
