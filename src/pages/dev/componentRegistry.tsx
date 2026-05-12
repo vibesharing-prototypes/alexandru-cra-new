@@ -1,4 +1,3 @@
-// @ts-nocheck — dev-only showcase; types lag component API churn in the prototype.
 import type { ReactNode } from "react";
 
 import { SHOWCASE_COMPONENTS } from "./showcaseDefinitions.js";

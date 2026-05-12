@@ -32,8 +32,6 @@ export type CyberRiskRow = {
   ownerName: string;
   ownerInitials: string;
   assets: number;
-  /** Distinct cyber risk assessments whose in-scope `cyberRiskIds` include this library risk. */
-  assessmentCount: number;
   workflowStatus: CyberRiskStatus;
   cyberRiskScoreLabel: FivePointScaleLabel;
   /** Inherent 1–5 impact (matrix column). */
@@ -42,6 +40,8 @@ export type CyberRiskRow = {
   residualLikelihoodLabel: FivePointScaleLabel;
   residualCyberRiskScoreLabel: FivePointScaleLabel;
   assetIds: string[];
+  /** Distinct cyber risk assessments whose scope includes this risk. */
+  assessmentCount: number;
 };
 
 export type CyberRiskMatrixTableFilter =
@@ -133,7 +133,6 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
       ownerName: owner?.fullName ?? "Unassigned",
       ownerInitials: owner?.initials ?? "",
       assets: r.assetIds.length,
-      assessmentCount: assessmentCountByRiskId.get(r.id) ?? 0,
       workflowStatus: r.status,
       cyberRiskScoreLabel: r.cyberRiskScoreLabel,
       impact: r.impact,
@@ -141,6 +140,7 @@ export function buildCyberRiskRows(): CyberRiskRow[] {
       residualLikelihoodLabel: r.residualLikelihoodLabel,
       residualCyberRiskScoreLabel: r.residualCyberRiskScoreLabel,
       assetIds: [...r.assetIds],
+      assessmentCount: assessmentCountByRiskId.get(r.id) ?? 0,
     };
   });
 }

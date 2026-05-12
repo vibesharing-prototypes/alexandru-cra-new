@@ -21,8 +21,6 @@ import { Box, Link, Stack } from "@mui/material";
 import { DataGridPro, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid-pro";
 import { assets } from "../data/assets.js";
 import {
-  applyCatalogScoreMaskToAssetResultRows,
-  applyCatalogScoreMaskToCyberResultsRows,
   buildAssetResultRowsForScope,
   buildCyberResultsRowsForScope,
   type AssessmentAssetResultRow,
@@ -169,11 +167,6 @@ export default function AssessmentResultsTab({
   scoringType,
   aiScoringPhase,
   aggregationMethod,
-  applyScenarioCatalogScoreMask,
-  scenarioCatalogScoresReleased,
-  scenarioManuallyRevealedScoreIds,
-  scenarioNotApplicableIds,
-  isNewCraDraftFlow,
 }: {
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
@@ -187,12 +180,6 @@ export default function AssessmentResultsTab({
   aiScoringPhase: AiScoringPhase;
   /** Same source as {@link AssessmentScoringTab} aggregation radios (read-only display on Results). */
   aggregationMethod: CraScenarioScoreAggregationMethod;
-  /** When true, hide catalog T/V/L/CRS (and parent aggregates) until AI release, same as Scoring. */
-  applyScenarioCatalogScoreMask: boolean;
-  scenarioCatalogScoresReleased: boolean;
-  scenarioManuallyRevealedScoreIds: ReadonlySet<string>;
-  scenarioNotApplicableIds: ReadonlySet<string>;
-  isNewCraDraftFlow: boolean;
 }) {
   const navigate = useNavigate();
 
@@ -205,27 +192,18 @@ export default function AssessmentResultsTab({
           aiScoringPhase,
           returnToAssessmentPath: returnToAssessmentPath.trim() || undefined,
           craReturnToTabIndex: NEW_CRA_RESULTS_TAB_INDEX,
-          fromNewCraDraft: isNewCraDraftFlow,
-          scenarioCatalogScoresReleased,
-          scenarioManuallyRevealedScoreIds: [...scenarioManuallyRevealedScoreIds],
+          fromNewCraDraft: false,
+          scenarioCatalogScoresReleased: true,
+          scenarioManuallyRevealedScoreIds: [],
         },
       });
     },
-    [
-      navigate,
-      assessmentName,
-      scoringType,
-      aiScoringPhase,
-      returnToAssessmentPath,
-      isNewCraDraftFlow,
-      scenarioCatalogScoresReleased,
-      scenarioManuallyRevealedScoreIds,
-    ],
+    [navigate, assessmentName, scoringType, aiScoringPhase, returnToAssessmentPath],
   );
 
   const onScenarioRowClick =
     assessmentPhase === "assessmentApproved" ? goToScenarioReadOnly : undefined;
-  const baseCyberResultRows = useMemo(
+  const cyberResultRows = useMemo(
     () =>
       buildCyberResultsRowsForScope(
         includedAssetIds,
@@ -234,21 +212,7 @@ export default function AssessmentResultsTab({
       ),
     [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
   );
-  const cyberResultRows = useMemo(
-    () =>
-      applyCatalogScoreMaskToCyberResultsRows(baseCyberResultRows, {
-        globalMask: applyScenarioCatalogScoreMask,
-        scenarioNotApplicableIds,
-        scenarioManuallyRevealedScoreIds,
-      }),
-    [
-      baseCyberResultRows,
-      applyScenarioCatalogScoreMask,
-      scenarioNotApplicableIds,
-      scenarioManuallyRevealedScoreIds,
-    ],
-  );
-  const baseAssetResultRows = useMemo(
+  const assetResultRows = useMemo(
     () =>
       buildAssetResultRowsForScope(
         includedAssetIds,
@@ -256,10 +220,6 @@ export default function AssessmentResultsTab({
         excludedScopeScenarioIds,
       ),
     [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
-  );
-  const assetResultRows = useMemo(
-    () => applyCatalogScoreMaskToAssetResultRows(baseAssetResultRows, applyScenarioCatalogScoreMask),
-    [baseAssetResultRows, applyScenarioCatalogScoreMask],
   );
   const relatedAssetNames = useMemo(
     () => assets.filter((a) => includedAssetIds.has(a.id)).map((a) => a.name),

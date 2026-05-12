@@ -70,7 +70,7 @@ export function buildAssetCyberRiskDonutSegments(
 
 /** Minimal row shape: same `cyberRiskScore.label` as assessment asset result rows / Assets grid. */
 export type AssessmentAssetRowForDonut = {
-  cyberRiskScore: { label: string } | null;
+  cyberRiskScore: { label: string };
 };
 
 /**
@@ -88,7 +88,6 @@ export function buildAssetCyberRiskDonutSegmentsFromAssessmentAssetRows(
     "Very low": 0,
   };
   for (const row of rows) {
-    if (row.cyberRiskScore == null) continue;
     const lab = row.cyberRiskScore.label as FivePointScaleLabel;
     counts[lab] += 1;
   }

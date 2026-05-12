@@ -17,21 +17,7 @@ import { ragDataVizColor } from "../data/ragDataVisualization.js";
 export type ResultsScoreChip = { numeric: string; label: string; rag: CraRagKey };
 
 /** RAG-colored chip used on assessment results grids (cyber risks tree and assets). */
-export function ResultsRiskChip({ value }: { value: ResultsScoreChip | null }) {
-  if (value == null) {
-    return (
-      <Typography
-        component="span"
-        variant="textSm"
-        sx={({ tokens: t }) => ({
-          color: t.semantic.color.type.muted.value,
-          whiteSpace: "nowrap",
-        })}
-      >
-        Not scored
-      </Typography>
-    );
-  }
+export function ResultsRiskChip({ value }: { value: ResultsScoreChip }) {
   return (
     <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16, py: 1 }}>
       <Box
