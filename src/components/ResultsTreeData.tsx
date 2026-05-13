@@ -10,14 +10,34 @@ import {
 import ExpandDownIcon from "@diligentcorp/atlas-react-bundle/icons/ExpandDown";
 
 import NewToolbar from "./NewToolbar.js";
-import { type CraRagKey } from "../data/craScoringScenarioLibrary.js";
-import { type AssessmentCyberResultsRow } from "../pages/craAssessmentScopeRows.js";
+import {
+  type AssessmentCyberResultsRow,
+  type AssessmentResultsScoreChip,
+} from "../pages/craAssessmentScopeRows.js";
 import { ragDataVizColor } from "../data/ragDataVisualization.js";
 
-export type ResultsScoreChip = { numeric: string; label: string; rag: CraRagKey };
+export type ResultsScoreChip = AssessmentResultsScoreChip;
 
 /** RAG-colored chip used on assessment results grids (cyber risks tree and assets). */
-export function ResultsRiskChip({ value }: { value: ResultsScoreChip }) {
+export function ResultsRiskChip({ value }: { value: ResultsScoreChip | null }) {
+  if (value == null) {
+    return (
+      <Typography
+        component="span"
+        aria-label="Score not available until AI scoring completes or scores are revealed."
+        sx={({ tokens: t }) => ({
+          fontSize: t.semantic.font.label.xs.fontSize.value,
+          lineHeight: t.semantic.font.label.xs.lineHeight.value,
+          letterSpacing: t.semantic.font.label.xs.letterSpacing.value,
+          fontWeight: t.semantic.font.label.xs.fontWeight.value,
+          color: t.semantic.color.type.muted.value,
+          whiteSpace: "nowrap",
+        })}
+      >
+        —
+      </Typography>
+    );
+  }
   return (
     <Stack direction="row" alignItems="center" gap={1} sx={{ height: 16, py: 1 }}>
       <Box

@@ -21,12 +21,19 @@ import { Box, Link, Stack } from "@mui/material";
 import { DataGridPro, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid-pro";
 import { assets } from "../data/assets.js";
 import {
+  applyNewCraCatalogScoreMaskingToAssetResultsRows,
+  applyNewCraCatalogScoreMaskingToCyberResultsRows,
+  assessmentResultsHasHiddenScenarioScores,
   buildAssetResultRowsForScope,
   buildCyberResultsRowsForScope,
   type AssessmentAssetResultRow,
   type AssessmentCyberResultsRow,
+  type AssessmentResultsCatalogMaskParams,
 } from "./craAssessmentScopeRows.js";
-import { assessmentScopedCyberRisks } from "../data/assessmentScopeRollup.js";
+import {
+  assessmentScopedCyberRisks,
+  assessmentScopedScenarios,
+} from "../data/assessmentScopeRollup.js";
 import { scenarioRationaleReadOnlyPath } from "./craScenarioRoutes.js";
 import {
   NEW_CRA_RESULTS_TAB_INDEX,
@@ -40,6 +47,9 @@ import type { CyberRiskMatrixTableFilter } from "../utils/cyberRiskTableRows.js"
 
 type CyberResultsRow = AssessmentCyberResultsRow;
 type AssetResultRow = AssessmentAssetResultRow;
+
+const EMPTY_SCENARIO_NOT_APPLICABLE_IDS = new Set<string>();
+const EMPTY_MANUAL_REVEAL_IDS = new Set<string>();
 
 function AssetsResultsGrid({ rows }: { rows: AssetResultRow[] }) {
   const columns: GridColDef<AssetResultRow>[] = useMemo(
@@ -167,6 +177,10 @@ export default function AssessmentResultsTab({
   scoringType,
   aiScoringPhase,
   aggregationMethod,
+  isNewCraDraftFlow = false,
+  scenarioCatalogScoresReleased = true,
+  scenarioManuallyRevealedScoreIds = EMPTY_MANUAL_REVEAL_IDS,
+  scenarioNotApplicableIds = EMPTY_SCENARIO_NOT_APPLICABLE_IDS,
 }: {
   includedAssetIds: Set<string>;
   excludedScopeCyberRiskIds: Set<string>;
@@ -180,6 +194,11 @@ export default function AssessmentResultsTab({
   aiScoringPhase: AiScoringPhase;
   /** Same source as {@link AssessmentScoringTab} aggregation radios (read-only display on Results). */
   aggregationMethod: CraScenarioScoreAggregationMethod;
+  /** When true, apply the same scenario catalog score masking as {@link AssessmentScoringTab}. */
+  isNewCraDraftFlow?: boolean;
+  scenarioCatalogScoresReleased?: boolean;
+  scenarioManuallyRevealedScoreIds?: ReadonlySet<string>;
+  scenarioNotApplicableIds?: ReadonlySet<string>;
 }) {
   const navigate = useNavigate();
 
@@ -203,23 +222,91 @@ export default function AssessmentResultsTab({
 
   const onScenarioRowClick =
     assessmentPhase === "assessmentApproved" ? goToScenarioReadOnly : undefined;
-  const cyberResultRows = useMemo(
+
+  const catalogMaskParams: AssessmentResultsCatalogMaskParams = useMemo(
+    () => ({
+      assessmentPhase,
+      aiScoringPhase,
+      isNewCraDraftFlow,
+      scenarioCatalogScoresReleased,
+      scenarioManuallyRevealedScoreIds,
+      scenarioNotApplicableIds,
+    }),
+    [
+      assessmentPhase,
+      aiScoringPhase,
+      isNewCraDraftFlow,
+      scenarioCatalogScoresReleased,
+      scenarioManuallyRevealedScoreIds,
+      scenarioNotApplicableIds,
+    ],
+  );
+
+  const scenarioListInScope = useMemo(
     () =>
-      buildCyberResultsRowsForScope(
+      assessmentScopedScenarios(
         includedAssetIds,
         excludedScopeCyberRiskIds,
         excludedScopeScenarioIds,
       ),
     [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
   );
-  const assetResultRows = useMemo(
-    () =>
-      buildAssetResultRowsForScope(
-        includedAssetIds,
-        excludedScopeCyberRiskIds,
-        excludedScopeScenarioIds,
-      ),
-    [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds],
+
+  const scenariosByRiskId = useMemo(() => {
+    const m = new Map<string, (typeof scenarioListInScope)[number][]>();
+    for (const s of scenarioListInScope) {
+      const list = m.get(s.cyberRiskId) ?? [];
+      list.push(s);
+      m.set(s.cyberRiskId, list);
+    }
+    return m;
+  }, [scenarioListInScope]);
+
+  const scenariosByAssetId = useMemo(() => {
+    const m = new Map<string, (typeof scenarioListInScope)[number][]>();
+    for (const s of scenarioListInScope) {
+      const list = m.get(s.assetId) ?? [];
+      list.push(s);
+      m.set(s.assetId, list);
+    }
+    return m;
+  }, [scenarioListInScope]);
+
+  const cyberResultRows = useMemo(() => {
+    const raw = buildCyberResultsRowsForScope(
+      includedAssetIds,
+      excludedScopeCyberRiskIds,
+      excludedScopeScenarioIds,
+    );
+    const risks = assessmentScopedCyberRisks(includedAssetIds, excludedScopeCyberRiskIds);
+    const risksById = new Map(risks.map((r) => [r.id, r] as const));
+    return applyNewCraCatalogScoreMaskingToCyberResultsRows(raw, risksById, scenariosByRiskId, catalogMaskParams);
+  }, [
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+    scenariosByRiskId,
+    catalogMaskParams,
+  ]);
+
+  const assetResultRows = useMemo(() => {
+    const raw = buildAssetResultRowsForScope(
+      includedAssetIds,
+      excludedScopeCyberRiskIds,
+      excludedScopeScenarioIds,
+    );
+    return applyNewCraCatalogScoreMaskingToAssetResultsRows(raw, scenariosByAssetId, catalogMaskParams);
+  }, [
+    includedAssetIds,
+    excludedScopeCyberRiskIds,
+    excludedScopeScenarioIds,
+    scenariosByAssetId,
+    catalogMaskParams,
+  ]);
+
+  const suppressScenarioDerivedOverview = assessmentResultsHasHiddenScenarioScores(
+    scenarioListInScope,
+    catalogMaskParams,
   );
   const relatedAssetNames = useMemo(
     () => assets.filter((a) => includedAssetIds.has(a.id)).map((a) => a.name),
@@ -335,6 +422,7 @@ export default function AssessmentResultsTab({
         assetResultRows={assetResultRows}
         scoringType={scoringType}
         onMatrixSelection={handleMatrixSelectionForResultsTable}
+        suppressScenarioDerivedOverview={suppressScenarioDerivedOverview}
       />
 
       <SectionHeader

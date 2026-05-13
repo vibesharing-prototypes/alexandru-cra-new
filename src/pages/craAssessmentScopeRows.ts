@@ -7,23 +7,34 @@ import {
   getLikelihoodLabel,
 } from "../data/types.js";
 import {
+  assessmentUiHasHiddenScenarioCatalogScores,
+  scenarioCatalogScoresVisibleInAssessmentUi,
+  type ScenarioCatalogMaskContext,
+} from "../utils/scenarioCatalogScoreMask.js";
+import {
   assessmentScopedCyberRisks,
   assessmentScopedScenarios,
 } from "./scopeAssessmentRollup.js";
+
+export type AssessmentResultsScoreChip = {
+  numeric: string;
+  label: string;
+  rag: CraRagKey;
+};
 
 export type AssessmentCyberResultsRow = {
   id: string;
   kind: "cyberRisk" | "scenario";
   groupId: string;
   name: string;
-  impact: { numeric: string; label: string; rag: CraRagKey };
-  threat: { numeric: string; label: string; rag: CraRagKey };
-  vulnerability: { numeric: string; label: string; rag: CraRagKey };
-  likelihood: { numeric: string; label: string; rag: CraRagKey };
-  cyberRiskScore: { numeric: string; label: string; rag: CraRagKey };
+  impact: AssessmentResultsScoreChip | null;
+  threat: AssessmentResultsScoreChip | null;
+  vulnerability: AssessmentResultsScoreChip | null;
+  likelihood: AssessmentResultsScoreChip | null;
+  cyberRiskScore: AssessmentResultsScoreChip | null;
 };
 
-type Chip = AssessmentCyberResultsRow["impact"];
+type Chip = AssessmentResultsScoreChip;
 
 function chipFive(value: number, label: FivePointScaleLabel): Chip {
   return {
@@ -145,11 +156,100 @@ export function buildCyberResultsRowsForScope(
   return rows;
 }
 
+/** Inputs for {@link applyNewCraCatalogScoreMaskingToCyberResultsRows} / asset masking. */
+export type AssessmentResultsCatalogMaskParams = ScenarioCatalogMaskContext;
+
+/**
+ * Every non–N/A scenario in the group has catalog scores released or manually revealed (aligns with
+ * {@link AssessmentScoringTab} parent aggregation preconditions).
+ */
+function everyApplicableScenarioCatalogVisibleForResults(
+  scenariosInGroup: readonly MockScenario[],
+  p: AssessmentResultsCatalogMaskParams,
+): boolean {
+  const applicable = scenariosInGroup.filter((s) => !p.scenarioNotApplicableIds.has(s.id));
+  if (applicable.length === 0) return false;
+  return applicable.every((s) => scenarioCatalogScoresVisibleInAssessmentUi(s.id, p));
+}
+
+/**
+ * Masks scenario scores on Results cyber rows (impact kept on scenarios) and clears parent cyber-risk
+ * chips when any applicable scenario is still hidden, then recomputes parents when all are visible.
+ */
+export function applyNewCraCatalogScoreMaskingToCyberResultsRows(
+  rows: AssessmentCyberResultsRow[],
+  risksById: ReadonlyMap<string, MockCyberRisk>,
+  scenariosByRiskId: ReadonlyMap<string, readonly MockScenario[]>,
+  p: AssessmentResultsCatalogMaskParams,
+): AssessmentCyberResultsRow[] {
+  if (p.assessmentPhase === "assessmentApproved") {
+    return rows;
+  }
+  const out = rows.map((row) => ({ ...row }));
+  for (const row of out) {
+    if (row.kind !== "scenario") continue;
+    if (scenarioCatalogScoresVisibleInAssessmentUi(row.id, p)) continue;
+    row.threat = null;
+    row.vulnerability = null;
+    row.likelihood = null;
+    row.cyberRiskScore = null;
+  }
+  for (const row of out) {
+    if (row.kind !== "cyberRisk") continue;
+    const cr = risksById.get(row.id);
+    const scens = scenariosByRiskId.get(row.id) ?? [];
+    if (!cr) continue;
+    if (!everyApplicableScenarioCatalogVisibleForResults(scens, p)) {
+      row.impact = null;
+      row.threat = null;
+      row.vulnerability = null;
+      row.likelihood = null;
+      row.cyberRiskScore = null;
+    } else {
+      const rc = riskRowChips(cr, [...scens]);
+      row.impact = rc.impact;
+      row.threat = rc.threat;
+      row.vulnerability = rc.vulnerability;
+      row.likelihood = rc.likelihood;
+      row.cyberRiskScore = rc.cyberRiskScore;
+    }
+  }
+  return out;
+}
+
+/** Masks asset cyber risk score when any applicable scenario on that asset is still catalog-hidden. */
+export function applyNewCraCatalogScoreMaskingToAssetResultsRows(
+  rows: AssessmentAssetResultRow[],
+  scenariosByAssetId: ReadonlyMap<string, readonly MockScenario[]>,
+  p: AssessmentResultsCatalogMaskParams,
+): AssessmentAssetResultRow[] {
+  if (p.assessmentPhase === "assessmentApproved") {
+    return rows;
+  }
+  return rows.map((row) => {
+    const scens = scenariosByAssetId.get(row.assetId) ?? [];
+    const hasHiddenApplicable = scens.some(
+      (s) =>
+        !p.scenarioNotApplicableIds.has(s.id) && !scenarioCatalogScoresVisibleInAssessmentUi(s.id, p),
+    );
+    if (!hasHiddenApplicable) return row;
+    return { ...row, cyberRiskScore: null };
+  });
+}
+
+/** True when some in-scope scenario still has catalog scores hidden on Results / hero. */
+export function assessmentResultsHasHiddenScenarioScores(
+  scenariosInScope: readonly MockScenario[],
+  p: AssessmentResultsCatalogMaskParams,
+): boolean {
+  return assessmentUiHasHiddenScenarioCatalogScores(scenariosInScope, p);
+}
+
 export type AssessmentAssetResultRow = {
   id: string;
   name: string;
   assetId: string;
-  cyberRiskScore: Chip;
+  cyberRiskScore: Chip | null;
   criticality: Chip;
   confidentiality: Chip;
   integrity: Chip;

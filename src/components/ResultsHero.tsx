@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Card, CardContent, Stack } from "@mui/material";
+import { Card, CardContent, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
 import { useCyberRiskScoringConfig } from "../context/CyberRiskScoringConfigContext.js";
@@ -25,6 +25,11 @@ export type ResultsHeroProps = {
    * to the global cyber risks route.
    */
   onMatrixSelection?: (payload: MatrixSelectionPayload) => void;
+  /**
+   * When true, hides the matrix and donut so overview visuals do not contradict masked scenario scores
+   * on the Results table (new CRA draft before catalog release / full reveal).
+   */
+  suppressScenarioDerivedOverview?: boolean;
 };
 
 /** Assessment results overview: scoped likelihood/impact matrix and assets-by-score donut (aligned with Assets grid). */
@@ -33,6 +38,7 @@ export default function ResultsHero({
   assetResultRows,
   scoringType,
   onMatrixSelection,
+  suppressScenarioDerivedOverview = false,
 }: ResultsHeroProps) {
   const { tokens: themeTokens } = useTheme();
   const { cyberScoreBands, likelihoodBands } = useCyberRiskScoringConfig();
@@ -49,6 +55,18 @@ export default function ResultsHero({
       })}
     >
       <CardContent>
+        {suppressScenarioDerivedOverview ? (
+          <Typography
+            variant="body1"
+            sx={({ tokens: t }) => ({
+              color: t.semantic.color.type.muted.value,
+              maxWidth: 720,
+            })}
+          >
+            Overview charts stay hidden until AI scoring finishes or every in-scope scenario score is
+            revealed, so they match the scores in the tables below.
+          </Typography>
+        ) : (
         <Stack
           direction={{ xs: "column", lg: "row" }}
           gap={3}
@@ -83,6 +101,7 @@ export default function ResultsHero({
             }}
           />
         </Stack>
+        )}
       </CardContent>
     </Card>
   );

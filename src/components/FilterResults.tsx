@@ -77,15 +77,15 @@ export function filterAssessmentCyberResultsRows(
   rows: AssessmentCyberResultsRow[],
   f: FilterResultsValue,
 ): AssessmentCyberResultsRow[] {
-  const chipMatches = (selected: FivePointScaleLabel[], label: string): boolean =>
-    selected.length === 0 || selected.includes(label as FivePointScaleLabel);
+  const chipMatches = (selected: FivePointScaleLabel[], label: string | undefined): boolean =>
+    selected.length === 0 || (label != null && label !== "" && selected.includes(label as FivePointScaleLabel));
 
   const rowMatches = (r: AssessmentCyberResultsRow) =>
-    chipMatches(f.impactLabels, r.impact.label) &&
-    chipMatches(f.threatSeverityLabels, r.threat.label) &&
-    chipMatches(f.vulnerabilitySeverityLabels, r.vulnerability.label) &&
-    chipMatches(f.likelihoodLabels, r.likelihood.label) &&
-    chipMatches(f.cyberRiskScoreLabels, r.cyberRiskScore.label);
+    chipMatches(f.impactLabels, r.impact?.label) &&
+    chipMatches(f.threatSeverityLabels, r.threat?.label) &&
+    chipMatches(f.vulnerabilitySeverityLabels, r.vulnerability?.label) &&
+    chipMatches(f.likelihoodLabels, r.likelihood?.label) &&
+    chipMatches(f.cyberRiskScoreLabels, r.cyberRiskScore?.label);
 
   const visible = new Set<string>();
   for (const r of rows) {
@@ -106,7 +106,10 @@ function boundedFivePointOptions(
     return CYBER_RISK_SCORE_FILTER_OPTIONS.map((l) => ({ value: l, label: l }));
   }
   const seen = new Set<string>();
-  for (const r of rows) seen.add(pick(r));
+  for (const r of rows) {
+    const v = pick(r);
+    if (v) seen.add(v);
+  }
   const fromRows = CYBER_RISK_SCORE_FILTER_OPTIONS.filter((l) => seen.has(l));
   const extras = selected.filter((l) => !fromRows.includes(l));
   return [...fromRows, ...extras].map((l) => ({ value: l, label: l }));
@@ -192,24 +195,29 @@ export type FilterResultsProps = {
 
 export default function FilterResults({ value, onChange, boundedRows }: FilterResultsProps) {
   const impactOptions = useMemo(
-    () => boundedFivePointOptions(boundedRows, (r) => r.impact.label, value.impactLabels),
+    () => boundedFivePointOptions(boundedRows, (r) => r.impact?.label ?? "", value.impactLabels),
     [boundedRows, value.impactLabels],
   );
   const threatOptions = useMemo(
-    () => boundedFivePointOptions(boundedRows, (r) => r.threat.label, value.threatSeverityLabels),
+    () => boundedFivePointOptions(boundedRows, (r) => r.threat?.label ?? "", value.threatSeverityLabels),
     [boundedRows, value.threatSeverityLabels],
   );
   const vulnerabilityOptions = useMemo(
     () =>
-      boundedFivePointOptions(boundedRows, (r) => r.vulnerability.label, value.vulnerabilitySeverityLabels),
+      boundedFivePointOptions(
+        boundedRows,
+        (r) => r.vulnerability?.label ?? "",
+        value.vulnerabilitySeverityLabels,
+      ),
     [boundedRows, value.vulnerabilitySeverityLabels],
   );
   const likelihoodOptions = useMemo(
-    () => boundedFivePointOptions(boundedRows, (r) => r.likelihood.label, value.likelihoodLabels),
+    () => boundedFivePointOptions(boundedRows, (r) => r.likelihood?.label ?? "", value.likelihoodLabels),
     [boundedRows, value.likelihoodLabels],
   );
   const scoreOptions = useMemo(
-    () => boundedFivePointOptions(boundedRows, (r) => r.cyberRiskScore.label, value.cyberRiskScoreLabels),
+    () =>
+      boundedFivePointOptions(boundedRows, (r) => r.cyberRiskScore?.label ?? "", value.cyberRiskScoreLabels),
     [boundedRows, value.cyberRiskScoreLabels],
   );
 

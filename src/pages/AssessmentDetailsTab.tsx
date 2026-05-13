@@ -1243,6 +1243,10 @@ export default function AssessmentDetailsTab() {
             scoringType={scoringType}
             aiScoringPhase={aiScoringPhase}
             aggregationMethod={scenarioScoreAggregationMethod}
+            isNewCraDraftFlow={isNewCraDraftFlow}
+            scenarioCatalogScoresReleased={scenarioCatalogScoresReleased}
+            scenarioManuallyRevealedScoreIds={scenarioManuallyRevealedScoreIds}
+            scenarioNotApplicableIds={scenarioNotApplicableIds}
           />
         </TabPanel>
       </Stack>

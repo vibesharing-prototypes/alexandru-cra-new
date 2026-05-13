@@ -36,6 +36,10 @@ import type { FivePointScaleLabel, FivePointScaleValue } from "../data/types.js"
 import { getCatalogSnapshotVersion, subscribeCatalog } from "../data/persistence/catalogStore.js";
 import { aggregateArithmeticMeanParentScores } from "../utils/craParentScoreAggregation.js";
 import {
+  scenarioCatalogScoresVisibleInAssessmentUi,
+  type ScenarioCatalogMaskContext,
+} from "../utils/scenarioCatalogScoreMask.js";
+import {
   scenarioRationaleReadOnlyPath,
   scenarioScoringRationalePath,
 } from "./craScenarioRoutes.js";
@@ -628,12 +632,32 @@ export default function AssessmentScoringTab({
     [includedAssetIds, excludedScopeCyberRiskIds, excludedScopeScenarioIds, scenarioNotApplicableIds, catalogVersion],
   );
 
+  const catalogMaskContext: ScenarioCatalogMaskContext = useMemo(
+    () => ({
+      assessmentPhase,
+      aiScoringPhase,
+      isNewCraDraftFlow: isNewCraDraftFlow ?? false,
+      scenarioCatalogScoresReleased: scenarioCatalogScoresReleased ?? true,
+      scenarioManuallyRevealedScoreIds,
+      scenarioNotApplicableIds,
+    }),
+    [
+      assessmentPhase,
+      aiScoringPhase,
+      isNewCraDraftFlow,
+      scenarioCatalogScoresReleased,
+      scenarioManuallyRevealedScoreIds,
+      scenarioNotApplicableIds,
+    ],
+  );
+
   const rowsForDisplay = useMemo(() => {
-    if (!isNewCraDraftFlow) return scoringRows;
+    if (assessmentPhase === "assessmentApproved") {
+      return scoringRows;
+    }
     return scoringRows.map((r) => {
       if (r.kind !== "scenario") return r;
-      if (scenarioNotApplicableIds.has(r.id)) return r;
-      if (scenarioCatalogScoresReleased || scenarioManuallyRevealedScoreIds.has(r.id)) return r;
+      if (scenarioCatalogScoresVisibleInAssessmentUi(r.id, catalogMaskContext)) return r;
       return {
         ...r,
         threat: null,
@@ -642,13 +666,7 @@ export default function AssessmentScoringTab({
         cyberRiskScore: null,
       };
     });
-  }, [
-    isNewCraDraftFlow,
-    scenarioCatalogScoresReleased,
-    scenarioManuallyRevealedScoreIds,
-    scoringRows,
-    scenarioNotApplicableIds,
-  ]);
+  }, [assessmentPhase, scoringRows, catalogMaskContext]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [rowActionsMenu, setRowActionsMenu] = useState<
     null | { anchor: HTMLElement; rowKind: "cyberRisk" | "scenario"; rowId: string }
