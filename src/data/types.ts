@@ -1,3 +1,4 @@
+import type { AiScoringPhase } from "./craAssessmentDraftTypes.js";
 import type { RagDataVizKey } from "./ragDataVisualization.js";
 import {
   formatBandRangeEnDash,
@@ -422,6 +423,8 @@ export interface MockCyberRiskAssessment {
   excludedScopeControlIds?: string[];
   /** Scenario library ids explicitly removed from this assessment. */
   excludedScopeScenarioIds?: string[];
+  /** Catalog-backed CRA: persisted AI scoring run state (prototype session store). */
+  aiScoringPhase?: AiScoringPhase;
 }
 
 export interface MockMitigationPlan {

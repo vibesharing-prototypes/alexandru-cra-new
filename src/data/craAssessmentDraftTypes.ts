@@ -10,6 +10,17 @@ export type AssessmentPhase =
 
 export type AiScoringPhase = "idle" | "processing" | "complete";
 
+/**
+ * Hydrate AI scoring phase from persisted JSON or catalog rows.
+ * `"processing"` becomes `"idle"` so an interrupted session does not stick in a loading state.
+ */
+export function normalizeAiScoringPhaseForHydrate(raw: unknown): AiScoringPhase {
+  if (raw === "complete" || raw === "idle" || raw === "processing") {
+    return raw === "processing" ? "idle" : raw;
+  }
+  return "idle";
+}
+
 export type CraScoringTypeChoice = "inherent" | "residual";
 
 /** How parent cyber-risk rows aggregate scenario scores in the Scoring tab. */

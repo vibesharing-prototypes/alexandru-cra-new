@@ -21,6 +21,7 @@ import AssessmentResultsTab from "./AssessmentResultsTab.js";
 import AssessmentScopeTab, {
   type ScopeSubView,
 } from "./AssessmentScopeTab.js";
+import { normalizeAiScoringPhaseForHydrate } from "../data/craAssessmentDraftTypes.js";
 import {
   assessmentPhaseToAssessmentStatus,
   assessmentStatusToPhase,
@@ -314,7 +315,7 @@ export default function AssessmentDetailsTab() {
   });
 
   const [aiScoringPhase, setAiScoringPhase] = useState<AiScoringPhase>(() => {
-    if (mockFromRoute) return "idle";
+    if (mockFromRoute) return normalizeAiScoringPhaseForHydrate(mockFromRoute.aiScoringPhase);
     if (initialDraft) return initialDraft.aiScoringPhase;
     return "idle";
   });
@@ -800,6 +801,7 @@ export default function AssessmentDetailsTab() {
           assessmentType: row.assessmentType,
           dueDate,
           startDate: row.startDate,
+          aiScoringPhase,
           ...rollup,
         });
       }

@@ -1,11 +1,12 @@
 import type { AssessmentStatus } from "../data/types.js";
-import type {
-  AiScoringPhase,
-  AssessmentPhase,
-  CraNewAssessmentPersistedDraft,
-  CraScenarioScoreAggregationMethod,
-  CraScoringTypeChoice,
-  ScopeSubView,
+import {
+  normalizeAiScoringPhaseForHydrate,
+  type AiScoringPhase,
+  type AssessmentPhase,
+  type CraNewAssessmentPersistedDraft,
+  type CraScenarioScoreAggregationMethod,
+  type CraScoringTypeChoice,
+  type ScopeSubView,
 } from "../data/craAssessmentDraftTypes.js";
 import {
   getPersistedCraDraft,
@@ -65,10 +66,6 @@ function isAssessmentPhase(v: unknown): v is AssessmentPhase {
     v === "overdue" ||
     v === "assessmentApproved"
   );
-}
-
-function isAiScoringPhase(v: unknown): v is AiScoringPhase {
-  return v === "idle" || v === "processing" || v === "complete";
 }
 
 function isCraScoringTypeChoice(v: unknown): v is CraScoringTypeChoice {
@@ -141,12 +138,7 @@ export function sanitizeCraNewAssessmentDraft(
   const excludedScopeControlIds = Array.isArray(raw.excludedScopeControlIds)
     ? (raw.excludedScopeControlIds as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
-  let aiScoringPhase: AiScoringPhase = isAiScoringPhase(raw.aiScoringPhase)
-    ? raw.aiScoringPhase
-    : "idle";
-  if (aiScoringPhase === "processing") {
-    aiScoringPhase = "idle";
-  }
+  const aiScoringPhase = normalizeAiScoringPhaseForHydrate(raw.aiScoringPhase);
   const scoringType = normalizeCraScoringTypeChoice(raw.scoringType);
   const scenarioScoreAggregationMethod = normalizeScenarioScoreAggregationMethod(
     raw.scenarioScoreAggregationMethod,

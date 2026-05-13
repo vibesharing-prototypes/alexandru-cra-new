@@ -179,6 +179,7 @@ function buildAssessmentRow(meta: Meta, index: number): MockCyberRiskAssessment 
     excludedScopeVulnerabilityIds: [],
     excludedScopeControlIds: [],
     excludedScopeScenarioIds: [],
+    aiScoringPhase: "idle",
   };
 }
 
@@ -282,6 +283,7 @@ export function addRiskAssessment(): MockCyberRiskAssessment {
     excludedScopeVulnerabilityIds: [],
     excludedScopeControlIds: [],
     excludedScopeScenarioIds: [],
+    aiScoringPhase: "idle",
   };
   riskAssessments.unshift(newRow);
   assessmentById.set(newRow.id, newRow);
