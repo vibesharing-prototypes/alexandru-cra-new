@@ -5,7 +5,7 @@ type FormulaTagVariant = "label" | "operator" | "value";
 
 /**
  * Inline pill for the CRA scoring formulas (Figma: ITRM Cyber Risk Management — Formulas block).
- * Label = left-hand metric name (white); operator = = or × (white); value = right-hand terms (#f9f9fc).
+ * Label = left-hand metric name (white); operator = × (white); value = right-hand terms (#f9f9fc).
  */
 function FormulaTag({ children, variant }: { children: ReactNode; variant: FormulaTagVariant }) {
   return (
@@ -49,9 +49,9 @@ function FormulaTag({ children, variant }: { children: ReactNode; variant: Formu
 function FormulaRow({ children }: { children: ReactNode }) {
   return (
     <Stack
-      direction="row"
-      alignItems="center"
-      flexWrap="wrap"
+      direction="column"
+      alignItems="flex-start"
+      flexWrap="nowrap"
       useFlexGap
       sx={({ tokens: t }) => ({
         gap: t.core.spacing["0_25"].value,
@@ -111,7 +111,7 @@ export default function ScoringFormulas({
         useFlexGap
         sx={({ tokens: t }) => ({
           width: shrinkToContent ? "fit-content" : "100%",
-          alignItems: "center",
+          alignItems: "flex-start",
           minHeight: 24,
           height: "fit-content",
           gap: t.core.spacing["1_5"].value,
@@ -119,24 +119,43 @@ export default function ScoringFormulas({
       >
         <FormulaRow>
           <FormulaTag variant="label">Impact</FormulaTag>
-          <FormulaTag variant="operator">=</FormulaTag>
           <FormulaTag variant="value">Asset criticality</FormulaTag>
         </FormulaRow>
 
         <FormulaRow>
           <FormulaTag variant="label">Cyber risk score</FormulaTag>
-          <FormulaTag variant="operator">=</FormulaTag>
-          <FormulaTag variant="value">Impact</FormulaTag>
-          <FormulaTag variant="operator">x</FormulaTag>
-          <FormulaTag variant="value">Likelihood</FormulaTag>
+          <Stack
+            direction="row"
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+            sx={({ tokens: t }) => ({
+              gap: t.core.spacing["0_25"].value,
+              flexShrink: 0,
+            })}
+          >
+            <FormulaTag variant="value">Impact</FormulaTag>
+            <FormulaTag variant="operator">x</FormulaTag>
+            <FormulaTag variant="value">Likelihood</FormulaTag>
+          </Stack>
         </FormulaRow>
 
         <FormulaRow>
           <FormulaTag variant="label">Likelihood</FormulaTag>
-          <FormulaTag variant="operator">=</FormulaTag>
-          <FormulaTag variant="value">Threat severity</FormulaTag>
-          <FormulaTag variant="operator">x</FormulaTag>
-          <FormulaTag variant="value">Vulnerability severity</FormulaTag>
+          <Stack
+            direction="row"
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+            sx={({ tokens: t }) => ({
+              gap: t.core.spacing["0_25"].value,
+              flexShrink: 0,
+            })}
+          >
+            <FormulaTag variant="value">Threat severity</FormulaTag>
+            <FormulaTag variant="operator">x</FormulaTag>
+            <FormulaTag variant="value">Vulnerability severity</FormulaTag>
+          </Stack>
         </FormulaRow>
       </Stack>
     </Box>

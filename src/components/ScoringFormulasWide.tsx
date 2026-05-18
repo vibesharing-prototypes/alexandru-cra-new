@@ -55,7 +55,7 @@ function FormulaRow({ children }: { children: ReactNode }) {
       useFlexGap
       sx={({ tokens: t }) => ({
         gap: t.core.spacing["0_25"].value,
-        rowGap: t.core.spacing["0_25"].value,
+        minWidth: 0,
       })}
     >
       {children}
@@ -110,7 +110,7 @@ export default function ScoringFormulasWide({
         sx={({ tokens: t }) => ({
           width: shrinkToContent ? "fit-content" : "100%",
           maxWidth: shrinkToContent ? "100%" : undefined,
-          alignItems: "center",
+          alignItems: "flex-start",
           minHeight: 24,
           height: "fit-content",
           gap: t.core.spacing["1_5"].value,
